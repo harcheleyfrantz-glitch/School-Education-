@@ -1,0 +1,698 @@
+--[[
+    DUMPSCRIPT.TXT  (v2 - hardened, GUI status, never dies silently)
+    Delta Mobile game dumper.
+    Saves to Delta workspace files:  game dump/<GameName>_<time>_<id>.txt
+    Mirrors to: /storage/emulated/0/Download/game dump/
+               /sdcard/Download/game dump/
+    If ANY section errors, the error is written into the file and the dump still saves.
+]]
+
+local ok, Players      = pcall(function() return game:GetService("Players") end)
+local ok2, HttpService = pcall(function() return game:GetService("HttpService") end)
+if not (ok and ok2) then
+    error("[delta] required services unavailable - is this running in a live client?")
+end
+local RunService        = game:GetService("RunService")
+local CollectionService = game:GetService("CollectionService")
+local Teams             = game:GetService("Teams")
+local Lighting          = game:GetService("Lighting")
+
+local LocalPlayer = Players.LocalPlayer
+
+-- CONFIG -----------------------------------------------------------------
+local FOLDER_NAME          = "game dump"
+local ALSO_COPY_DOWNLOAD   = true
+local MAX_DEPTH            = 16
+local MAX_CHILDREN         = 800
+local LOG_REMOTES          = true
+local MAX_ARG_LEN          = 220
+local TRY_READ_SOURCE      = true
+local SHOW_GUI             = true
+-- -------------------------------------------------------------------------
+
+local stamp    = (os.date and os.date("%H%M%S") or "000000")
+local guid     = HttpService:generateGUID(false):sub(1, 6)
+local gameName = tostring(game.Name or "Game"):gsub("[^%w%-%_ ]", "_")
+local OUT_NAME = gameName .. "_" .. stamp .. "_" .. guid .. ".txt"
+local LOG_NAME = gameName .. "_remotes.txt"
+
+local buf, n = {}, 0
+local function w(fmt, ...)
+    n += 1
+    if select("#", ...) > 0 then
+        local okf, s = pcall(string.format, fmt, ...)
+        buf[n] = okf and s or (tostring(fmt) .. "  <<fmt failed>>")
+    else
+        buf[n] = tostring(fmt)
+    end
+end
+
+local function safe(fn, ...)
+    local okc, res = pcall(fn, ...)
+    if okc then return res end
+    return nil
+end
+
+-- section runner: isolates failures so one bad section can't kill the dump ----
+local ERRORS = {}
+local function section(name, fn)
+    local okr, err = xpcall(fn, function(e)
+        return tostring(e) .. "\n" .. safe(function() return debug.traceback("", 2) end or ""
+    end)
+    if not okr then
+        ERRORS[#ERRORS + 1] = name .. " -> " .. tostring(err)
+        w("[[ERROR in %s]] %s", name, tostring(err))
+    end
+end
+
+local function clip(s, len)
+    len = len or MAX_ARG_LEN
+    s = tostring(s)
+    return (#s > len) and (s:sub(1, len) .. "...<cut>") or s
+end
+
+local function short(v, depth)
+    depth = depth or 0
+    if type(v) == "string" then return clip('"' .. v .. '"') end
+    if type(v) == "function" or type(v) == "thread" then return "<" .. type(v) .. ">" end
+    if type(v) == "table" then
+        if depth > 3 then return "<table>" end
+        local parts, count = {}, 0
+        for k, val in pairs(v) do
+            count += 1
+            if count > 14 then parts[#parts + 1] = "..." break end
+            parts[#parts + 1] = tostring(k) .. "=" .. short(val, depth + 1)
+        end
+        return "{ " .. table.concat(parts, ", ") .. " }"
+    end
+    return clip(v)
+end
+
+-- GUI ---------------------------------------------------------------------
+local guiRefs = {}
+local function guiSet(text, color)
+    if not SHOW_GUI then return end
+    if guiRefs.label and safe(function() return guiRefs.label.Text end) ~= nil then
+        pcall(function()
+            guiRefs.label.Text = text
+            guiRefs.title.TextColor3 = color or guiRefs.title.TextColor3
+        end)
+    end
+end
+
+local function buildGUI()
+    if not SHOW_GUI then return end
+    section("gui", function()
+        local CoreGui = game:GetService("CoreGui")
+        local g = Instance.new("ScreenGui")
+        g.Name = "DeltaDumpStatus"
+        g.DisplayOrder = 99999
+        g.ResetOnSpawn = false
+        g.IgnoreGuiInset = true
+
+        local holder = Instance.new("Frame")
+        holder.Size = UDim2.new(0, 300, 0, 96)
+        holder.Position = UDim2.new(0, 12, 0, 12)
+        holder.BackgroundColor3 = Color3.fromRGB(12, 12, 16)
+        holder.BackgroundTransparency = 0.15
+        holder.BorderSizePixel = 0
+        holder.Parent = g
+
+        local corner = Instance.new("UICorner")
+        corner.CornerRadius = UDim.new(0, 8)
+        corner.Parent = holder
+
+        local title = Instance.new("TextLabel")
+        title.Size = UDim2.new(1, -16, 0, 32)
+        title.Position = UDim2.new(0, 8, 0, 6)
+        title.BackgroundTransparency = 1
+        title.Font = Enum.Font.GothamBold
+        title.TextSize = 18
+        title.TextColor3 = Color3.fromRGB(90, 255, 160)
+        title.TextXAlignment = Enum.TextXAlignment.Left
+        title.Text = "ACTIVE DUMP"
+        title.Parent = holder
+
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.new(1, -16, 0, 56)
+        label.Position = UDim2.new(0, 8, 0, 34)
+        label.BackgroundTransparency = 1
+        label.Font = Enum.Font.Gotham
+        label.TextSize = 12
+        label.TextColor3 = Color3.fromRGB(225, 225, 235)
+        label.TextXAlignment = Enum.TextXAlignment.Left
+        label.TextYAlignment = Enum.TextYAlignment.Top
+        label.TextWrapped = true
+        label.Text = "initializing..."
+        label.Parent = holder
+
+        guiRefs.gui, guiRefs.holder, guiRefs.title, guiRefs.label = g, holder, title, label
+
+        local okp = pcall(function() g.Parent = CoreGui end)
+        if not okp then
+            g.Parent = LocalPlayer and LocalPlayer:WaitForChild("PlayerGui") or game:GetService("ReplicatedStorage")
+        end
+    end)
+end
+
+-- props -------------------------------------------------------------------
+local CLASS_PROPS = {
+    BasePart        = { "Anchored","CanCollide","CanTouch","CanQuery","Material","Transparency","Locked","Massless","CollisionGroup","CastShadow","Size","Position" },
+    MeshPart        = { "MeshId","TextureID","ScaleType","RenderFidelity" },
+    SpawnLocation   = { "Neutral","Enabled","Duration","AllowTeamChangeOnTouch","Size","CFrame" },
+    Sound           = { "SoundId","Volume","Pitch","Looped","Playing","RollOffMode","RollOffMinDistance","RollOffMaxDistance","PlaybackSpeed","TimeLength" },
+    ParticleEmitter = { "Rate","Lifetime","Speed","Texture","Locked","ZOffset","EmitDirection" },
+    Trail           = { "Lifetime","Texture","Transparency","Color","Width" },
+    Beam            = { "Texture","FaceCamera","LightEmission","Width0","Width1" },
+    Decal           = { "Texture","Face","Transparency","ZIndex","Brightness" },
+    Texture         = { "Texture" },
+    ImageLabel       = { "Image","ImageColor3","ImageTransparency","Text","TextColor3","Visible" },
+    ImageButton     = { "Image","AutoButtonColor","Visible" },
+    TextLabel       = { "Text","TextSize","TextColor3","Font","Visible" },
+    TextButton      = { "Text","TextSize","TextColor3","Font","AutoButtonColor" },
+    TextBox         = { "Text","PlaceholderText","TextSize","ClearTextOnFocus","MultiLine" },
+    SurfaceGui      = { "AlwaysOnTop","LightInfluence","SizingMode","ZOffset","CanvasSize" },
+    BillboardGui    = { "AlwaysOnTop","Size","StudsOffset","MaxDistance","LightInfluence" },
+    ScreenGui       = { "DisplayOrder","ResetOnSpawn","IgnoreGuiInset","ZIndexBehavior","Enabled" },
+    ProximityPrompt = { "ActionText","ObjectText","KeyboardKeyCode","HoldDuration","MaxActivationDistance","RequiresLineOfSight","ClickablePrompt" },
+    ClickDetector   = { "MaxActivationDistance" },
+    Animation       = { "AnimationId","Priority","Loop","Speed" },
+    Tool            = { "ToolTip","RequiresHandle","Enabled","CanBeDropped","ManualActivationOnly" },
+    Humanoid        = { "Health","MaxHealth","WalkSpeed","JumpPower","JumpHeight","HipHeight","DisplayName","Sit","BreakJointsOnDeath","AutoRotate" },
+    Team            = { "TeamColor","AutoAssignable","FriendlyFire","AllowTeamChangeOnTouch" },
+}
+
+local GENERIC_PROPS = { "Value","Enabled","Locked","Visible","Transparency","Title","Priority" }
+
+local function propBlock(inst)
+    local out = {}
+    local list = CLASS_PROPS[inst.ClassName] or GENERIC_PROPS
+    for _, p in ipairs(list) do
+        local v = safe(function() return inst[p] end)
+        if v ~= nil and type(v) ~= "function" and type(v) ~= "thread" then
+            if type(v) == "number" then v = string.format("%.3f", v) end
+            out[#out + 1] = p .. "=" .. clip(tostring(v), 120)
+        end
+    end
+    local at = safe(function() return inst:GetAttributes() end)
+    if type(at) == "table" then
+        local keys = {}
+        for k in pairs(at) do keys[#keys + 1] = k end
+        table.sort(keys)
+        for _, k in ipairs(keys) do out[#out + 1] = "attr." .. clip(tostring(k), 40) .. "=" .. short(at[k]) end
+    end
+    local tags = safe(function() return CollectionService:GetTags(inst) end)
+    if type(tags) == "table" and #tags > 0 then
+        out[#out + 1] = "tags=[" .. table.concat(tags, ",") .. "]"
+    end
+    return #out > 0 and ("  {" .. table.concat(out, ", ") .. "}") or ""
+end
+
+-- assets ------------------------------------------------------------------
+local assets, assetSeen = {}, {}
+local function noteAsset(id, owner, kind)
+    if type(id) ~= "string" or id == "" or id == "rbxassetid://" then return end
+    local bare = id:gsub("^rbxassetid://", "")
+    if not bare:match("^%-?%d+$") then return end
+    if assetSeen[bare] then return end
+    assetSeen[bare] = true
+    assets[#assets + 1] = { id = "rbxassetid://" .. bare, owner = owner, kind = kind, num = bare }
+end
+
+local function collectAssets(root)
+    for _, inst in ipairs(root:GetDescendants()) do
+        local cn = inst.ClassName
+        if cn == "Sound" then
+            noteAsset(safe(function() return inst.SoundId end), inst:GetFullName(), "Sound")
+        elseif cn == "Texture" or cn == "Decal" or cn == "Trail" or cn == "Beam" or cn == "ParticleEmitter" then
+            noteAsset(safe(function() return inst.Texture end), inst:GetFullName(), cn)
+        elseif cn == "MeshPart" then
+            noteAsset(safe(function() return inst.MeshId end), inst:GetFullName(), "MeshId")
+            noteAsset(safe(function() return inst.TextureID end), inst:GetFullName(), "MeshTexture")
+        elseif cn == "SpecialMesh" then
+            noteAsset(safe(function() return inst.TextureId end), inst:GetFullName(), "SpecialMesh")
+        elseif cn == "Animation" then
+            noteAsset(safe(function() return inst.AnimationId end), inst:GetFullName(), "AnimationId")
+        elseif cn == "ImageLabel" or cn == "ImageButton" then
+            noteAsset(safe(function() return inst.Image end), inst:GetFullName(), "Image")
+        end
+    end
+end
+
+-- tree --------------------------------------------------------------------
+local function dumpTree(root, label)
+    w("=== %s ===", label)
+    local function walk(inst, depth)
+        if depth > MAX_DEPTH then return end
+        local pad = string.rep("  ", depth)
+        w("%s[%s] %s%s", pad, inst.ClassName, inst.Name, propBlock(inst))
+        local kids = safe(function() return inst:GetChildren() end) or {}
+        if #kids > MAX_CHILDREN then
+            w("%s  ...%d more children (truncated)", pad, #kids - MAX_CHILDREN)
+            for i = 1, MAX_CHILDREN do walk(kids[i], depth + 1) end
+        else
+            for _, c in ipairs(kids) do walk(c, depth + 1) end
+        end
+    end
+    walk(root, 0)
+    w("")
+end
+
+-- remote logger ------------------------------------------------------------
+local logLines, logN = {}, 0
+local flushRemoteLog = function() end
+
+local function log(fmt, ...)
+    logN += 1
+    if select("#", ...) > 0 then
+        local okf, s = pcall(string.format, fmt, ...)
+        logLines[logN] = okf and s or tostring(fmt)
+    else
+        logLines[logN] = tostring(fmt)
+    end
+    if logN % 250 == 0 then flushRemoteLog() end
+end
+
+local REMOTE_METHODS = { "FireServer", "FireClient", "FireAllClients", "InvokeServer", "InvokeClient" }
+
+-- SAVE --------------------------------------------------------------------
+local savedPaths = {}
+
+local function tryWrite(path, data)
+    if type(writefile) ~= "function" then return false, "no writefile" end
+    if safe(function() return exists and exists(path) end) then return true, "exists" end
+    pcall(function() writefile(path, data) end)
+    local back = safe(function() return readfile(path) end)
+    if type(back) == "string" and #back > 0 then return true, "wrote " .. #back .. "b" end
+    return false, "write returned nothing"
+end
+
+local function saveAll(body)
+    local remoteBody = table.concat(logLines, "\n")
+
+    local function attempt(path, data)
+        local good, why = tryWrite(path, data)
+        if good then savedPaths[#savedPaths + 1] = path end
+        return good, why, path
+    end
+
+    -- 1. Delta workspace files (relative path, next to the script)
+    safe(function() return makefolder and makefolder(FOLDER_NAME) end)
+    attempt(FOLDER_NAME .. "/" .. OUT_NAME, body)
+    if logN > 0 then attempt(FOLDER_NAME .. "/" .. LOG_NAME, remoteBody) end
+
+    -- 2. shared storage mirrors
+    if ALSO_COPY_DOWNLOAD then
+        for _, base in ipairs({
+            "/storage/emulated/0/Download/",
+            "/sdcard/Download/",
+            "/storage/emulated/0/",
+        }) do
+            safe(function() return makefolder and makefolder(base .. FOLDER_NAME) end)
+            attempt(base .. FOLDER_NAME .. "/" .. OUT_NAME, body)
+            if logN > 0 then attempt(base .. FOLDER_NAME .. "/" .. LOG_NAME, remoteBody) end
+        end
+    end
+
+    -- 3. executor fallbacks
+    if #savedPaths == 0 and type(savefile) == "function" then
+        safe(function() savefile(OUT_NAME, body) end)
+        safe(function() savefile(FOLDER_NAME .. "/" .. OUT_NAME, body) end)
+        savedPaths[#savedPaths + 1] = "savefile -> " .. OUT_NAME
+    end
+    if #savedPaths == 0 and type(setclipboard) == "function" then
+        safe(function() setclipboard(body) end)
+        savedPaths[#savedPaths + 1] = "clipboard (writes blocked)"
+    end
+end
+
+flushRemoteLog = function()
+    if logN == 0 or type(writefile) ~= "function" then return end
+    local body = table.concat(logLines, "\n")
+    for _, p in ipairs({
+        FOLDER_NAME .. "/" .. LOG_NAME,
+        "/storage/emulated/0/Download/" .. FOLDER_NAME .. "/" .. LOG_NAME,
+    }) do
+        safe(function() return makefolder and makefolder(FOLDER_NAME) end)
+        safe(function() writefile(p, body) end)
+    end
+    print("[delta] remote log flushed (" .. logN .. " entries)")
+end
+
+-- MAIN DUMP ---------------------------------------------------------------
+local function dumpNow()
+    local desc = game:GetDescendants()
+
+    section("header", function()
+        w("========================================================")
+        w(" DELTA MOBILE GAME DUMP")
+        w("========================================================")
+        w("gameName   : %s", tostring(game.Name))
+        w("placeId    : %s", tostring(game.PlaceId))
+        w("gameId     : %s", tostring(game.GameId))
+        w("jobId      : %s", tostring(game.JobId))
+        w("player     : %s (userId %s)",
+            LocalPlayer and LocalPlayer.Name or "nil",
+            LocalPlayer and tostring(LocalPlayer.UserId) or "0")
+        w("time       : %s", tostring(os.date and os.date("%Y-%m-%d %H:%M:%S") or "?"))
+        local rsl = RunService:GetRenderStepTime()
+        w("fps        : ~%d", math.floor(rsl > 0 and 1 / rsl or 0))
+        w("descendants: %d", #desc)
+        w("")
+    end)
+
+    section("services", function()
+        w("=== SERVICES ===")
+        local services = {}
+        for _, s in ipairs(game:GetChildren()) do
+            if s:IsA("Service") then services[#services + 1] = s end
+        end
+        table.sort(services, function(a, b) return a.Name < b.Name end)
+        for _, s in ipairs(services) do
+            w("%-30s children=%d", s.Name, #s:GetChildren())
+        end
+        w("")
+    end)
+
+    section("histogram", function()
+        w("=== CLASS HISTOGRAM ===")
+        local hist = {}
+        for _, inst in ipairs(desc) do
+            local c = inst.ClassName
+            hist[c] = (hist[c] or 0) + 1
+        end
+        local classes = {}
+        for c in pairs(hist) do classes[#classes + 1] = c end
+        table.sort(classes, function(a, b) return hist[a] > hist[b] end)
+        for _, c in ipairs(classes) do w("%-36s %d", c, hist[c]) end
+        w("total: %d", #desc)
+        w("")
+    end)
+
+    section("remotes", function()
+        w("=== REMOTES (client<->server) ===")
+        local remotes = {}
+        for _, inst in ipairs(desc) do
+            if inst.ClassName:find("Remote") and inst.ClassName ~= "RemoteConnection" then
+                remotes[#remotes + 1] = inst
+            end
+        end
+        table.sort(remotes, function(a, b) return a:GetFullName() < b:GetFullName() end)
+        for _, r in ipairs(remotes) do
+            w("%-26s %s", r.ClassName, r:GetFullName())
+        end
+        w("total remotes: %d", #remotes)
+        w("")
+    end)
+
+    section("tags", function()
+        w("=== COLLECTION TAGS ===")
+        local all = safe(function() return CollectionService:GetTags() end) or {}
+        for _, tag in ipairs(all) do
+            local tagged = safe(function() return CollectionService:GetTagged(tag) end) or {}
+            w("tag '%s' -> %d instances", tag, #tagged)
+            for i = 1, math.min(#tagged, 25) do
+                w("    %s", tagged[i]:GetFullName())
+            end
+        end
+        w("")
+    end)
+
+    section("values", function()
+        w("=== VALUE OBJECTS ===")
+        for _, inst in ipairs(desc) do
+            local cn = inst.ClassName
+            if cn:match("Value$") or cn == "ObjectValue" or cn == "Texture" then
+                local v = safe(function() return inst.Value end)
+                local extra = ""
+                if inst:IsA("ObjectValue") then
+                    extra = type(v) == "Instance" and (" -> " .. v:GetFullName()) or " -> nil"
+                end
+                w("%-20s %-44s = %s%s", cn, inst:GetFullName(),
+                    v ~= nil and short(v) or "<unreadable>", extra)
+            end
+        end
+        w("")
+    end)
+
+    section("models", function()
+        w("=== MODELS ===")
+        local models = {}
+        for _, inst in ipairs(desc) do
+            if inst:IsA("Model") then models[#models + 1] = inst end
+        end
+        table.sort(models, function(a, b) return a:GetFullName() < b:GetFullName() end)
+        for _, m in ipairs(models) do
+            w("%-32s children=%-6d parts=%-6d  %s",
+                m.Name, #m:GetChildren(), #m:GetDescendants(), m:GetFullName())
+        end
+        w("total models: %d", #models)
+        w("")
+    end)
+
+    section("sounds", function()
+        w("=== SOUNDS ===")
+        local cnt = 0
+        for _, inst in ipairs(desc) do
+            if inst:IsA("Sound") then
+                cnt += 1
+                w("%-34s id=%-24s vol=%-6s pitch=%-6s loop=%-5s playing=%-5s",
+                    inst:GetFullName(),
+                    tostring(safe(function() return inst.SoundId end)),
+                    tostring(safe(function() return inst.Volume end)),
+                    tostring(safe(function() return inst.Pitch end)),
+                    tostring(safe(function() return inst.Looped end)),
+                    tostring(safe(function() return inst.Playing end)))
+            end
+        end
+        w("total sounds: %d", cnt)
+        w("")
+    end)
+
+    section("animations", function()
+        w("=== ANIMATIONS / TRACKS ===")
+        for _, inst in ipairs(desc) do
+            if inst:IsA("Animation") or inst:IsA("AnimationTrack") then
+                w("%-22s %-46s%s", inst.ClassName, inst:GetFullName(), propBlock(inst))
+            end
+        end
+        w("")
+    end)
+
+    section("ui", function()
+        w("=== UI: PROMPTS / CLICKS / GUIS ===")
+        for _, inst in ipairs(desc) do
+            local cn = inst.ClassName
+            if cn == "ProximityPrompt" or cn == "ClickDetector"
+                or cn == "ScreenGui" or cn == "BillboardGui" then
+                w("%-18s %-46s%s", cn, inst:GetFullName(), propBlock(inst))
+            end
+        end
+        w("")
+    end)
+
+    section("tools", function()
+        w("=== TOOLS ===")
+        for _, inst in ipairs(desc) do
+            if inst:IsA("Tool") or inst:IsA("HopperBin") or inst:IsA("Backpack") then
+                w("%-14s %-46s%s", inst.ClassName, inst:GetFullName(), propBlock(inst))
+            end
+        end
+        w("")
+    end)
+
+    section("teams", function()
+        w("=== TEAMS ===")
+        for _, t in ipairs(Teams:GetChildren()) do
+            if t:IsA("Team") then
+                w("%-20s members=%-3d autoAssign=%-5s friendlyFire=%s",
+                    t.Name, #t:GetPlayers(), tostring(t.AutoAssignable), tostring(t.FriendlyFire))
+            end
+        end
+        w("")
+    end)
+
+    section("players", function()
+        w("=== PLAYERS ===")
+        for _, p in ipairs(Players:GetPlayers()) do
+            w("name=%s display=%s userId=%s team=%s char=%s",
+                p.Name, p.DisplayName, tostring(p.UserId),
+                safe(function() return p.Team and p.Team.Name end) or "-",
+                p.Character and p.Character.Name or "-")
+            local hum = p.Character and safe(function() return p.Character:FindFirstChildOfClass("Humanoid") end)
+            if hum then
+                w("    humanoid hp=%s/%s walkSpeed=%s jump=%s",
+                    tostring(safe(function() return hum.Health end)),
+                    tostring(safe(function() return hum.MaxHealth end)),
+                    tostring(safe(function() return hum.WalkSpeed end)),
+                    tostring(safe(function() return hum.JumpPower end)))
+            end
+            local ls = safe(function() return p:FindFirstChild("leaderstats") end)
+            if ls then
+                for _, v in ipairs(safe(function() return ls:GetChildren() end) or {}) do
+                    w("    stat %-20s = %s", v.Name, short(safe(function() return v.Value end)))
+                end
+            end
+        end
+        w("")
+    end)
+
+    section("tree:workspace",   function() dumpTree(workspace, "WORKSPACE (full)") end)
+    section("tree:repstorage",  function() dumpTree(game:GetService("ReplicatedStorage"), "REPLICATEDSTORAGE") end)
+    section("tree:startergui",  function() dumpTree(game:GetService("StarterGui"), "STARTERGUI") end)
+    section("tree:starterpack", function() dumpTree(game:GetService("StarterPack"), "STARTERPACK") end)
+    section("tree:starterplayer", function() dumpTree(game:GetService("StarterPlayer"), "STARTERPLAYER") end)
+
+    section("inventory", function()
+        w("=== LOCAL CHARACTER + BACKPACK ===")
+        if LocalPlayer and LocalPlayer.Character then dumpTree(LocalPlayer.Character, "LOCAL CHARACTER") end
+        local bk = safe(function() return LocalPlayer and LocalPlayer.Backpack end)
+        if bk then dumpTree(bk, "LOCAL BACKPACK") end
+        w("")
+    end)
+
+    section("modules", function()
+        w("=== MODULESCRIPT SOURCE ===")
+        if not TRY_READ_SOURCE then
+            w("(skipped: TRY_READ_SOURCE = false)")
+            w("")
+            return
+        end
+        local found = 0
+        for _, inst in ipairs(desc) do
+            if inst:IsA("ModuleScript") then
+                found += 1
+                local src = safe(function() return inst.Source end)
+                if type(src) ~= "string" or #src == 0 then
+                    src = safe(function() return getscript and getscript(inst) end)
+                end
+                w("--- %s ---", inst:GetFullName())
+                if type(src) == "string" and #src > 0 then w(src) else w("<source unavailable>") end
+                w("")
+            end
+        end
+        w("modules found: %d", found)
+        w("")
+    end)
+
+    section("assets", function()
+        w("=== ASSET IDS ===")
+        collectAssets(game)
+        table.sort(assets, function(a, b) return a.num < b.num })
+        for _, a in ipairs(assets) do
+            w("%-40s %-18s owner=%s", a.id, a.kind, tostring(a.owner))
+        end
+        w("total unique asset ids: %d", #assets)
+        w("")
+    end)
+
+    section("environment", function()
+        w("=== ENVIRONMENT ===")
+        w("gravity          : %s", tostring(workspace.Gravity))
+        w("fallenPartsHeight: %s", tostring(safe(function() return workspace.FallenPartsDestroyHeight end)))
+        w("streamingEnabled : %s", tostring(safe(function() return workspace.StreamingEnabled end)))
+        w("camera           : %s", tostring(safe(function()
+            local cam = workspace.CurrentCamera
+            return cam and cam:GetFullName() or "nil"
+        end)))
+        w("lighting tech    : %s", tostring(safe(function() return Lighting.Technology end)))
+        w("clockTime        : %s", tostring(safe(function() return Lighting.ClockTime end)))
+        w("ambient          : %s", tostring(safe(function() return Lighting.Ambient end)))
+        w("brightness       : %s", tostring(safe(function() return Lighting.Brightness end)))
+        w("globalShadows    : %s", tostring(safe(function() return Lighting.GlobalShadows end)))
+        w("waterColor       : %s", tostring(safe(function() return workspace.Terrain.WaterColor end)))
+        w("")
+    end)
+
+    if #ERRORS > 0 then
+        w("=== SECTION ERRORS ===")
+        for _, e in ipairs(ERRORS) do w("%s", e) end
+        w("")
+    end
+
+    guiSet("building file...", Color3.fromRGB(255, 220, 120))
+
+    local body = table.concat(buf, "\n")
+    body = body .. "\n\n=== REMOTE LOG (live FireServer / InvokeServer / InvokeClient) ===\n"
+    body = body .. (logN > 0 and table.concat(logLines, "\n")
+        or "(nothing fired yet - play the game, then rerun this script for a fresh dump)")
+    body = body .. "\n\n[END] lines=" .. n .. " remoteCalls=" .. logN .. " bytes=" .. #body .. "\n"
+
+    guiSet("saving...", Color3.fromRGB(255, 220,120))
+    saveAll(body)
+
+    if #savedPaths > 0 then
+        print("[delta] OK - " .. #body .. " bytes, " .. n .. " lines, " .. logN .. " remote calls")
+        for _, s in ipairs(savedPaths) do print("[delta] saved: " .. s) end
+        guiSet("DUMP SAVED\n" .. #body .. " bytes\n" .. logN .. " remote calls\n\nDelta files: game dump/\n\n" .. OUT_NAME,
+               Color3.fromRGB(90, 255, 160))
+    else
+        warn("[delta] NO WRITE FUNCTION AVAILABLE - nothing written")
+        guiSet("WRITE BLOCKED\nno writefile/savefile\ncheck executor permissions",
+               Color3.fromRGB(255, 90, 90))
+    end
+    return savedPaths
+end
+
+-- REMOTE HOOKER ------------------------------------------------------------
+if LOG_REMOTES then
+    task.spawn(function()
+        local hooked = {}
+        local function hookRemote(remote)
+            if hooked[remote] then return end
+            hooked[remote] = true
+            for _, meth in ipairs(REMOTE_METHODS) do
+                if safe(function() return type(remote[meth]) == "function" end) then
+                    local got = safe(function()
+                        local orig = remote[meth]
+                        remote[meth] = function(...)
+                            local args = {}
+                            for i = 1, select("#", ...) do args[i] = short((select(i, ...))) end
+                            log("[%s] %s :%s(%s)",
+                                os.date and os.date("%H:%M:%S") or "?",
+                                remote:GetFullName(), meth, table.concat(args, ", "))
+                            return orig(...)
+                        end
+                        return true
+                    end)
+                    if got == false then print("[delta] could not hook " .. remote:GetFullName()) end
+                end
+            end
+        end
+
+        local function sweep()
+            for _, inst in ipairs(game:GetDescendants()) do
+                if inst.ClassName:find("Remote") then hookRemote(inst) end
+            end
+        end
+
+        pcall(sweep)
+        while true do
+            task.wait(3)
+            pcall(sweep)
+            if logN > 0 then flushRemoteLog() end
+        end
+    end)
+end
+
+-- ENTRY -------------------------------------------------------------------
+buildGUI()
+guiSet("ACTIVE DUMP\nscanning game...", Color3.fromRGB(90, 255, 160))
+
+task.spawn(function()
+    task.wait(1)
+    local okr, err = xpcall(dumpNow, function(e)
+        return tostring(e) .. "\n" .. safe(function() return debug.traceback("", 2) end or "")
+    end)
+    if not okr then
+        warn("[delta] fatal: " .. tostring(err))
+        guiSet("FATAL ERROR\n" .. clip(tostring(err), 300), Color3.fromRGB(255, 90, 90))
+        -- emergency save of whatever we got
+        local partial = table.concat(buf, "\n") .. "\n\n[FATAL] " .. tostring(err)
+        saveAll(partial)
+        print("[delta] emergency save attempted")
+    end
+    if LOG_REMOTES then
+        warn("[delta] remote logger still live. play, then rerun this script for a fuller dump.")
+    end
+end)
