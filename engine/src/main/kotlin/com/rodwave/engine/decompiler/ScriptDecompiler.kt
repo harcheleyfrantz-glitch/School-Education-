@@ -61,6 +61,8 @@ data class DecompileResult(
     /** First differing offset when [roundTrip] is [RoundTripStatus.DIFFERENT]. */
     val firstDifference: Int? = null,
     val totalBytes: Int,
+    /** Opcodes met on reachable paths that the opcode database does not define. */
+    val unknownOpcodes: Set<Int> = emptySet(),
 ) {
     val codeBytes: Int get() = instructions.sumOf { it.length }
     val coverage: Double get() = if (totalBytes == 0) 1.0 else codeBytes.toDouble() / totalBytes
@@ -144,6 +146,7 @@ class ScriptDecompiler(
             roundTrip = status,
             firstDifference = firstDiff,
             totalBytes = bytes.size,
+            unknownOpcodes = analysis.unknownOpcodes,
         )
     }
 
@@ -187,6 +190,7 @@ class ScriptDecompiler(
         val operandTargets: Map<Pair<Int, Int>, Int>,
         val decodeErrors: Map<Int, String>,
         val mode: LabelMode,
+        val unknownOpcodes: Set<Int>,
     )
 
     private fun targetOf(value: Int, mode: LabelMode, base: Int): Int? = when (mode) {
@@ -202,6 +206,7 @@ class ScriptDecompiler(
         val codeTargets = HashSet<Int>()
         val operandTargets = HashMap<Pair<Int, Int>, Int>()
         val errors = HashMap<Int, String>()
+        val unknown = HashSet<Int>()
         val work = ArrayDeque(entryPoints)
 
         fun inside(off: Int) = off in start until end
@@ -239,6 +244,9 @@ class ScriptDecompiler(
             when (val r = decoder.decode(bytes, off, end)) {
                 is DecodeResult.Error -> {
                     errors[off] = r.message
+                    if (r.offset == off && r.opcodeWord != null && database[r.opcodeWord and 0x7FFF] == null) {
+                        unknown += r.opcodeWord and 0x7FFF
+                    }
                     sink.binaryWarning("D023", "Could not decode code at $off: ${r.message}", r.offset)
                 }
                 is DecodeResult.Ok -> {
@@ -291,7 +299,7 @@ class ScriptDecompiler(
         // Drop targets that cannot carry a label (inside an instruction or outside the region).
         val placeable = operandTargets.filterValues { it in labels }
 
-        return Analysis(start, end, code, unreachable, data.sortedBy { it.first }, labels, placeable, errors, mode)
+        return Analysis(start, end, code, unreachable, data.sortedBy { it.first }, labels, placeable, errors, mode, unknown)
     }
 
     /** Decodes [range] instruction by instruction; returns null unless it is filled exactly. */
