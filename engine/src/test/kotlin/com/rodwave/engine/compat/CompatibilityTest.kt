@@ -124,6 +124,23 @@ class CompatibilityTest {
     }
 
     @Test
+    fun nativeModsMustMatchTheRunningAbi() {
+        val dir = Files.createTempDirectory("rw-abi").toFile()
+        File(dir, "mods").mkdirs()
+        File(dir, "mods/libMod32.so").writeBytes(ElfBuilder.amlMod(abi64 = false, guid = "net.example.mod"))
+        val mod = GameDirectoryScanner(db).scan(LocalFile(dir)).nativeMods.single()
+        // The APK ships both ABIs; without knowing which one runs, a 32-bit mod is plausible...
+        val both = InstalledGame("com.rockstargames.gtasa", "2.10", 210, setOf(Abi.ARMEABI_V7A, Abi.ARM64_V8A), emptyList(), apkReadable = true)
+        assertTrue(CompatibilityEvaluator.judgeNativeMod(mod, both, true, emptySet()).state != ComponentState.INCOMPATIBLE)
+        // ...but a 64-bit game process cannot load it.
+        val running64 = both.copy(runningAbi = Abi.ARM64_V8A)
+        assertEquals(ComponentState.INCOMPATIBLE, CompatibilityEvaluator.judgeNativeMod(mod, running64, true, emptySet()).state)
+        assertEquals(Abi.ARM64_V8A, running64.primaryAbi)
+        assertEquals(setOf(Abi.ARM64_V8A), running64.modAbis)
+        assertEquals(both.abis, both.modAbis)
+    }
+
+    @Test
     fun versionClassification() {
         assertEquals("1.08", GtaSaVersions.classify("1.08"))
         assertEquals("2.00+", GtaSaVersions.classify("2.11.32"))

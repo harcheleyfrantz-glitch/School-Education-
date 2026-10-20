@@ -62,9 +62,17 @@ data class InstalledGame(
     val nativeLibraries: List<String>,
     val apkReadable: Boolean,
     val targetSdk: Int? = null,
+    /** ABI the game process runs with (Android picks one of [abis] at install time), if known. */
+    val runningAbi: Abi? = null,
 ) {
     val hasAml: Boolean get() = nativeLibraries.any { it.equals("libAML.so", ignoreCase = true) }
-    val primaryAbi: Abi? get() = abis.maxByOrNull { it.bits }
+    val primaryAbi: Abi? get() = runningAbi ?: abis.maxByOrNull { it.bits }
+
+    /**
+     * ABIs a native mod may be built for. A library must match the process, so this is the running
+     * ABI when known; otherwise every packaged ABI is plausible.
+     */
+    val modAbis: Set<Abi> get() = runningAbi?.let { setOf(it) } ?: abis
 }
 
 /** Where the chosen folder sits relative to the game. */

@@ -138,7 +138,7 @@ class InstallPlanner(private val store: ModStore) {
     private fun checkFile(file: ModFile, context: PlanContext, blockers: MutableList<String>, warnings: MutableList<String>) {
         if (file.kind != ModKind.AML_MOD) return
         // Detailed ABI checks run on the library copy at apply time too; here we use import findings.
-        val gameAbis = context.game?.abis.orEmpty()
+        val gameAbis = context.game?.modAbis.orEmpty()
         if (gameAbis.isEmpty()) warnings += "${file.targetPath}: the game's ABI is unknown, so the ABI could not be checked"
         if (file.destination == DestinationKind.AML_MODS && !file.targetPath.endsWith(".so")) {
             blockers += "${file.targetPath}: AML only loads files ending in .so"
@@ -147,7 +147,7 @@ class InstallPlanner(private val store: ModStore) {
 
     /** Checks native mods against the game ABI using the library copies. */
     fun abiProblems(mod: ManagedMod, game: InstalledGame?): List<String> {
-        val gameAbis = game?.abis.orEmpty()
+        val gameAbis = game?.modAbis.orEmpty()
         return mod.files.filter { it.kind == ModKind.AML_MOD }.mapNotNull { f ->
             val info = runCatching { NativeModInspector.inspect(f.targetPath, store.readLibraryFile(mod, f)) }.getOrNull()
                 ?: return@mapNotNull "${f.targetPath}: library copy unreadable"

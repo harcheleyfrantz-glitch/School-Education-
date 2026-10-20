@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Compose draws everything; the window theme only sets the background shown before the first frame. -->
+    <style name="Theme.Rodwave" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/rodwave_night</item>
+    </style>
+</resources>

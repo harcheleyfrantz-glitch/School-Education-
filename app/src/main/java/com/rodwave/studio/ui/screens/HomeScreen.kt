@@ -173,7 +173,7 @@ private fun Hero(studio: Studio) {
             }
             val game = studio.installedGame
             Text(
-                if (game != null) "GTA SA ${game.versionName ?: ""} · ${game.abis.joinToString { it.androidName }.ifEmpty { "ABI unknown" }}" else "Game package not detected on this device",
+                if (game != null) "GTA SA ${game.versionName ?: ""} · ${game.runningAbi?.androidName ?: game.abis.joinToString { it.androidName }.ifEmpty { "ABI unknown" }}" else "Game package not detected on this device",
                 style = MaterialTheme.typography.labelLarge,
                 color = Color.White,
                 fontWeight = FontWeight.SemiBold,

@@ -148,7 +148,8 @@ private fun DeviceCard(studio: Studio) {
         } else {
             KeyValue("Package", game.packageName, mono = true)
             KeyValue("Version", "${game.versionName ?: "?"} (code ${game.versionCode ?: "?"})" + (GtaSaVersions.classify(game.versionName)?.let { " → profile $it" } ?: " → not a known version"))
-            KeyValue("ABIs", game.abis.joinToString { it.androidName }.ifEmpty { "unknown" })
+            KeyValue("ABIs in APK", game.abis.joinToString { it.androidName }.ifEmpty { "unknown" })
+            game.runningAbi?.let { KeyValue("Runs as", "${it.androidName} — native mods must match") }
             KeyValue("APK readable", if (game.apkReadable) "yes — native libraries listed from the APK" else "no")
             if (game.hasAml) KeyValue("Bundled loader", "libAML.so is inside the APK (patched game)")
             game.targetSdk?.let { KeyValue("Target SDK", "$it") }

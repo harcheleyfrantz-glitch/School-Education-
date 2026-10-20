@@ -142,6 +142,10 @@ class Studio(val platform: PlatformServices, val scope: CoroutineScope) {
     var screen by mutableStateOf(Screen.HOME)
     private val backStack = ArrayDeque<Screen>()
 
+    /** True when [back] has somewhere to go; the system back gesture leaves the app otherwise. */
+    var canGoBack by mutableStateOf(false)
+        private set
+
     /** Label of a running background task, or null when idle. */
     var busy by mutableStateOf<String?>(null)
         private set
@@ -164,12 +168,14 @@ class Studio(val platform: PlatformServices, val scope: CoroutineScope) {
         backStack.addLast(screen)
         if (backStack.size > 30) backStack.removeFirst()
         screen = target
+        canGoBack = true
     }
 
     /** Returns false when there is nothing to go back to. */
     fun back(): Boolean {
         val previous = backStack.removeLastOrNull() ?: return false
         screen = previous
+        canGoBack = backStack.isNotEmpty()
         return true
     }
 
@@ -426,7 +432,9 @@ class Studio(val platform: PlatformServices, val scope: CoroutineScope) {
     fun chooseFolder(purpose: FolderPurpose) {
         platform.pickFolder(purpose) { ref ->
             if (ref == null) return@pickFolder
+            val previous = settings.folder(purpose)
             updateSettings { it.copy(folders = it.folders + (purpose.name to ref)) }
+            if (previous != null && previous.uri != ref.uri) releaseIfUnused(previous)
             console.info("folders", "${purpose.title} set to ${ref.displayName}")
             scanFolders()
         }
@@ -434,11 +442,16 @@ class Studio(val platform: PlatformServices, val scope: CoroutineScope) {
 
     fun forgetFolder(purpose: FolderPurpose) {
         val ref = settings.folder(purpose) ?: return
-        runCatching { platform.releaseFolder(ref) }
         updateSettings { it.copy(folders = it.folders - purpose.name) }
+        releaseIfUnused(ref)
         scans = scans - purpose
         console.info("folders", "Forgot ${purpose.title} (${ref.displayName})")
         reevaluate()
+    }
+
+    /** Gives the access permission back, unless another purpose still uses the same folder. */
+    private fun releaseIfUnused(ref: FolderRef) {
+        if (settings.folders.values.none { it.uri == ref.uri }) runCatching { platform.releaseFolder(ref) }
     }
 
     fun destinations(): Map<DestinationKind, VirtualFile> = buildMap {

@@ -7,6 +7,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -32,7 +33,8 @@ object RodwaveMark {
     const val BOWL = "M40,33 L52,33 A10.5,10.5 0 0 1 52,54 L40,54"
     const val LEG = "M48,54 C55,56 57,64 60,68 S66,74 71,74"
 
-    val sky = Brush.verticalGradient(listOf(Color(0xFF2B0A3D), Color(0xFF14082A), Color(0xFF0A0B1A)))
+    /** Spans the whole 108-unit square, so stripes painted with it match the sky behind them. */
+    val sky = Brush.verticalGradient(listOf(Color(0xFF2B0A3D), Color(0xFF14082A), Color(0xFF0A0B1A)), startY = 0f, endY = 108f)
     val sun = Brush.verticalGradient(listOf(Color(0xFFFFD27A), Color(0xFFFF8A3D), Color(0xFFFF3D8B)), startY = 20f, endY = 80f)
     val letter = Brush.linearGradient(listOf(Color.White, Color(0xFFFFE3F0)), start = Offset(36f, 30f), end = Offset(76f, 78f))
     val grid = Color(0x66FF3D8B)
@@ -50,7 +52,7 @@ fun RodwaveLogo(modifier: Modifier = Modifier, size: Dp = 96.dp, rounded: Boolea
             if (rounded) {
                 addRoundRect(androidx.compose.ui.geometry.RoundRect(0f, 0f, this@Canvas.size.width, this@Canvas.size.height, CornerRadius(this@Canvas.size.minDimension * 0.24f)))
             } else {
-                addRect(androidx.compose.ui.geometry.Rect(0f, 0f, this@Canvas.size.width, this@Canvas.size.height))
+                addRect(Rect(0f, 0f, this@Canvas.size.width, this@Canvas.size.height))
             }
         }
         clipPath(clip) {
@@ -66,11 +68,14 @@ private fun DrawScope.drawBackground() {
     drawRect(RodwaveMark.sky, size = Size(108f, 108f))
     // Glow behind the sun.
     drawCircle(RodwaveMark.glow, radius = 38f, center = Offset(54f, 50f))
-    // Synthwave sun with horizontal cut-outs in its lower half.
+    // Synthwave sun with horizontal cut-outs in its lower half: the sky shows through the gaps,
+    // like the transparent stripes of the launcher icon.
     drawCircle(RodwaveMark.sun, radius = 30f, center = Offset(54f, 50f))
-    val cut = Color(0xFF1A0A2E)
-    listOf(56f to 1.6f, 62f to 2.2f, 68f to 2.8f, 74f to 3.4f).forEach { (y, h) ->
-        drawRect(cut, topLeft = Offset(20f, y), size = Size(68f, h))
+    val sunDisc = Path().apply { addOval(Rect(center = Offset(54f, 50f), radius = 30f)) }
+    clipPath(sunDisc) {
+        listOf(56f to 1.6f, 62f to 2.2f, 68f to 2.8f, 74f to 3.4f).forEach { (y, h) ->
+            drawRect(RodwaveMark.sky, topLeft = Offset(24f, y), size = Size(60f, h))
+        }
     }
     // Horizon and perspective grid.
     drawRect(Color(0xFF0A0B1A), topLeft = Offset(0f, 80f), size = Size(108f, 28f))

@@ -33,6 +33,7 @@ object CompatibilityEvaluator {
         if (game != null) {
             evidence += Evidence("Package ${game.packageName} is installed (version ${game.versionName ?: "?"}, code ${game.versionCode ?: "?"})", Confidence.HIGH)
             if (game.abis.isNotEmpty()) evidence += Evidence("Native libraries: ${game.abis.joinToString { it.androidName }}", Confidence.HIGH)
+            game.runningAbi?.let { evidence += Evidence("The game runs as ${it.androidName}; native mods must match it", Confidence.HIGH) }
             if (!game.apkReadable) evidence += Evidence("The APK contents could not be read, so injected loaders cannot be checked", Confidence.LOW)
             val known = GtaSaVersions.classify(game.versionName)
             return if (known != null) {
@@ -84,7 +85,7 @@ object CompatibilityEvaluator {
             return NativeModVerdict(mod, ComponentState.INCOMPATIBLE, listOf("Does not export __GetModInfo, so AML will not load it as a mod"))
         }
         reasons += "AML mod for ${info.abi!!.androidName}"
-        val gameAbis = game?.abis.orEmpty()
+        val gameAbis = game?.modAbis.orEmpty()
         if (gameAbis.isNotEmpty() && info.abi !in gameAbis) {
             return NativeModVerdict(mod, ComponentState.INCOMPATIBLE, reasons + "The game runs as ${gameAbis.joinToString { it.androidName }}")
         }
@@ -138,7 +139,7 @@ object CompatibilityEvaluator {
             m.info.isAmlMod && "cleo" in m.info.fileName.lowercase() && KnownGuids.CLEO_LIBRARY in m.info.guidCandidates
         }
         candidates.forEach { evidence += Evidence("${it.info.fileName} is an AML mod referencing ${KnownGuids.CLEO_LIBRARY}", Confidence.MEDIUM, it.path) }
-        val gameAbis = game?.abis.orEmpty()
+        val gameAbis = game?.modAbis.orEmpty()
         val abiMismatch = candidates.firstOrNull { gameAbis.isNotEmpty() && it.info.abi !in gameAbis }
         return when {
             abiMismatch != null -> ComponentStatus(

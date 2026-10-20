@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Themed-icon layer (Android 13+): the system tints it, so only alpha carries the design. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group>
+        <clip-path android:pathData="M24,50a30,30 0,1 0,60 0a30,30 0,1 0,-60 0z" />
+        <path
+            android:fillColor="#66FFFFFF"
+            android:fillType="evenOdd"
+            android:pathData="M24,20h60v60h-60z M24,56h60v1.6h-60z M24,62h60v2.2h-60z M24,68h60v2.8h-60z M24,74h60v3.4h-60z" />
+    </group>
+    <path
+        android:pathData="M40,33L40,75M40,33L52,33A10.5,10.5 0,0 1,52 54L40,54M48,54C55,56 57,64 60,68S66,74 71,74"
+        android:strokeWidth="8"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+</vector>

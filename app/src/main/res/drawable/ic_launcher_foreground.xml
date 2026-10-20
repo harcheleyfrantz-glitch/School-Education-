@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Rodwave icon, foreground layer: striped synthwave sun and an "R" whose leg becomes a wave. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Glow -->
+    <path
+        android:fillColor="#33FF3D8B"
+        android:pathData="M16,50a38,38 0,1 0,76 0a38,38 0,1 0,-76 0z" />
+    <!-- Sun, with transparent stripes in its lower half (even-odd holes, clipped to the disc) -->
+    <group>
+        <clip-path android:pathData="M24,50a30,30 0,1 0,60 0a30,30 0,1 0,-60 0z" />
+        <path
+            android:fillType="evenOdd"
+            android:pathData="M24,20h60v60h-60z M24,56h60v1.6h-60z M24,62h60v2.2h-60z M24,68h60v2.8h-60z M24,74h60v3.4h-60z">
+            <aapt:attr name="android:fillColor">
+                <gradient
+                    android:type="linear"
+                    android:startX="54"
+                    android:startY="20"
+                    android:endX="54"
+                    android:endY="80">
+                    <item android:offset="0" android:color="#FFFFD27A" />
+                    <item android:offset="0.5" android:color="#FFFF8A3D" />
+                    <item android:offset="1" android:color="#FFFF3D8B" />
+                </gradient>
+            </aapt:attr>
+        </path>
+    </group>
+    <!-- Letter outline keeps the R readable over the sun -->
+    <path
+        android:pathData="M40,33L40,75M40,33L52,33A10.5,10.5 0,0 1,52 54L40,54M48,54C55,56 57,64 60,68S66,74 71,74"
+        android:strokeWidth="11"
+        android:strokeColor="#99140818"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M40,33L40,75M40,33L52,33A10.5,10.5 0,0 1,52 54L40,54M48,54C55,56 57,64 60,68S66,74 71,74"
+        android:strokeWidth="8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round">
+        <aapt:attr name="android:strokeColor">
+            <gradient
+                android:type="linear"
+                android:startX="36"
+                android:startY="30"
+                android:endX="76"
+                android:endY="78">
+                <item android:offset="0" android:color="#FFFFFFFF" />
+                <item android:offset="1" android:color="#FFFFE3F0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+</vector>

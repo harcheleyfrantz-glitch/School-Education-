@@ -33,7 +33,8 @@ rootProject.name = "Rodwave"
 include(":engine")
 
 // Compose Desktop preview harness. Compiles the platform-neutral UI from :app against
-// Compose Multiplatform so screens can be type-checked and rendered without an Android SDK.
+// Compose Multiplatform so screens are type-checked without an Android SDK. Running it (preview
+// window, screenshots) also needs a few AndroidX runtime libraries from Google's Maven repository.
 include(":desktop")
 
 // The Android application. Pass -Prodwave.includeAndroid=false to build only the

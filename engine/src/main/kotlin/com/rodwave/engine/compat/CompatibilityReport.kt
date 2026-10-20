@@ -27,7 +27,8 @@ object CompatibilityReport {
         } else {
             appendLine("- Package: ${game.packageName}")
             appendLine("- Version: ${game.versionName ?: "?"} (code ${game.versionCode ?: "?"})")
-            appendLine("- ABIs: ${game.abis.joinToString { it.androidName }.ifEmpty { "unknown" }}")
+            appendLine("- ABIs in APK: ${game.abis.joinToString { it.androidName }.ifEmpty { "unknown" }}")
+            game.runningAbi?.let { appendLine("- Runs as: ${it.androidName}") }
             appendLine("- APK readable: ${if (game.apkReadable) "yes" else "no"}")
             if (game.nativeLibraries.isNotEmpty()) appendLine("- Native libraries in APK: ${game.nativeLibraries.sorted().joinToString()}")
         }
