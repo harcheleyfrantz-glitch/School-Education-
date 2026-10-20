@@ -234,6 +234,8 @@ fun CodeEditor(
     // Keep the caret visible after typing and programmatic jumps.
     LaunchedEffect(caret, layout, revealRequest) {
         val l = layout ?: return@LaunchedEffect
+        // Before the first measure the viewport is 0 px and every caret would look off-screen.
+        if (vScroll.viewportSize == 0 || hScroll.viewportSize == 0) return@LaunchedEffect
         val rect = l.getCursorRect(caret.coerceIn(0, l.layoutInput.text.length))
         val pad = with(density) { padTop.toPx() }
         val margin = with(density) { 24.dp.toPx() }
