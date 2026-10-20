@@ -29,8 +29,12 @@ dependencies {
 tasks.test {
     useJUnitPlatform()
     // Optional maintainer check: point at a Sanny Builder Library sa_mobile.json to verify the
-    // built-in core opcode table against it (see CoreOpcodesVerificationTest).
+    // built-in core opcode table against it (see OpcodeDatabaseTest).
     System.getenv("RODWAVE_SBL_JSON")?.let { environment("RODWAVE_SBL_JSON", it) }
+    // SamplesTest compiles every script in samples/.
+    val samples = rootProject.file("samples")
+    inputs.dir(samples).withPropertyName("samples")
+    systemProperty("rodwave.samplesDir", samples.absolutePath)
     testLogging {
         events("failed")
         exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL

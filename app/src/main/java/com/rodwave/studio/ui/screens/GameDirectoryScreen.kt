@@ -119,8 +119,8 @@ private fun ExpectedLocations(studio: Studio, scopedStorage: Boolean) {
         icon = Icons.Outlined.Folder,
         subtitle = if (game != null) "${game.packageName} ${game.versionName ?: ""} is installed" else "The game package was not detected",
     ) {
-        LocationRow("Android/data/$GAME_PACKAGE", "Game data, saves, AML internal mods and configs", reachable = !scopedStorage)
-        LocationRow("AMLMods/$GAME_PACKAGE", "AML's shared-storage mods folder (loaded after the internal one)", reachable = true)
+        LocationRow("Android/data/$GAME_PACKAGE", "Game data, saves, AML's mods/ and configs/ folders", reachable = !scopedStorage)
+        LocationRow("AMLMods/$GAME_PACKAGE", "What AML calls its internal mods folder, on shared storage (loaded first by default)", reachable = true)
         LocationRow("Android/obb/$GAME_PACKAGE", "Game archives; Rodwave never needs to touch these", reachable = !scopedStorage)
         Text(
             "The folder a CLEO loader reads scripts from depends on that loader build. Rodwave finds it from scripts already on your device, or you choose it.",

@@ -1,0 +1,28 @@
+{$CLEO .csa}
+// car_repair_touch: while driving, hold the bottom-right corner of the screen for one second
+// to repair the vehicle you are in. Original sample for Rodwave (MIT licence).
+0000: nop
+03A4: script_name 'CARFIX'
+
+while true
+    wait 100
+    if
+        0256: is_player_playing $PLAYER_CHAR
+    then
+        01F5: get_player_char $PLAYER_CHAR store_to 0@
+        if
+            00DF: is_char_in_any_car 0@
+        then
+            0DE0: get_touch_point_state TouchPoints.RightBottom mintime 1000 store_to 1@
+            if
+                1@ == 1
+            then
+                03C0: store_car_char_is_in_no_save 0@ store_to 2@
+                0A30: fix_car 2@
+                0224: set_car_health 2@ to 1000
+                // Wait before the next repair so one long press repairs only once.
+                wait 1500
+            end
+        end
+    end
+end

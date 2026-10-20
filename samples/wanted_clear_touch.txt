@@ -1,0 +1,17 @@
+{$CLEO .csa}
+// wanted_clear_touch: hold the top-left corner for half a second to clear your wanted level.
+// Shows an "if and" block with two conditions. Original sample for Rodwave (MIT licence).
+0000: nop
+03A4: script_name 'NOWANT'
+
+while true
+    wait 100
+    0DE0: get_touch_point_state TouchPoints.LeftTop mintime 500 store_to 0@
+    if and
+        0256: is_player_playing $PLAYER_CHAR
+        0@ == 1
+    then
+        0110: clear_wanted_level $PLAYER_CHAR
+        wait 1000
+    end
+end

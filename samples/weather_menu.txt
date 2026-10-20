@@ -1,0 +1,11 @@
+{$CLEO .csi}
+// weather_menu: start it from the CLEO menu to set the clock to noon and switch to clear weather.
+// Weather 1 is the game's sunny Los Santos weather. Original sample for Rodwave (MIT licence).
+0000: nop
+03A4: script_name 'SUNNY'
+const NOON = 12
+const SUNNY_LA = 1
+
+00C0: set_time_of_day NOON 0
+01B6: force_weather_now SUNNY_LA
+004E: terminate_this_script
