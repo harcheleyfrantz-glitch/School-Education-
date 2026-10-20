@@ -11,12 +11,13 @@ Version 0.1.0. This page states plainly what has been checked and how, and what 
 | Sample scripts and project templates | Compile with no errors or warnings using the built-in table, and their decompiled listings recompile to identical bytes (`SamplesTest`) |
 | Shared UI (every screen) | Compiles without warnings against Compose Multiplatform 1.7.3, which tracks the same Compose 1.7 / Material 3 1.3 APIs as the app's Compose BOM 2024.12.01 (`./gradlew :desktop:compileKotlin`) |
 | Android layer (activity, SAF storage, game detection, platform services) | Type-checked against the Android 15 framework (Robolectric `android-all` 15) with stubs for the four `androidx.activity` APIs it uses. A bytecode scan found no Java library calls newer than Android 8.0 (API 26), the minimum supported version |
+| Debug APK | Built by the GitHub Actions workflow (`.github/workflows/android.yml`), which also runs the engine tests; the APK is attached to each run as the `rodwave-debug-apk` artifact |
 | Launcher icon | The vector drawables parse, and an SVG rendering of the same paths was reviewed (adaptive, round and themed masks) |
 
 ## Not verified
 
-- **The APK has never been built.** `./gradlew :app:assembleDebug` could not run in the development
-  environment, so resource linking, manifest merging, R8 shrinking and lint are unchecked.
+- **Release builds and lint.** The debug APK builds on GitHub Actions (see below); the minified
+  release build (R8) and Android lint have not been run yet.
 - **Nothing has run on a phone, tablet or emulator.** That includes layouts on real screens, touch and
   keyboard handling in the editor, the system pickers, persisted folder permissions and game detection.
 - **The desktop preview window and screenshot renderer have never run**, for the same reason as the APK.
@@ -27,12 +28,7 @@ Version 0.1.0. This page states plainly what has been checked and how, and what 
 
 ## Blockers
 
-1. **Google's Maven repository was unreachable** in the environment where Rodwave was written
-   (dl.google.com and maven.google.com were blocked by its network policy). The Android Gradle plugin,
-   AndroidX and the Android SDK all come from there. To build the APK, use a machine with normal internet
-   access (for example Android Studio), or allow those two hosts in that environment's network settings,
-   then run `./gradlew :app:assembleDebug`.
-2. **Device testing** must follow the first successful build. Suggested first checks: create a project,
+1. **Device testing** has not happened yet. Suggested first checks: create a project,
    compile a template, pick an `AMLMods` folder, scan it, install a compiled script through the Mod
    Manager and restore it.
 

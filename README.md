@@ -9,9 +9,8 @@ check what your game setup supports, and install mods with a dry run and backups
 Version 0.1.0 · Kotlin, Jetpack Compose, Material 3 · Android 8.0+ (API 26) · offline · no root · MIT
 
 > **Status.** The scripting engine (compiler, decompiler, analysis, mod installer) has 92 automated tests
-> that pass. The Android app is complete in code, but it has **not yet been built into an APK or run on a
-> device**, because the environment it was written in cannot reach Google's Maven repository. Its UI code
-> is type-checked against Compose, and its Android code against the Android 15 framework.
+> that pass, and GitHub Actions builds the debug APK on every push. The app has **not yet been tested on
+> a device**.
 > See [docs/STATUS.md](docs/STATUS.md) for exactly what is verified and what is not.
 
 ## What it does
@@ -27,6 +26,12 @@ Version 0.1.0 · Kotlin, Jetpack Compose, Material 3 · Android 8.0+ (API 26) ·
 | **Mod Manager** | Import `.csa`/`.csi`/`.fxt`/`.so`/`.ini`/`.zip` (path traversal rejected); dry-run plan; conflict and ownership detection; backups of replaced files; verified writes with rollback; history and restore |
 | **Opcode Explorer** | Search commands and enums; download or import the Sanny Builder Library on request |
 | **Tools** | Binary viewer (ELF/ZIP/script by content), diff, dependency analysis, batch compile, templates and snippets, workspace backup and restore, operation console, offline docs |
+
+## Get the APK without installing anything
+
+Open the repository's **Actions** tab on GitHub, pick the latest successful **Build APK** run, and
+download `rodwave-debug-apk` under *Artifacts*. Unzip it and install `app-debug.apk` on your phone
+(allow installs from unknown sources when asked).
 
 ## Build
 
