@@ -16,11 +16,11 @@ Version 0.1.0. This page states plainly what has been checked and how, and what 
 
 ## Not verified
 
-- **Release builds and lint.** The debug APK builds on GitHub Actions (see below); the minified
+- **Release builds and lint.** The debug APK builds on GitHub Actions (see above); the minified
   release build (R8) and Android lint have not been run yet.
 - **Nothing has run on a phone, tablet or emulator.** That includes layouts on real screens, touch and
   keyboard handling in the editor, the system pickers, persisted folder permissions and game detection.
-- **The desktop preview window and screenshot renderer have never run**, for the same reason as the APK.
+- **The desktop preview window and screenshot renderer have never run**: the development environment could not download the AndroidX libraries they need.
 - **No script has been run in the game.** Rodwave validates bytecode; it cannot execute scripts. This
   includes the samples and templates.
 - **Behaviour of specific loader builds**: which folder a CLEO build reads scripts from, and whether it
