@@ -148,6 +148,20 @@ class EditorToolsTest {
     }
 
     @Test
+    fun `regex replacement expands groups for one match and for all`() {
+        val text = "0@ = 1\n12@ = 7"
+        val options = SearchOptions(regex = true)
+        val matches = SearchEngine.findAll(text, "(\\d+)@", options).matches
+        assertEquals(listOf(0..1, 7..9), matches)
+        assertEquals("var12", SearchEngine.replacementFor(text, matches[1], "(\\d+)@", "var$1", options))
+        // A range that is no longer a match yields null so the caller can search again.
+        assertEquals(null, SearchEngine.replacementFor(text, 1..2, "(\\d+)@", "x", options))
+        assertEquals("v0 = 1\nv12 = 7" to 2, SearchEngine.replaceAll(text, "(\\d+)@", "v$1", options))
+        // Without regex mode, '$1' is literal text.
+        assertEquals("\$1 = 1\n12@ = 7", SearchEngine.replaceRange(text, matches[0], SearchEngine.replacementFor(text, matches[0], "0@", "\$1")!!))
+    }
+
+    @Test
     fun completionUsesTheOpcodeDatabaseAndFile() {
         val engine = CompletionEngine(db)
         val text = ":START\nconst SPEED = 5\nint counter\nget_char_coo"

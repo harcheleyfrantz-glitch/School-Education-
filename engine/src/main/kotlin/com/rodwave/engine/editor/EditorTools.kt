@@ -90,16 +90,29 @@ object SearchEngine {
     fun replaceRange(text: String, range: IntRange, replacement: String): String =
         text.substring(0, range.first) + replacement + text.substring(range.last + 1)
 
+    /**
+     * The text that replaces the match at [range]: [replacement] itself, or with `$0`..`$9` expanded
+     * from the match's groups in regex mode. Returns null if [range] is no longer a match.
+     */
+    fun replacementFor(text: String, range: IntRange, query: String, replacement: String, options: SearchOptions = SearchOptions()): String? {
+        val regex = runCatching { pattern(query, options) }.getOrNull() ?: return null
+        val match = regex.find(text, range.first)?.takeIf { it.range == range } ?: return null
+        return expand(match, replacement, options)
+    }
+
     /** Replaces every match; returns the new text and the number of replacements. */
     fun replaceAll(text: String, query: String, replacement: String, options: SearchOptions = SearchOptions()): Pair<String, Int> {
         val regex = runCatching { pattern(query, options) }.getOrNull() ?: return text to 0
         var count = 0
         val result = regex.replace(text) {
             count++
-            if (options.regex) it.groupValues.foldIndexed(replacement) { i, acc, g -> acc.replace("\$$i", g) } else replacement
+            expand(it, replacement, options)
         }
         return result to count
     }
+
+    private fun expand(match: MatchResult, replacement: String, options: SearchOptions): String =
+        if (options.regex) Regex("\\$(\\d)").replace(replacement) { g -> match.groupValues.getOrNull(g.groupValues[1].toInt()) ?: g.value } else replacement
 }
 
 // ---------------------------------------------------------------------------------------- completion
