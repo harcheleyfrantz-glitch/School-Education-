@@ -11,6 +11,9 @@ render_mode cull_back, diffuse_burley, specular_schlick_ggx;
 global uniform float crowd_time;
 instance uniform vec3 uniform_color = vec3(0.09, 0.13, 0.30);
 instance uniform vec3 uniform_trim = vec3(0.75, 0.12, 0.14);
+// a crowd holding one specific person (the player's avatar) can pin skin and hair colour
+instance uniform float skin_override = -1.0;
+instance uniform float hair_override = -1.0;
 
 varying flat vec3 v_albedo;
 varying flat vec3 v_top;
@@ -315,7 +318,7 @@ void vertex() {
 	NORMAL = normalize(N);
 
 	// ---- clothing and colour
-	vec3 skin = skin_tone(sh1);
+	vec3 skin = skin_tone(skin_override >= 0.0 ? skin_override : sh1);
 	vec3 bottom = trouser_tone(sh2);
 	v_denim = (outfit == 0 && (int(sh2 * 6.999) == 0 || int(sh2 * 6.999) == 6)) ? 1.0 : 0.0;
 	bool sneakers = sh3 > 0.72;
@@ -350,7 +353,7 @@ void vertex() {
 	else if (slot == 1) { v_kind = outfit == 2 ? 2.0 : (formal ? 3.0 : 1.0); }
 	else if (slot == 2) { c = bottom; }
 	else if (slot == 3) { c = shoes; rough = sneakers ? 0.7 : 0.3; }
-	else if (slot == 4) { c = hair_tone(sh2 * 0.7 + sh4 * 0.3, elderly); rough = 0.62; }
+	else if (slot == 4) { c = hair_tone(hair_override >= 0.0 ? hair_override : sh2 * 0.7 + sh4 * 0.3, elderly); rough = 0.62; }
 	else if (slot == 5) { vec3 bags[4] = vec3[4](vec3(0.05), vec3(0.08, 0.10, 0.22), vec3(0.55, 0.08, 0.08), vec3(0.62, 0.64, 0.66)); c = bags[int(sh3 * 3.999)]; rough = 0.4; }
 	else if (slot == 6) { c = vec3(0.04, 0.035, 0.035); }
 	else if (slot == 7) { c = pose == 19 ? vec3(0.95, 0.80, 0.10) : vec3(0.03); rough = 0.25; }

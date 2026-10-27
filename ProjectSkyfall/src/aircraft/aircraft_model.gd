@@ -896,6 +896,44 @@ func animate(ac: Node, dt: float) -> void:
 	mat.set_shader_parameter("cabin_lights", night * (1.0 if L.cabin and powered else 0.0))
 
 
+## Lightweight animation for AI traffic and replays (no flight model behind the model).
+func animate_simple(gear_ext: float, flap_frac: float, fan_rate: float, lit: Dictionary, night: float, dt: float, roll_speed: float = 0.0) -> void:
+	var flaps: Array = spec.flaps
+	var fi := clampf(flap_frac, 0.0, flaps.size() - 1.0)
+	var i0 := int(floor(fi))
+	var i1 := mini(i0 + 1, flaps.size() - 1)
+	var fdeg := lerpf(float(flaps[i0].deg), float(flaps[i1].deg), fi - i0)
+	_set_surface_deg("flap_R", fdeg)
+	_set_surface_deg("flap_L", fdeg)
+	for g in gear:
+		var ext := gear_ext if g.retract else 1.0
+		g.pivot.basis = Basis(g.axis, (1.0 - ext) * g.angle)
+		g.pivot.visible = ext > 0.02
+		for w in g.wheels:
+			w.rotation.x -= roll_speed / g.radius * dt
+	for i in fans.size():
+		fan_angle[i] = fmod(fan_angle[i] + fan_rate * dt, TAU)
+		fans[i].rotation.z = fan_angle[i]
+		if prop_discs[i] != null:
+			prop_discs[i].visible = fan_rate > 8.0
+			prop_blades[i].visible = fan_rate <= 8.0 or detail < 0.5
+	for k in ["nav_r", "nav_l", "nav_tail"]:
+		if lights.has(k):
+			lights[k].visible = bool(lit.get("nav", false))
+	for k in ["strobe_r", "strobe_l", "strobe_tail"]:
+		if lights.has(k):
+			lights[k].visible = bool(lit.get("strobe", false))
+	for k in ["beacon_top", "beacon_bot"]:
+		if lights.has(k):
+			lights[k].visible = bool(lit.get("beacon", false))
+	for k in lights.keys():
+		lights[k].material_override.set_shader_parameter("night", night)
+	for sl in landing_lights:
+		sl.light_energy = (6.0 if bool(lit.get("landing", false)) else 0.0) * clampf(night * 1.4, 0.0, 1.0)
+		sl.visible = sl.light_energy > 0.01
+	mat.set_shader_parameter("cabin_lights", night * (1.0 if bool(lit.get("cabin", true)) else 0.0))
+
+
 func _set_surface(name: String, frac: float) -> void:
 	if not surfaces.has(name):
 		return

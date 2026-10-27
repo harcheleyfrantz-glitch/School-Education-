@@ -296,7 +296,9 @@ func _update_engines(dt: float, fdm: FlightModel, sigma: float, on_ground: bool)
 		var rate = (0.22 + 1.1 * e.n1 / 100.0) / spool * 4.0
 		if not e.running:
 			rate = 0.35
-		e.n1 = e.n1 + (target - e.n1) * clampf(rate * dt, 0.0, 1.0)
+		# while the starter is cranking it alone drives the spool speed
+		if not e.starting:
+			e.n1 = e.n1 + (target - e.n1) * clampf(rate * dt, 0.0, 1.0)
 		# reversers (ground only, lever at idle to deploy)
 		var want_rev := reverse_cmd and on_ground and bool(spec.reverser)
 		e.rev = move_toward(e.rev, 1.0 if want_rev else 0.0, dt * 0.7)

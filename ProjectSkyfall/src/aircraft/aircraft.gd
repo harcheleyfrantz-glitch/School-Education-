@@ -84,6 +84,8 @@ func setup(type: String, registration: String, airline_code: String, world_view:
 	reg = registration
 	airline = airline_code
 	world = world_view
+	if world and not world.origin_shifted.is_connected(on_origin_shift):
+		world.origin_shifted.connect(on_origin_shift)
 	_step = STEP_MOBILE if Game.is_mobile else STEP_PC
 	empty_mass = float(spec.empty_mass)
 	_noise.seed = U.hash_str(registration)
