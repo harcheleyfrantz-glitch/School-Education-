@@ -122,6 +122,7 @@ func _commit() -> void:
 				mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			_:
 				mi.material_override = mat_shell
+				mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_DOUBLE_SIDED
 		add_child(mi)
 	_builders.clear()
 

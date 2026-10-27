@@ -208,7 +208,7 @@ const TYPES := {
 		"cruise_alt": 43000, "ceiling": 51000, "climb_fpm": 3200,
 		"autopilot": true, "fbw": true, "ils": true, "autoland": true,
 		"pilots": 2, "fa": 1, "cabin": [{"cls": "vip", "rows": 4, "layout": "1-1", "pitch": 1.9, "seat_w": 0.75}],
-		"doors": [0.15], "cockpit": "bizjet", "sound": "fan_small", "cargo_door": false, "hump": false,
+		"doors": [0.178], "cockpit": "bizjet", "sound": "fan_small", "cargo_door": false, "hump": false,
 		"hourly_cost": 6200, "rating_hours": 700.0, "range_nm": 7000, "tailstrike": 12.0,
 	},
 	"f4": {

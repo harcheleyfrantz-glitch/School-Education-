@@ -137,10 +137,35 @@ static func pilot_eye_station(t: Dictionary) -> float:
 		"trainer": return 2.25
 		"turboprop": return 2.6
 		"regional": return 2.6
-		"bizjet": return 2.6
+		"bizjet": return 3.3
 		"widebody": return 3.7
 		"cargo": return 5.4
 	return 3.0
+
+
+static var _crown_cache := {}
+
+
+## Exponent of the upper nose profile, chosen so the crown passes ~0.55 m above the pilots'
+## eyes at the flight deck station.
+static func _crown_exp(t: Dictionary) -> float:
+	var key := String(t.name)
+	if _crown_cache.has(key):
+		return _crown_cache[key]
+	var rh := float(t.fuse_h) * 0.5
+	var nose_len := _nose_frac(t) * float(t.length)
+	var ke := clampf(pilot_eye_station(t) / maxf(nose_len, 0.1), 0.2, 0.95)
+	var floor_k: float = CabinLayout.FLOOR_K.get(String(t.category), -0.33)
+	var eye_y := rh * floor_k + 1.12
+	if bool(t.hump):
+		eye_y = rh * 0.3 + 1.12
+	var target := clampf((eye_y + 0.55) / rh, 0.2, 0.95)
+	if bool(t.hump):
+		target /= 1.35
+	var base := 1.0 - pow(1.0 - ke, 1.2)
+	var b := clampf(log(target) / log(base), 0.45, 2.2)
+	_crown_cache[key] = b
+	return b
 
 
 static func _tail_frac(t: Dictionary) -> float:
@@ -194,12 +219,15 @@ static func section(spec: Dictionary, t: float) -> Vector4:
 		sx = s
 		s_top = s
 		s_bot = s
-		cy = -0.2 * rh * pow(1.0 - k, 1.4) if nose_kind != "ga" else 0.0
 		if nose_kind == "ga":
 			s = maxf(s, 0.35)
 			sx = s
 			s_top = s * 0.9
 			s_bot = s
+		else:
+			# airliner nose: full lower radome, low sloping crown carrying the windscreen
+			s_bot = pow(1.0 - pow(1.0 - k, 2.4), 0.5)
+			s_top = pow(1.0 - pow(1.0 - k, 1.2), _crown_exp(spec))
 	elif t > tt:
 		var k2 := (t - tt) / (1.0 - tt)
 		if spec.category == "trainer":
@@ -884,9 +912,15 @@ func _set_surface_deg(name: String, deg: float) -> void:
 
 
 func show_exterior_fuselage(show: bool) -> void:
-	exterior.visible = show
+	## From inside, the exterior skin stays visible (seen through the windows, its inner faces
+	## are culled) but stops casting shadows: the interior shells shadow the sun instead, so
+	## light enters only through real window openings.
+	exterior.visible = true
+	fuselage_mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if show else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	for l in label_nodes:
 		l.visible = show
+	for d in doors.values():
+		(d.pivot as Node3D).visible = show and float(d.open) > 0.01
 
 
 func door_world_local() -> Vector3:

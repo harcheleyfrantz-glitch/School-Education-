@@ -7,7 +7,7 @@ extends RefCounted
 static var _cache := {}
 
 const HEADROOM := {"trainer": 1.15, "turboprop": 1.92, "regional": 2.0, "narrowbody": 2.15, "widebody": 2.45, "bizjet": 1.88, "cargo": 2.1}
-const FLOOR_K := {"trainer": -0.55, "turboprop": -0.32, "regional": -0.34, "narrowbody": -0.33, "widebody": -0.30, "bizjet": -0.40, "cargo": 0.30}
+const FLOOR_K := {"trainer": -0.72, "turboprop": -0.32, "regional": -0.34, "narrowbody": -0.33, "widebody": -0.30, "bizjet": -0.40, "cargo": 0.30}
 
 
 static func get_layout(type_id: String) -> Dictionary:
@@ -69,7 +69,7 @@ static func _compute(type_id: String) -> Dictionary:
 		"style": spec.cockpit, "pilots": spec.pilots,
 	}
 	if cat == "trainer":
-		ck.eye_y = floor_y + 0.98
+		ck.eye_y = floor_y + 0.86
 	lay.cockpit = ck
 	if cat == "trainer":
 		_trainer(lay, spec)
@@ -255,7 +255,8 @@ static func _compute(type_id: String) -> Dictionary:
 	if cat != "cargo":
 		var wp := 0.53 if cat != "bizjet" else 1.1
 		var wz := seat_start + 0.2
-		while wz < aft_limit:
+		var win_end := minf(aft_limit, float(lay.cabin_back) - 0.5)
+		while wz < win_end:
 			var near_door := false
 			for dr2 in lay.doors:
 				if absf(dr2.z - wz) < (0.76 if dr2.kind == "door" else 0.55):

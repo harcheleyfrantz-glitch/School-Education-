@@ -45,7 +45,8 @@ func _ready() -> void:
 		var stage := 0.0
 		if k == "demo":
 			stage = 0.8
-		crowd.set_person(i, xf, HumanMesh.POSES[k], stage, 0.8, Color(0.2, 0.4, 0.7), Crowd.Outfit.CIVIL, float(i) / 30.0, flags, 0.2 if i % 2 == 0 else 0.8)
+		var style := i % HumanMesh.HAIR_STYLES
+		crowd.set_person(i, xf, HumanMesh.POSES[k], stage, 0.8, Color(0.2, 0.4, 0.7), Crowd.Outfit.CIVIL, float(style) + float(i) / 30.0, flags | (Crowd.FLAG_GLASSES if i % 5 == 0 else 0), 0.2 if i % 2 == 0 else 0.8)
 		var lbl := Label3D.new()
 		lbl.text = k
 		lbl.pixel_size = 0.004
@@ -56,12 +57,16 @@ func _ready() -> void:
 	# outfits row
 	for o in 9:
 		var xf2 := Transform3D(Basis.IDENTITY.rotated(Vector3.UP, deg_to_rad(180.0)), Vector3(o * 1.0 - 4.0, 0, 4.0))
-		var fl := Crowd.FLAG_HAT if o in [3, 4, 5, 7] else 0
+		var fl := Crowd.FLAG_HAT if o in [3, 7] else 0
+		if o == 5:
+			fl |= Crowd.FLAG_HELMET
 		if o == 0:
-			fl |= Crowd.FLAG_ELDERLY
+			fl |= Crowd.FLAG_ELDERLY | Crowd.FLAG_BACKPACK
 		if o == 2:
 			fl |= Crowd.FLAG_SKIRT
-		crowd.set_person(i, xf2, 0, 0.1 * o, 0.3, Color(0.7, 0.2, 0.2), o, 0.11 * o + 0.05, fl, 0.8 if o % 2 == 0 else 0.1)
+		if o in [1, 3]:
+			fl |= Crowd.FLAG_TIE
+		crowd.set_person(i, xf2, 0, 0.1 * o, 0.3, Color(0.7, 0.2, 0.2), o, float(o % HumanMesh.HAIR_STYLES) + 0.11 * o + 0.05, fl, 0.8 if o % 2 == 0 else 0.1)
 		i += 1
 	crowd.flush()
 	var cam := Camera3D.new()
@@ -78,5 +83,18 @@ func _ready() -> void:
 	for f in 8:
 		await get_tree().process_frame
 	get_viewport().get_texture().get_image().save_png(out_dir.path_join("people_close.png"))
+	# portrait of the outfit row
+	cam.fov = 30
+	cam.position = Vector3(-1.5, 1.62, 6.2)
+	cam.look_at(Vector3(-1.5, 1.45, 4.0))
+	for f in 8:
+		await get_tree().process_frame
+	get_viewport().get_texture().get_image().save_png(out_dir.path_join("people_portrait.png"))
+	cam.fov = 18
+	cam.position = Vector3(-0.0, 1.66, 5.0)
+	cam.look_at(Vector3(0.0, 1.62, 4.0))
+	for f in 8:
+		await get_tree().process_frame
+	get_viewport().get_texture().get_image().save_png(out_dir.path_join("people_face.png"))
 	print("people shots done")
 	get_tree().quit()

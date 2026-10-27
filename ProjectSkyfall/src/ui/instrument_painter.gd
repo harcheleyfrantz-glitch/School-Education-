@@ -748,7 +748,7 @@ static func ga_panel(ci: CanvasItem, r: Rect2, ac: Aircraft) -> void:
 	ci.draw_circle(cs[3], rad * 0.1, WHITE)
 	var slip := clampf(rad_to_deg(ac.fdm.beta) / 8.0, -1.0, 1.0)
 	ci.draw_arc(cs[3] + Vector2(0, rad * 0.25), rad * 0.5, deg_to_rad(60), deg_to_rad(120), 16, GREY, rad * 0.14, true)
-	var bp := cs[3] + Vector2(0, rad * 0.25) + Vector2(cos(deg_to_rad(90 - slip * 28.0)), sin(deg_to_rad(90 - slip * 28.0))) * rad * 0.5
+	var bp = cs[3] + Vector2(0, rad * 0.25) + Vector2(cos(deg_to_rad(90 - slip * 28.0)), sin(deg_to_rad(90 - slip * 28.0))) * rad * 0.5
 	ci.draw_circle(bp, rad * 0.06, Color.BLACK)
 	text(ci, cs[3] + Vector2(0, -rad * 0.5), "TURN COORD", int(fs * 0.6), WHITE, HORIZONTAL_ALIGNMENT_CENTER)
 	# heading indicator

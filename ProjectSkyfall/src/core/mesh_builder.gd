@@ -265,6 +265,36 @@ func _cap_ring(ring: PackedVector3Array, c: Color, flip: bool) -> void:
 			add_tri_idx(ci, b, a)
 
 
+## Superellipsoid "rounded box": e near 0 gives sharp edges, 1 gives an ellipsoid.
+func add_rounded_box(center: Vector3, size: Vector3, c: Color, e: float = 0.3, nu: int = 16, nv: int = 10, b: Basis = Basis()) -> void:
+	var h := size * 0.5
+	var base := verts.size()
+	for j in nv + 1:
+		var v := PI * float(j) / nv
+		for i in nu + 1:
+			var u := TAU * float(i) / nu
+			var cu := cos(u)
+			var su := sin(u)
+			var cv := cos(v)
+			var sv := sin(v)
+			var px := signf(sv * cu) * pow(absf(sv * cu), e)
+			var py := signf(cv) * pow(absf(cv), e)
+			var pz := signf(sv * su) * pow(absf(sv * su), e)
+			var nx := signf(sv * cu) * pow(absf(sv * cu), 2.0 - e) / maxf(h.x, 0.0001)
+			var ny := signf(cv) * pow(absf(cv), 2.0 - e) / maxf(h.y, 0.0001)
+			var nz := signf(sv * su) * pow(absf(sv * su), 2.0 - e) / maxf(h.z, 0.0001)
+			var n := Vector3(nx, ny, nz)
+			if n.length_squared() < 1e-12:
+				n = Vector3(0, signf(cv), 0)
+			add_vertex(center + b * Vector3(px * h.x, py * h.y, pz * h.z), (b * n).normalized(), c, Vector2(float(i) / nu, float(j) / nv))
+	for j in nv:
+		for i in nu:
+			var i0 := base + j * (nu + 1) + i
+			var i1 := i0 + nu + 1
+			add_tri_idx(i0, i1, i0 + 1)
+			add_tri_idx(i0 + 1, i1, i1 + 1)
+
+
 func add_mesh_builder(other: MeshBuilder, t: Transform3D = Transform3D.IDENTITY) -> void:
 	var base := verts.size()
 	var full := xf * t

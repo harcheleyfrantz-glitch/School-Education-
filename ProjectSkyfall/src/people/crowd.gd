@@ -10,6 +10,10 @@ const FLAG_ELDERLY := 4
 const FLAG_SKIRT := 8
 const FLAG_HAT := 16
 const FLAG_SOOT := 32
+const FLAG_GLASSES := 64
+const FLAG_BACKPACK := 128
+const FLAG_HELMET := 256
+const FLAG_TIE := 512
 const STRIDE := 20   # 12 transform + 4 colour + 4 custom
 
 static var _material: ShaderMaterial
@@ -49,7 +53,8 @@ func setup(cap: int, lod: int = 0, airline_code: String = "", shadows: bool = tr
 	flush()
 
 
-## pose: HumanMesh.POSES value; phase 0..1 (fraction); rate cycles/s; seed 0..1; build 0 (masculine) .. 1 (feminine)
+## pose: HumanMesh.POSES value; phase 0..1 (fraction); rate cycles/s; seed = hair style + fraction
+## (see appearance_for); build 0 (masculine) .. 1 (feminine)
 func set_person(i: int, xf: Transform3D, pose: int, phase: float, rate: float, top: Color, outfit: int,
 		seed_v: float, flags: int, build: float) -> void:
 	if i < 0 or i >= capacity:
@@ -162,9 +167,48 @@ static func appearance_for(p: Dictionary) -> Dictionary:
 	if job in ["lawyer", "banker", "executive", "consultant", "sales manager", "accountant", "politician"] or (String(p.get("purpose", "")) == "business" and r.randf() < 0.6):
 		outfit = Outfit.SUIT
 		top = [Color(0.1, 0.11, 0.14), Color(0.2, 0.22, 0.26), Color(0.12, 0.14, 0.24)][r.randi() % 3]
+	if outfit == Outfit.SUIT and (gender != "f" or r.randf() < 0.2):
+		flags |= FLAG_TIE
+	if r.randf() < (0.22 + (0.35 if age > 50 else 0.0)):
+		flags |= FLAG_GLASSES
+	if age < 40 and outfit == Outfit.CIVIL and r.randf() < 0.25:
+		flags |= FLAG_BACKPACK
 	var scale := 1.0
 	if age < 18:
 		scale = clampf(0.45 + float(age) * 0.033, 0.5, 0.98)
 	else:
 		scale = (0.95 if gender == "f" else 1.02) + r.randf_range(-0.05, 0.06)
-	return {"top": top, "outfit": outfit, "seed": r.randf(), "flags": flags, "build": build, "scale": scale}
+	var sv := minf(r.randf(), 0.999)
+	var style := HumanMesh.hair_style_for(gender, age, sv)
+	return {"top": top, "outfit": outfit, "seed": float(style) + sv, "flags": flags, "build": build, "scale": scale}
+
+
+## Appearance for crew and service staff (no population record needed).
+static func staff_appearance(outfit: int, id: int, gender: String = "") -> Dictionary:
+	var r := U.rng(U.hash_ints(id, 777))
+	var g := gender if gender != "" else ("f" if r.randf() < 0.5 else "m")
+	var age := r.randi_range(24, 58)
+	var build := (0.82 if g == "f" else 0.12) + r.randf_range(-0.08, 0.08)
+	var flags := 0
+	match outfit:
+		Outfit.FLIGHT:
+			flags |= FLAG_HAT | FLAG_TIE
+		Outfit.CABIN:
+			if g == "f":
+				flags |= FLAG_SKIRT
+			else:
+				flags |= FLAG_TIE
+		Outfit.FIRE:
+			flags |= FLAG_HELMET
+		Outfit.POLICE:
+			flags |= FLAG_HAT
+		Outfit.GROUND:
+			if r.randf() < 0.3:
+				flags |= FLAG_HAT
+	var sv := minf(r.randf(), 0.999)
+	var style := HumanMesh.hair_style_for(g, age, sv)
+	if outfit == Outfit.CABIN and g == "f":
+		style = [3, 4, 6][r.randi() % 3]
+	var top := Color(0.92, 0.93, 0.95)
+	return {"top": top, "outfit": outfit, "seed": float(style) + sv, "flags": flags, "build": clampf(build, 0.0, 0.99),
+		"scale": (0.96 if g == "f" else 1.02) + r.randf_range(-0.04, 0.05), "gender": g, "age": age}
