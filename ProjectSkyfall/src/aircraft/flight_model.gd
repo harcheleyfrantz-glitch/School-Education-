@@ -330,7 +330,8 @@ func _ground_forces(dt: float) -> Array:
 			if depth > stroke:
 				# bottomed out: very stiff
 				fn += (depth - stroke) * k * 25.0
-		fn = maxf(fn, 0.0)
+		# a contact buried deep (a teleport, a frame hitch) must not turn into an explosion
+		fn = clampf(fn, 0.0, mass * 400.0)
 		if fn <= 0.0:
 			continue
 		if ct.kind == "body":

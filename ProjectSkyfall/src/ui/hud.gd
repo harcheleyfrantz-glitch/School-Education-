@@ -405,7 +405,11 @@ func open_pa() -> void:
 func show_toast(text: String, kind: String = "info") -> void:
 	if text == "":
 		return
+	for c in toast_box.get_children():
+		if not c.is_queued_for_deletion() and c.has_meta("text") and String(c.get_meta("text")) == text:
+			return      # already on screen
 	var p := PanelContainer.new()
+	p.set_meta("text", text)
 	p.add_theme_stylebox_override("panel", UIStyle.box(Color(0.04, 0.07, 0.1, 0.9), 10, Color(UIStyle.kind_color(kind), 0.8), 1, 12))
 	var l := UIStyle.label(text, 15, UIStyle.TEXT)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -414,8 +418,11 @@ func show_toast(text: String, kind: String = "info") -> void:
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	toast_box.add_child(p)
 	while toast_box.get_child_count() > 4:
-		toast_box.get_child(0).queue_free()
-	var tw := create_tween()
+		# remove now: queue_free alone leaves the child counted until the end of the frame
+		var old := toast_box.get_child(0)
+		toast_box.remove_child(old)
+		old.queue_free()
+	var tw := p.create_tween()
 	tw.tween_interval(5.0 if kind in ["info", "good"] else 8.0)
 	tw.tween_property(p, "modulate:a", 0.0, 0.6)
 	tw.tween_callback(p.queue_free)
@@ -868,6 +875,13 @@ func _cockpit_click(screen_pos: Vector2, dir: int, wheel: bool = false) -> bool:
 	if wheel and not String(hit.get("kind", "")) in ["knob", "wheel", "lever"]:
 		return false
 	var fb := CockpitActions.apply(ac, session, String(hit.id), dir)
+	match String(hit.get("kind", "")):
+		"lever", "wheel", "door":
+			Audio.play("gear_lock", -16.0, randf_range(1.5, 1.8), "UI")
+		"button", "toggle":
+			Audio.play("switch", -6.0, randf_range(0.9, 1.1), "UI")
+		_:
+			Audio.play("click", -8.0, randf_range(0.9, 1.15), "UI")
 	if fb != "" and fb != _last_click_feedback:
 		show_toast(fb, "info")
 	_last_click_feedback = fb

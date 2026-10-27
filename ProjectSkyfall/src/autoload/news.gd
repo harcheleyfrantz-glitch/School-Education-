@@ -102,7 +102,7 @@ func _flight_desc(res: Dictionary) -> Dictionary:
 	return {"airline": String(al.get("name", "An airline")), "code": String(res.get("airline", "")), "num": "%s%s" % [al.get("iata", ""), num],
 		"type": "%s %s" % [t.maker, t.name], "short": String(t.short), "from": Airports.get_ap(String(res.get("dep", ""))).get("short", ""),
 		"to": Airports.get_ap(String(res.get("planned_arr", res.get("arr", "")))).get("short", ""),
-		"landed_at": Airports.get_ap(String(res.get("arr", ""))).get("short", ""), "pilot": String(Game.player.get("name", "the captain")) if Game.has_character() else "the captain"}
+		"landed_at": Airports.get_ap(String(res.get("arr", ""))).get("short", ""), "pilot": String(res.get("captain", Game.player.get("name", "the captain") if Game.has_character() else "the captain"))}
 
 
 func _accident(res: Dictionary, cons: Dictionary) -> void:
@@ -122,16 +122,16 @@ func _accident(res: Dictionary, cons: Dictionary) -> void:
 		"place": place, "counts": c, "cause": inv.get("probable_cause", ""), "pilot": d.pilot, "fire": af.get("fire", false),
 		"ditching": ditch, "victims": af.get("victims", []), "x": crash.get("x", 0.0), "z": crash.get("z", 0.0),
 		"heading": crash.get("heading", 0.0), "weather": res.get("weather", {}), "samples": samples.slice(maxi(samples.size() - 420, 0)),
-		"player_died": bool(cons.get("dead", false)), "hero": bool(cons.get("hero", false)), "criminal": bool(cons.get("criminal", false)),
+		"player_died": bool(cons.get("dead", false)) and String(res.get("mode", "pilot")) == "pilot", "hero": bool(cons.get("hero", false)), "criminal": bool(cons.get("criminal", false)),
 		"license": String(cons.get("license", "")), "pilot_share": float(inv.get("pilot_share", 0.0)), "report_days": int(inv.get("report_days", 120)),
 		"summary": "%d of %d aboard killed" % [fatal, aboard] if fatal > 0 else "all %d aboard survived" % aboard}
 	incidents.append(inc)
 	var r := U.rng(U.hash_str(String(inc.id)))
 	var video := {"type": "reconstruction", "incident": inc.id}
-	var verb := "ditches in the water off" if ditch else ("crashes near" if fatal > 0 or float(af.get("severity", 0.5)) > 0.4 else "crash-lands at")
+	var verb := "ditches" if ditch else ("crashes" if fatal > 0 or float(af.get("severity", 0.5)) > 0.4 else "crash-lands")
 	var a1 := publish("skyline", "breaking", "BREAKING: %s flight %s %s %s" % [d.airline, d.num, verb, place],
 		"A %s operated by %s with %d people on board has %s %s. Emergency services are on the scene." % [d.type, d.airline, aboard,
-			"come down in the water" if ditch else "crashed", "near " + place],
+			"come down in the water" if ditch else "crashed", place],
 		["The flight was operating from %s to %s." % [d.from, d.to],
 		"Witnesses describe %s." % (_pick(r, ["a loud bang followed by a column of black smoke", "the aircraft coming in very low and fast", "a huge splash and people climbing onto the wings"]) if not ditch else "the aircraft gliding down and skimming across the water"),
 		"%s said it was \"aware of an incident\" and that its priority was the passengers, crew and their families." % d.airline],
@@ -142,7 +142,7 @@ func _accident(res: Dictionary, cons: Dictionary) -> void:
 	# the first wave on social media
 	for i in 5 + mini(aboard / 20, 8):
 		var who := _citizen(r)
-		var txt := _pick(r, ["Just heard a massive bang near %s. Sirens everywhere. Praying for everyone on that plane." % place,
+		var txt := _pick(r, ["Just heard a massive bang near %s. Sirens everywhere. Praying for everyone on that plane." % _place_noun(place),
 			"Smoke visible from miles away. What happened?? #%s" % d.num, "My cousin was supposed to fly %s today. Can't reach her. Please share. #%s" % [d.airline, d.num],
 			"Thoughts with everyone on %s %s." % [d.airline, d.num], "Speculating now is pointless. Wait for the investigators.",
 			"That's the %s fleet. Wasn't there an incident last year?" % d.short, "Emergency services were incredibly fast. Respect."])
@@ -200,14 +200,28 @@ func _flight_story(res: Dictionary, cons: Dictionary) -> void:
 
 # ================================================================== evolving stories
 func on_clock(t0: float, t1: float) -> void:
+	# a long skip (rest, medical leave, waiting out a suspension) can pass several story beats
 	for s in stories.duplicate():
-		if float(s.next_t) <= t1:
+		var guard := 0
+		while float(s.next_t) <= t1 and s in stories and guard < 12:
 			_advance_story(s)
+			guard += 1
 	var day := int(t1 / 86400.0)
 	if day != _last_day:
 		if _last_day >= 0:
 			_daily(day)
 		_last_day = day
+
+
+static func _place_noun(place: String) -> String:
+	## "12 km east of Rivermouth" -> "Rivermouth", "over the Southern Sea" -> "Southern Sea".
+	var p := place
+	if " of " in p:
+		p = p.substr(p.rfind(" of ") + 4)
+	for pre in ["in the sea ", "over the ", "in the ", "in rural ", "in ", "near ", "at "]:
+		if p.begins_with(pre):
+			p = p.substr(pre.length())
+	return p
 
 
 func _find_incident(id: String) -> Dictionary:
@@ -238,7 +252,7 @@ func _advance_story(s: Dictionary) -> void:
 	var at := float(s.next_t)
 	match int(s.stage):
 		1:
-			var head := "%d killed as %s jet crashes near %s" % [fatal, aname, place] if fatal > 0 else ("All %d on board survive %s %s" % [aboard, aname, "ditching" if bool(inc.ditching) else "crash"])
+			var head := "%d killed as %s jet crashes %s" % [fatal, aname, place] if fatal > 0 else ("All %d on board survive %s %s" % [aboard, aname, "ditching" if bool(inc.ditching) else "crash"])
 			publish("herald", "news", head, "%s %s. %d people were on board the %s." % [aname, "confirmed the deaths of %d people" % fatal if fatal > 0 else "said everyone on board had been accounted for", aboard, tpl.name],
 				["%s, chief executive of %s, said: \"Our hearts are with the families. We will cooperate fully with the investigation.\"" % [al.get("ceo", "The chief executive"), aname],
 				"%d people were taken to hospital, %d of them in a critical condition." % [int(c.get("serious", 0)) + int(c.get("critical", 0)), int(c.get("critical", 0))],
@@ -254,7 +268,7 @@ func _advance_story(s: Dictionary) -> void:
 			for v in victims.slice(0, 8):
 				names.append("%s, %d, from %s" % [v.name, int(v.age), v.home])
 			publish("herald", "news", "The victims of flight %s: the people we lost" % String(inc.get("num", "")),
-				"Families have begun paying tribute to the %d people who died near %s." % [fatal, place],
+				"Families have begun paying tribute to the %d people who died %s." % [fatal, place],
 				["Among those who died were %s." % "; ".join(names)] + _tributes(victims, r),
 				{"t": at, "story": sid, "importance": 3, "incident": inc.id, "tags": ["accident", "victims"]})
 			for v2 in victims.slice(0, 6):
@@ -270,7 +284,7 @@ func _advance_story(s: Dictionary) -> void:
 					"Please stop sending me the videos. That was my %s." % rel]), {"t": at, "story": sid, "importance": 2, "spread": 2.0})
 			s.next_t = at + 30.0 * 3600.0
 		3:
-			publish("skyline", "feature", "\"I thought I was going to die\": survivors of %s speak" % place,
+			publish("skyline", "feature", "\"I thought I was going to die\": survivors of the %s crash speak" % _place_noun(place),
 				"Passengers who escaped the %s have described the final moments of the flight." % ("wreckage" if not bool(inc.ditching) else "aircraft as it sank"),
 				_survivor_quotes(inc, r), {"t": at, "story": sid, "importance": 2, "incident": inc.id, "video": {"type": "reconstruction", "incident": inc.id, "angle": "witness"}, "tags": ["accident", "survivors"]})
 			s.next_t = at + 3.0 * 86400.0
@@ -305,18 +319,18 @@ func _advance_story(s: Dictionary) -> void:
 			s.next_t = at + 7.0 * 86400.0
 		6:
 			if fatal > 0:
-				publish("gazette", "news", "Hundreds gather to remember the victims of %s" % place, "A memorial service was held for the %d people who died." % fatal,
+				publish("gazette", "news", "Hundreds gather to remember the victims of the %s crash" % _place_noun(place), "A memorial service was held for the %d people who died." % fatal,
 					["Candles and flowers lined the road near the crash site.", "Survivors attended alongside families of the victims."],
 					{"t": at, "story": sid, "importance": 2, "tags": ["memorial"]})
 			s.next_t = at + maxf(float(inc.report_days) - 18.0, 20.0) * 86400.0
 		7:
-			publish("aeroweek", "analysis", "Final report: %s" % String(inc.cause).trim_suffix("."), "The investigation into the accident near %s has concluded." % place,
+			publish("aeroweek", "analysis", "Final report: %s" % String(inc.cause).trim_suffix("."), "The investigation into the accident %s has concluded." % place,
 				["Investigators attributed %d%% of the causal factors to the flight crew." % int(float(inc.pilot_share) * 100.0),
 				"%s has issued safety recommendations to the operator, the manufacturer and the regulator." % "The board"],
 				{"t": at, "story": sid, "importance": 2, "incident": inc.id, "video": {"type": "reconstruction", "incident": inc.id, "angle": "analysis"}, "tags": ["investigation", "final report"]})
 			s.next_t = at + 300.0 * 86400.0
 		_:
-			publish("herald", "news", "One year on: %s remembers" % place, "A year after the accident, families and survivors return to the site.",
+			publish("herald", "news", "One year on: %s remembers" % _place_noun(place), "A year after the accident, families and survivors return to the site.",
 				["Several survivors are still recovering from their injuries."], {"t": at, "story": sid, "importance": 1, "tags": ["anniversary"]})
 			stories.erase(s)
 

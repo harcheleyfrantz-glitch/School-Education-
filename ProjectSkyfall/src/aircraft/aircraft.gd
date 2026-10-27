@@ -155,6 +155,9 @@ func world_z() -> float:
 
 func on_origin_shift(shift: Vector3) -> void:
 	fdm.pos -= shift
+	# the cached ground plane is in local coordinates too: move it with the origin, then resample
+	fdm.ground_plane.d -= fdm.ground_plane.normal.dot(shift)
+	_refresh_ground(true)
 	_sync_transform()
 
 
@@ -400,6 +403,9 @@ func _physics_process(delta: float) -> void:
 		_sim_step(step)
 		if crashed_state:
 			break
+	# a slide on the belly, the engines or a collapsed leg ends as an accident once we stop
+	if has_meta("slid") and not crashed_state and fdm.ground_speed() < 2.0:
+		_crash({"cause_hint": "came to rest after sliding on the %s" % String(get_meta("slid")), "slide": true})
 	_sync_transform()
 	if model:
 		model.animate(self, delta)
@@ -568,6 +574,8 @@ func _process_impacts() -> void:
 			damage.gear[g] = true
 			fdm.gear_ok[g] = false
 			incident.emit("gear_collapse", {"gear": part, "vs_fpm": vs / U.FPM})
+			if g > 0 and speed > 15.0:
+				set_meta("slid", "collapsed landing gear")
 		elif vs > 3.6:
 			if not has_meta("hard_landing"):
 				set_meta("hard_landing", true)
@@ -600,9 +608,14 @@ func _process_impacts() -> void:
 			damage.engines[ei] = true
 			sys.fail("eng_damage", ei)
 			incident.emit("engine_strike", {"engine": ei})
+		var gear_holding: bool = sys.gear_down_cmd and sys.gear_pos[1] > 0.95 and not (damage.gear as Array).has(true)
+		if speed > 15.0 and not gear_holding and not has_meta("slid"):
+			set_meta("slid", "engine nacelles")
 	elif part.begins_with("belly"):
-		if _impact_cooldown <= 0.0:
-			_impact_cooldown = 3.0
+		if speed > 15.0:
+			set_meta("slid", "belly")
+		if not has_meta("belly_reported"):
+			set_meta("belly_reported", true)
 			incident.emit("belly_contact", {"speed": speed})
 		if speed > 3.0 and sys.fuel_total() > 500.0 and randf() < 0.002:
 			damage.fire = true

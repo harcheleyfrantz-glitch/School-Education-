@@ -63,6 +63,11 @@ static func analyse(d: Dictionary) -> Dictionary:
 		if prev_ap == 1 and int(s2[S_AP]) == 0:
 			ap_off_at = float(s2[S_T])
 		prev_ap = int(s2[S_AP])
+	# sustained hand-flown dive: autopilot off, nose well down, descending fast, no recovery
+	var dive_s := 0.0
+	for s3 in last:
+		if int(s3[S_AP]) == 0 and float(s3[S_PITCH]) < -5.0 and float(s3[S_VS]) < -20.0:
+			dive_s += 0.5
 	var ev_ids := []
 	for e in events:
 		ev_ids.append(String(e.get("id", "")))
@@ -107,6 +112,14 @@ static func analyse(d: Dictionary) -> Dictionary:
 		findings.append("Airspeed decayed to %d kt, below the stall speed for the configuration." % int(min_ias))
 		if ap_off_at >= 0.0:
 			findings.append("The autopilot disconnected %d seconds before impact." % int(t_end - ap_off_at))
+	elif dive_s > 8.0 and engines_running > 0 and not on_runway:
+		cause = "The aircraft was flown into the ground in a steep, sustained descent with the autopilot disengaged; no recovery was attempted."
+		share.pilot += 0.9
+		negligent = true
+		findings.append("For %d seconds before impact the aircraft descended at more than 4,000 ft/min with the nose %d° down." % [int(dive_s), int(absf(float(crash.get("pitch", 0.0))))])
+		findings.append("The flight data show sustained nose-down control inputs and no attempt to level off.")
+		if ap_off_at >= 0.0:
+			findings.append("The autopilot was disconnected %d seconds before impact." % int(t_end - ap_off_at))
 	elif not on_runway and engines_running > 0 and absf(float(crash.get("bank", 0.0))) < 30.0 and float(crash.get("pitch", 0.0)) > -15.0 and not gear_down:
 		cause = "Controlled flight into terrain: an airworthy aircraft was flown into the ground."
 		share.pilot += 0.8

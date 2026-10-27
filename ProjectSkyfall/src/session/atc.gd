@@ -27,6 +27,11 @@ var vfr := false
 var squawk := "4521"
 var station := "DEL"
 var state := "delivery"
+var _spd_t := 0.0
+var _desc_verb := "descend"
+var _vec_verb := "descend"
+var _alt_clr_last := -1.0
+var _alt_clr_t := 0.0
 var clearance := {"alt_m": 0.0, "hdg": -1.0, "takeoff": false, "landing": false, "lineup": false, "taxi": false,
 	"pushback": false, "approach": false}
 var options: Array = []
@@ -130,6 +135,9 @@ func _pick_voices() -> void:
 
 # ---------------------------------------------------------------- transmissions
 func _say(st: String, text: String, spoken_text: String, delay: float = 1.6, then: String = "") -> void:
+	for q in queue:
+		if String(q.text) == text:
+			return      # already waiting to be said
 	queue.append({"t": _t + delay + _rng.randf_range(0.0, 1.2), "station": st, "who": "atc", "text": text, "spoken": spoken_text, "then": then})
 
 
@@ -137,8 +145,8 @@ func _pilot(text: String, spoken_text: String = "") -> void:
 	_emit(station, "pilot", text, spoken_text if spoken_text != "" else text)
 
 
-func _emit(st: String, who: String, text: String, spoken_text: String) -> void:
-	var entry := {"t": WorldSim.clock, "station": station_name(st) if who == "atc" else callsign, "who": who, "text": text}
+func _emit(st: String, who: String, text: String, spoken_text: String, speaker: String = "") -> void:
+	var entry := {"t": WorldSim.clock, "station": station_name(st) if who == "atc" else (speaker if speaker != "" else callsign), "who": who, "text": text}
 	transcript.append(entry)
 	transmission.emit(entry.station, who, text)
 	if spoken and Game.settings.get("tts", true):
@@ -214,11 +222,11 @@ func _refresh_options() -> void:
 		"cruise":
 			options.append(_opt("req_descent", "Request descent", "%s, request descent." % cs))
 		"desc_rb":
-			options.append(_opt("rb_ok", "Read back", "Descend %s, expect ILS runway %s, %s." % [_lvl(clearance.alt_m)[0], arr_end.name, cs], {"correct": true}))
+			options.append(_opt("rb_ok", "Read back", "%s %s, expect ILS runway %s, %s." % [_desc_verb.capitalize(), _lvl(clearance.alt_m)[0], arr_end.name, cs], {"correct": true}))
 		"app_contact":
-			options.append(_opt("checkin_app", "Check in with Approach", "%s, %s, descending %s, information received." % [station_name("APP"), cs, _lvl(clearance.alt_m)[0]], {"station": "APP"}))
+			options.append(_opt("checkin_app", "Check in with Approach", "%s, %s, %s %s, information received." % [station_name("APP"), cs, {"descend": "descending", "climb": "climbing"}.get(_desc_verb, "maintaining"), _lvl(clearance.alt_m)[0]], {"station": "APP"}))
 		"vec_rb":
-			options.append(_opt("rb_ok", "Read back", "Descend %s, %s, %s." % [_lvl(clearance.alt_m)[0], Phraseology.heading(vector_hdg), cs], {"correct": true}))
+			options.append(_opt("rb_ok", "Read back", "%s %s, %s, %s." % [_vec_verb.capitalize(), _lvl(clearance.alt_m)[0], Phraseology.heading(vector_hdg), cs], {"correct": true}))
 		"app_clr_rb":
 			options.append(_opt("rb_ok", "Read back", "%s, cleared ILS approach runway %s, %s." % [Phraseology.heading(vector_hdg), arr_end.name, cs], {"correct": true}))
 		"twr_contact":
@@ -324,10 +332,11 @@ func _handle(o: Dictionary) -> void:
 			var elev := float(arr_end.elev)
 			clearance.alt_m = elev + 914.0
 			vector_hdg = _vector_heading()
+			_vec_verb = _alt_verb(clearance.alt_m)
 			var qnh := int(round(float(ac.weather.get("qnh", 1013.0))))
 			var l4 := _lvl(clearance.alt_m)
-			_say("APP", "%s, %s, descend %s QNH %d, turn %s, vectors ILS runway %s." % [cs, station_name("APP"), l4[0], qnh, Phraseology.heading(vector_hdg), arr_end.name],
-				"%s, %s, descend %s, QNH %s, turn %s, vectors I L S %s." % [spoken_cs, station_name("APP"), l4[1], Phraseology.digits(str(qnh)), Phraseology.heading(vector_hdg), Phraseology.runway(arr_end.name)], 2.0, "vec_rb")
+			_say("APP", "%s, %s, %s %s QNH %d, turn %s, vectors ILS runway %s." % [cs, station_name("APP"), _vec_verb, l4[0], qnh, Phraseology.heading(vector_hdg), arr_end.name],
+				"%s, %s, %s %s, QNH %s, turn %s, vectors I L S %s." % [spoken_cs, station_name("APP"), _vec_verb, l4[1], Phraseology.digits(str(qnh)), Phraseology.heading(vector_hdg), Phraseology.runway(arr_end.name)], 2.0, "vec_rb")
 		"checkin_twr":
 			_tower_landing()
 		"checkin_gnd":
@@ -454,11 +463,23 @@ func _tower_departure() -> void:
 	_say("TWR", "%s, %s, runway %s, cleared for takeoff." % [callsign, w[0], dep_end.name], "%s, %s, %s, cleared for take off." % [spoken_cs, w[1], Phraseology.runway(dep_end.name)], 2.0, "to_rb")
 
 
+func _alt_verb(target_m: float) -> String:
+	var cur := ac.fdm.pos.y
+	return "climb" if target_m > cur + 60.0 else ("descend" if target_m < cur - 60.0 else "maintain")
+
+
 func _issue_descent() -> void:
 	station = "CTR"
-	clearance.alt_m = 3658.0
-	_say("CTR", "%s, descend %s, expect ILS runway %s at %s." % [callsign, _lvl(clearance.alt_m)[0], arr_end.name, Airports.get_ap(arr).short],
-		"%s, descend %s, expect I L S %s." % [spoken_cs, _lvl(clearance.alt_m)[1], Phraseology.runway(arr_end.name)], 2.0, "desc_rb")
+	# FL120, or the next thousand feet below us when we are already lower (airborne starts, low
+	# cruise); never below the initial approach altitude, and never a "descent" upwards
+	var cur := ac.fdm.pos.y
+	var below := floorf((cur - 150.0) / 304.8) * 304.8
+	clearance.alt_m = maxf(minf(3658.0, below), float(arr_end.elev) + 914.0)
+	if clearance.alt_m > cur - 60.0:
+		clearance.alt_m = snappedf(cur, 30.48)
+	_desc_verb = _alt_verb(clearance.alt_m)
+	_say("CTR", "%s, %s %s, expect ILS runway %s at %s." % [callsign, _desc_verb, _lvl(clearance.alt_m)[0], arr_end.name, Airports.get_ap(arr).short],
+		"%s, %s %s, expect I L S %s." % [spoken_cs, _desc_verb, _lvl(clearance.alt_m)[1], Phraseology.runway(arr_end.name)], 2.0, "desc_rb")
 
 
 func _tower_landing() -> void:
@@ -593,11 +614,14 @@ func _auto_progress(delta: float) -> void:
 
 
 # ---------------------------------------------------------------- deviations
-func _deviate(kind: String, severity: float, text: String) -> void:
+func _deviate(kind: String, severity: float, text: String) -> bool:
+	## Reports a deviation at most once a minute per kind; true when it was reported (and the
+	## controller should say something about it).
 	if float(_dev_cool.get(kind, -1000.0)) > _t - 60.0:
-		return
+		return false
 	_dev_cool[kind] = _t
 	deviation.emit(kind, severity, text)
+	return true
 
 
 func _monitor(delta: float) -> void:
@@ -608,25 +632,31 @@ func _monitor(delta: float) -> void:
 	if ac.fdm.on_ground:
 		var gs: float = ac.fdm.ground_speed()
 		if gs > 3.0 and not clearance.taxi and not clearance.pushback and not vfr and state in ["delivery", "clr_rb", "ground_push", "push_rb"]:
-			_deviate("taxi", 0.3, "Taxiing without clearance")
-			_say("GND", "%s, stop immediately, you are not cleared to taxi." % callsign, "%s, stop immediately, you are not cleared to taxi." % spoken_cs, 0.6)
+			if _deviate("taxi", 0.3, "Taxiing without clearance"):
+				_say("GND", "%s, stop immediately, you are not cleared to taxi." % callsign, "%s, stop immediately, you are not cleared to taxi." % spoken_cs, 0.6)
 		if on_rwy and gs > 2.0 and not (clearance.lineup or clearance.takeoff or clearance.landing) and not state in ["landing", "handoff", "vacated", "taxi_in", "taxi_in_rb"]:
-			_deviate("incursion", 0.8, "Runway incursion: entered runway %s without clearance" % dep_end.name)
-			_say("TWR", "%s, you entered the runway without clearance, hold position! Pilot deviation, report on arrival." % callsign, "%s, hold position! You entered the runway without clearance." % spoken_cs, 0.5)
+			if _deviate("incursion", 0.8, "Runway incursion: entered runway %s without clearance" % dep_end.name):
+				_say("TWR", "%s, you entered the runway without clearance, hold position! Pilot deviation, report on arrival." % callsign, "%s, hold position! You entered the runway without clearance." % spoken_cs, 0.5)
 		if gs > 40.0 and not clearance.takeoff and on_rwy and state != "landing" and not ac.get_meta("rejecting", false):
-			_deviate("takeoff_noclr", 1.0, "Takeoff roll without takeoff clearance")
-			_say("TWR", "%s, STOP, cancel takeoff, I say again, cancel takeoff!" % callsign, "%s, stop immediately, cancel take off, I say again, cancel take off!" % spoken_cs, 0.3)
+			if _deviate("takeoff_noclr", 1.0, "Takeoff roll without takeoff clearance"):
+				_say("TWR", "%s, STOP, cancel takeoff, I say again, cancel takeoff!" % callsign, "%s, stop immediately, cancel take off, I say again, cancel take off!" % spoken_cs, 0.3)
 	else:
-		if clearance.alt_m > 0.0 and state in ["climbing", "cruise", "descending", "vectors", "established"]:
+		if absf(clearance.alt_m - _alt_clr_last) > 1.0:
+			_alt_clr_last = clearance.alt_m
+			_alt_clr_t = _t
+		# once cleared for the approach the glideslope, not the last level, governs the descent
+		var on_approach: bool = clearance.approach and float(n.vs) < 0.5
+		if clearance.alt_m > 0.0 and _t - _alt_clr_t > 75.0 and not on_approach and state in ["climbing", "cruise", "descending", "vectors", "established"]:
 			var bust = float(n.alt) - clearance.alt_m
 			var heading_for = (float(n.vs) > 0.5 and bust < 0.0) or (float(n.vs) < -0.5 and bust > 0.0)
 			if absf(bust) > 92.0 and not heading_for and absf(bust) < 4000.0 and (state != "climbing" or bust > 0.0) and (state != "descending" or bust < 0.0):
 				var sev := 0.25 if absf(bust) < 300.0 else 0.6
-				_deviate("altitude", sev, "Altitude deviation of %d ft from the cleared level" % int(absf(bust) / U.FT))
-				_say(station, "%s, check altitude, you were cleared %s." % [callsign, _lvl(clearance.alt_m)[0]], "%s, check altitude, cleared %s." % [spoken_cs, _lvl(clearance.alt_m)[1]], 0.8)
-		if float(n.alt) < 3050.0 and float(n.ias_kt) > 262.0 and ac.ra > 300.0:
-			_deviate("speed", 0.15, "Speed above 250 kt below 10,000 ft")
-			_say(station, "%s, reduce speed two five zero knots." % callsign, "%s, reduce speed two five zero knots." % spoken_cs, 0.8)
+				if _deviate("altitude", sev, "Altitude deviation of %d ft from the cleared level" % int(absf(bust) / U.FT)):
+					_say(station, "%s, check altitude, you were cleared %s." % [callsign, _lvl(clearance.alt_m)[0]], "%s, check altitude, cleared %s." % [spoken_cs, _lvl(clearance.alt_m)[1]], 0.8)
+		_spd_t = _spd_t + delta if float(n.alt) < 3050.0 and float(n.ias_kt) > 262.0 and ac.ra > 300.0 else 0.0
+		if _spd_t > 15.0:
+			if _deviate("speed", 0.15, "Speed above 250 kt below 10,000 ft"):
+				_say(station, "%s, reduce speed two five zero knots." % callsign, "%s, reduce speed two five zero knots." % spoken_cs, 0.8)
 		if ac.ra < 15.0 and not clearance.landing and n.vs < -1.0 and U.dist2d(n.x, n.z, arr_end.thr_x, arr_end.thr_z) < 2500.0 and state in ["handoff", "continue_app", "twr_contact", "established", "vectors"]:
 			_deviate("land_noclr", 0.7, "Landed without landing clearance")
 
@@ -648,6 +678,15 @@ func _on_active_runway(n: Dictionary) -> bool:
 const OTHER_CALLS := ["Coastal", "Lumen", "Northwind", "Westmark", "Apex", "Skyfall", "Horizon"]
 
 
+func traffic_call(icao: String, cs: String, atc_text: String, reply: String) -> void:
+	## A tower exchange with AI traffic, heard when we are on that tower's frequency.
+	var st := "TWR" if icao == dep else "ATWR"
+	if station != st:
+		return
+	_emit(st, "atc", atc_text, atc_text)
+	get_tree().create_timer(_rng.randf_range(1.5, 2.5)).timeout.connect(func(): _emit(st, "other", reply, reply, cs))
+
+
 func _chatter(delta: float) -> void:
 	_chatter_t -= delta
 	if _chatter_t > 0.0 or not queue.is_empty() or silence_t < 6.0:
@@ -662,18 +701,31 @@ func _chatter(delta: float) -> void:
 			var sq := "%d%d%d%d" % [_rng.randi_range(1, 6), _rng.randi_range(0, 7), _rng.randi_range(0, 7), _rng.randi_range(0, 7)]
 			lines = [["%s, cleared to %s, climb %s feet, squawk %s." % [cs, dest, 5000, sq], "%s, cleared to %s, climb five thousand feet, squawk %s." % [sp, dest, Phraseology.squawk(sq)]]]
 		"GND", "AGND":
-			lines = [["%s, taxi to holding point runway %s via A." % [cs, dep_end.name], "%s, taxi to holding point %s via alpha." % [sp, Phraseology.runway(dep_end.name)]],
+			var rwy := String((dep_end if station == "GND" else arr_end).name)
+			lines = [["%s, taxi to holding point runway %s via A." % [cs, rwy], "%s, taxi to holding point %s via alpha." % [sp, Phraseology.runway(rwy)]],
 				["%s, pushback approved." % cs, "%s, push back approved." % sp]]
 		"TWR", "ATWR":
 			lines = [["%s, runway %s, cleared to land." % [cs, (dep_end if station == "TWR" else arr_end).name], "%s, %s, cleared to land." % [sp, Phraseology.runway(String((dep_end if station == "TWR" else arr_end).name))]],
 				["%s, line up and wait." % cs, "%s, line up and wait." % sp]]
+		"APP":
+			var alt_ft := _rng.randi_range(3, 7) * 1000
+			var hdg := _rng.randi_range(1, 36) * 10
+			var spd = [180, 190, 210, 220][_rng.randi() % 4]
+			lines = [["%s, descend %d feet." % [cs, alt_ft], "%s, descend %s." % [sp, Phraseology.altitude_ft(alt_ft)]],
+				["%s, reduce speed %d knots." % [cs, spd], "%s, reduce speed %s knots." % [sp, Phraseology.digits(str(spd))]],
+				["%s, turn left heading %03d, vectors ILS." % [cs, hdg], "%s, turn left %s, vectors I L S." % [sp, Phraseology.heading(hdg)]],
+				["%s, contact Tower 118.7." % cs, "%s, contact tower one one eight decimal seven." % sp]]
 		_:
-			var fl := _rng.randi_range(12, 38) * 10
-			lines = [["%s, climb FL%03d." % [cs, fl], "%s, climb %s." % [sp, Phraseology.flight_level(fl)]],
-				["%s, contact Calderra Control 128.9." % cs, "%s, contact Calderra Control one two eight decimal niner." % sp],
-				["%s, turn left heading %03d, traffic." % [cs, _rng.randi_range(1, 36) * 10], "%s, turn left %s." % [sp, Phraseology.heading(_rng.randi_range(1, 36) * 10)]]]
+			var climbing := station == "DEP" or _rng.randf() < 0.5
+			var fl := _rng.randi_range(12, 24) * 10 if station == "DEP" else _rng.randi_range(18, 39) * 10
+			var hdg2 := _rng.randi_range(1, 36) * 10
+			lines = [["%s, %s FL%03d." % [cs, "climb" if climbing else "descend", fl], "%s, %s %s." % [sp, "climb" if climbing else "descend", Phraseology.flight_level(fl)]],
+				["%s, turn right heading %03d, traffic." % [cs, hdg2], "%s, turn right %s, traffic." % [sp, Phraseology.heading(hdg2)]]]
+			if station == "DEP":
+				lines.append(["%s, contact Calderra Control 128.9." % cs, "%s, contact Calderra Control one two eight decimal niner." % sp])
 	var l: Array = lines[_rng.randi() % lines.size()]
 	_emit(station, "atc", String(l[0]), String(l[1]))
 	# the other pilot reads back
-	var rb := String(l[0]).replace(cs + ", ", "") + " " + cs
-	get_tree().create_timer(_rng.randf_range(1.8, 3.2)).timeout.connect(func(): _emit(station, "other", rb, rb))
+	var rb := String(l[0]).replace(cs + ", ", "").trim_suffix(".") + ", " + cs + "."
+	var rb_spoken := String(l[1]).replace(sp + ", ", "").trim_suffix(".") + ", " + sp + "."
+	get_tree().create_timer(_rng.randf_range(1.8, 3.2)).timeout.connect(func(): _emit(station, "other", rb.left(1).to_upper() + rb.substr(1), rb_spoken, cs))

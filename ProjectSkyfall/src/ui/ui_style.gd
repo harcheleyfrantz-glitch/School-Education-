@@ -116,9 +116,17 @@ static func button(text: String, cb: Callable, min_w: float = 0.0, accent: Color
 	if accent.a > 0.0:
 		b.add_theme_stylebox_override("normal", box(Color(accent.r * 0.35, accent.g * 0.35, accent.b * 0.35, 0.95), 9, Color(accent, 0.6), 1, 12))
 		b.add_theme_stylebox_override("hover", box(Color(accent.r * 0.5, accent.g * 0.5, accent.b * 0.5, 0.98), 9, accent, 1, 12))
+	b.pressed.connect(_click_sound)
 	if cb.is_valid():
 		b.pressed.connect(cb)
 	return b
+
+
+static func _click_sound() -> void:
+	var tree := Engine.get_main_loop() as SceneTree
+	var audio := tree.root.get_node_or_null("Audio") if tree else null
+	if audio:
+		audio.call("click")
 
 
 static func panel(min_size: Vector2 = Vector2.ZERO, col: Color = PANEL) -> PanelContainer:

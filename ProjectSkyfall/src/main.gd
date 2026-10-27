@@ -50,6 +50,7 @@ func show_screen(screen_name: String, params: Dictionary) -> void:
 		current = rv
 		return
 	_free_session()
+	Audio.music(screen_name in MENU_SCREENS and bool(Game.settings.get("menu_music", true)))
 	if screen_name in MENU_SCREENS and backdrop == null:
 		var bs: GDScript = load("res://src/ui/screens/menu_backdrop.gd")
 		backdrop = bs.new()

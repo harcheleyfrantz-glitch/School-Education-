@@ -19,6 +19,7 @@ var pattern_built := false
 var allow_autoland := true
 var takeoff_flaps := 1
 var go_around_count := 0
+var cleared_alt := -1.0           # latest ATC altitude clearance (m), -1 when no controller
 var _faf_leg := 99
 
 
@@ -146,7 +147,8 @@ func update(dt: float) -> void:
 			var pos := Vector2(n.x, n.z)
 			var dtg_est := _plan_length(_approach_plan(pos, n.alt), pos)
 			var route_done := not route.is_empty() and ac.ap.lat_mode != "LNAV" and t_phase > 5.0
-			if n.alt > _path_alt(dtg_est) - 60.0 or route_done:
+			var cleared_down: bool = cleared_alt > 0.0 and cleared_alt < float(n.alt) - 150.0
+			if n.alt > _path_alt(dtg_est) - 60.0 or route_done or cleared_down:
 				_set_phase("descent")
 				ac.ap.alt_sel = _app_alt()
 				ac.ap.use_mach = false
@@ -387,6 +389,8 @@ func _vnav_descent(n: Dictionary, dtg: float, dt: float) -> void:
 	var vs := -float(n.gs) * gamma - clampf(err * 0.02, -4.0, 6.0)
 	var max_rate := 15.0 if ac.spec.category != "trainer" else 4.0
 	ac.ap.alt_sel = _app_alt()
+	if cleared_alt > ac.ap.alt_sel and cleared_alt < float(n.alt) + 100.0:
+		ac.ap.alt_sel = cleared_alt     # never below the level ATC has cleared us to
 	if float(n.alt) - ac.ap.alt_sel < 30.0:
 		if ac.ap.vert_mode == "VS":
 			ac.ap.set_vert("ALT")

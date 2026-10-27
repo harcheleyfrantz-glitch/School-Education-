@@ -154,6 +154,29 @@ static func consequences(res: Dictionary) -> Dictionary:
 	var pilot_share := float(inv.get("pilot_share", 0.0))
 	var negligent := bool(inv.get("negligent", false))
 	var msgs: Array = out.messages
+	if String(res.get("mode", "pilot")) == "passenger":
+		# a passenger answers for nothing: only what happened to them
+		if outcome in ["crashed", "ditched"]:
+			match int(af.get("player_injury", 0)):
+				4:
+					out.dead = true
+					msgs.append("You did not survive. %d of the %d people on board lost their lives." % [fatal, int(counts.get("aboard", 0))])
+				3:
+					out.medical_days = 270
+					msgs.append("You were critically injured and face months in hospital.")
+				2:
+					out.medical_days = 90
+					msgs.append("You were seriously injured and will need weeks to recover.")
+				1:
+					out.medical_days = 14
+					msgs.append("You walked away with minor injuries.")
+				_:
+					msgs.append("You escaped without a scratch.")
+			if fatal > 0 and not out.dead:
+				msgs.append("%d people lost their lives." % fatal)
+			if not inv.is_empty():
+				msgs.append("Investigators attributed %d%% of the causal factors to the flight crew." % int(round(pilot_share * 100.0)))
+		return out
 	match outcome:
 		"landed", "diverted":
 			for inc in res.get("incidents", []):
@@ -227,6 +250,15 @@ static func consequences(res: Dictionary) -> Dictionary:
 			if fatal > 0:
 				out.fine = 0.0
 				msgs.append("%d people lost their lives." % fatal)
+			if out.dead:
+				# nothing more can be done to the pilot: what remains is the record
+				msgs.clear()
+				out.license = ""
+				out.employment = "deceased"
+				out.suspension_days = 0
+				out.criminal = false
+				msgs.append("You did not survive the accident. %d of the %d people on board lost their lives." % [fatal, int(counts.get("aboard", 0))])
+				msgs.append("Investigators attributed %d%% of the causal factors to the flight crew." % int(round(pilot_share * 100.0)))
 		"abandoned":
 			out.reputation -= 1.0
 	return out
@@ -239,6 +271,21 @@ static func apply_result(res: Dictionary) -> Dictionary:
 	if Game.player.is_empty():
 		return cons
 	var p: Dictionary = Game.player
+	if String(res.get("mode", "pilot")) == "passenger":
+		# riding along: only injuries (and death) reach the character
+		if int(cons.medical_days) > 0:
+			p.recovery_until = WorldSim.clock + float(cons.medical_days) * 86400.0
+			p.injury = "critical" if int(cons.medical_days) > 200 else ("serious" if int(cons.medical_days) > 60 else "minor")
+		if String(res.get("outcome", "")) in ["landed", "diverted"]:
+			p.location = String(res.get("arr", p.location))
+		if News.has_method("on_flight_result"):
+			News.call("on_flight_result", res, cons)
+		if bool(cons.dead):
+			Game.retire_character("deceased", {"flight": res.get("flight_id", ""), "place": res.get("aftermath", {}).get("place", ""),
+				"cause": res.get("investigation", {}).get("probable_cause", ""), "as_passenger": true})
+		else:
+			Game.save_game()
+		return cons
 	var hours := float(res.get("hours", 0.0))
 	var type_id := String(res.get("type", ""))
 	p.hours = float(p.hours) + hours

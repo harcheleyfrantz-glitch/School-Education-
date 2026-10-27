@@ -101,6 +101,9 @@ func apply_settings() -> void:
 func _apply_audio() -> void:
 	var master := AudioServer.get_bus_index("Master")
 	AudioServer.set_bus_volume_db(master, linear_to_db(maxf(float(settings.master_volume), 0.0001)))
+	var audio := get_node_or_null("/root/Audio")
+	if audio:
+		audio.call("apply_volumes")
 
 
 func set_setting(key: String, value: Variant) -> void:

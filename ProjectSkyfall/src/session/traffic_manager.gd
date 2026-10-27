@@ -268,7 +268,8 @@ func _update_arrival(item: Dictionary, dt: float) -> void:
 			# runway blocked by the player close in: go around
 			if float(item.dist) < 3500.0 and float(item.dist) > 1500.0 and _player_on_runway(String(item.icao), end):
 				item.phase = "go_around"
-				_atc_chatter("%s, going around." % item.callsign)
+				_atc_call(String(item.icao), String(item.callsign), "%s, go around, I say again, go around, runway occupied." % item.callsign,
+					"Going around, %s." % item.callsign)
 			if float(item.dist) < 15.0 / tan(deg_to_rad(3.0)) - 300.0:
 				item.phase = "flare"
 		"flare":
@@ -411,7 +412,8 @@ func _update_departure(item: Dictionary, dt: float) -> void:
 			if float(item.t) > 20.0 and not _player_on_runway(icao, end) and not arrival_within(icao, 70.0):
 				item.phase = "lineup"
 				item.t = 0.0
-				_atc_chatter("%s, runway %s, cleared for takeoff." % [item.callsign, end.name])
+				_atc_call(icao, String(item.callsign), "%s, runway %s, cleared for takeoff." % [item.callsign, end.name],
+					"Cleared for takeoff runway %s, %s." % [end.name, item.callsign])
 				var thr := Vector2(float(end.thr_x), float(end.thr_z)) - Vector2(float(ap.x), float(ap.z))
 				var dir := Vector2(sin(deg_to_rad(float(end.hdg))), -cos(deg_to_rad(float(end.hdg))))
 				item.pts = [thr + dir * 80.0, thr + dir * 140.0]
@@ -462,10 +464,10 @@ func _retire(item: Dictionary) -> void:
 		airborne.pop_front()
 
 
-func _atc_chatter(text: String) -> void:
+func _atc_call(icao: String, cs: String, atc_text: String, reply: String) -> void:
 	var atc: Node = session.get("atc")
-	if atc and atc.has_signal("transmission"):
-		atc.emit_signal("transmission", "TWR", "ATC", text)
+	if atc and atc.has_method("traffic_call"):
+		atc.call("traffic_call", icao, cs, atc_text, reply)
 
 
 # ================================================================== queries

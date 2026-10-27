@@ -53,6 +53,43 @@ static func ambient(p: Dictionary, ctx: Dictionary) -> String:
 	return "Hello."
 
 
+## What someone says about the trip once the aircraft is on blocks (shown in the passenger debrief).
+static func review(p: Dictionary, ctx: Dictionary) -> String:
+	var r := _r(p, "review")
+	var trait_ := String(p.get("trait", "calm"))
+	var vs := float(ctx.get("landing_fpm", 200.0))
+	var late := float(ctx.get("late_min", 0.0))
+	var bumps := int(ctx.get("bumps", 0))
+	var ga := int(ctx.get("go_arounds", 0))
+	var city := String(ctx.get("arr_city", "home"))
+	if vs > 650.0:
+		return U.pick(r, ["That landing loosened a few fillings.", "I think we bounced. Did we bounce?", "I've had smoother bus rides.",
+			"My coffee is now on the ceiling."]) if trait_ != "anxious" else "I'm never flying again. Never."
+	if ga > 0:
+		return U.pick(r, ["When the engines roared on the way down my heart stopped - but the captain explained it well.",
+			"A go-around! I've read about those. Honestly, glad they were careful.", "Second time lucky, I suppose."])
+	if bumps > 1 and trait_ in ["anxious", "grumpy"]:
+		return U.pick(r, ["Those bumps... I gripped the armrest the whole way.", "Couldn't they have flown around the weather?"])
+	if late > 20.0:
+		return U.pick(r, ["%d minutes late. I'm going to miss my connection." % int(late), "Late again. Every single time.",
+			"At least they kept us informed."]) if trait_ != "cheerful" else "Late, but who cares - we're in %s!" % city
+	if vs < 180.0:
+		return U.pick(r, ["Didn't even feel the touchdown. Butter.", "Best landing I've had in years!", "Was that it? Are we down?",
+			"Somebody give that pilot a raise."])
+	match trait_:
+		"grumpy":
+			return U.pick(r, ["Fine. It was fine. Can we get off now?", "The seat in front reclined into my lap the whole way."])
+		"chatty":
+			return U.pick(r, ["Lovely crew, lovely flight. I made three new friends!", "The view over the coast was incredible - did you see it?"])
+		"cheerful":
+			return U.pick(r, ["What a great flight. Hello, %s!" % city, "Ten out of ten, would fly again."])
+		"anxious":
+			return U.pick(r, ["Made it. I'm proud of myself.", "That wasn't so bad. Don't tell anyone I said that."])
+		"curious":
+			return U.pick(r, ["I timed the takeoff roll: thirty-one seconds.", "I could hear the flaps going out on approach. Fascinating."])
+	return U.pick(r, ["A good flight, thanks.", "Smooth enough. Glad to be here.", "Right on schedule.", "Nothing to complain about."])
+
+
 ## The player's choice of topic -> the person's answer.
 static func answer(p: Dictionary, topic: String, ctx: Dictionary) -> String:
 	var r := _r(p, "ans" + topic)

@@ -185,8 +185,16 @@ func _walk(p: Dictionary, delta: float, others_in_aisle: Array) -> bool:
 		var rel: Vector3 = o.pos - p.pos
 		rel.y = 0.0
 		if rel.length() < AISLE_GAP and rel.dot(dir) > 0.15:
+			# two people meeting head-on squeeze past each other, and anyone held up for a while
+			# pushes through - otherwise opposing streams in an evacuation lock the aisle solid
+			var odir: Vector3 = o.get("dir", Vector3.ZERO)
+			if odir.dot(dir) < -0.3 or float(p.get("blocked_t", 0.0)) > (1.5 if p.state == "evac" else 4.0):
+				continue
+			p.blocked_t = float(p.get("blocked_t", 0.0)) + delta
 			p.pose = HumanMesh.POSES["stand"]
 			return false
+	p.blocked_t = 0.0
+	p.dir = dir
 	if dist < speed * delta + 0.02:
 		p.pos = target
 		p.path.remove_at(0)

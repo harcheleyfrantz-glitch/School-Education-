@@ -41,6 +41,8 @@ func show_result(res: Dictionary) -> void:
 		_header(v, outcome)
 	if crashed:
 		_accident(v)
+	elif String(res.get("mode", "pilot")) == "passenger":
+		_journey(v)
 	else:
 		_scores(v)
 	_consequences(v)
@@ -62,12 +64,15 @@ func _header(v: VBoxContainer, outcome: String) -> void:
 	g.custom_minimum_size = Vector2(90, 0)
 	h.add_child(g)
 	var c := UIStyle.vbox(4)
-	var titles := {"landed": "Flight complete", "diverted": "Diverted landing", "crashed": "Accident", "ditched": "Ditching", "abandoned": "Flight abandoned"}
+	var titles := {"landed": "Welcome to %s" % Airports.get_ap(String(result.get("arr", ""))).get("city", "your destination") if String(result.get("mode", "")) == "passenger" else "Flight complete", "diverted": "Diverted landing", "crashed": "Accident", "ditched": "Ditching", "abandoned": "Flight abandoned"}
 	c.add_child(UIStyle.label(String(titles.get(outcome, outcome.capitalize())), 28, UIStyle.TEXT, true))
 	c.add_child(UIStyle.label("%s · %s %s · %s → %s" % [result.get("callsign", ""), AircraftTypes.get_type(String(result.get("type", "s320"))).name,
 		result.get("reg", ""), result.get("dep", ""), result.get("arr", "")], 16, UIStyle.DIM))
 	if not outcome in ["crashed", "ditched", "abandoned"]:
-		c.add_child(UIStyle.label("Score %d / 100   ·   %.1f block hours" % [int(result.get("score", 0.0)), float(result.get("hours", 0.0))], 16, UIStyle.ACCENT))
+		if String(result.get("mode", "pilot")) == "passenger":
+			c.add_child(UIStyle.label("Trip rating %d / 100   ·   %s in the air" % [int(result.get("score", 0.0)), U.fmt_duration(float(result.get("hours", 0.0)) * 3600.0)], 16, UIStyle.ACCENT))
+		else:
+			c.add_child(UIStyle.label("Score %d / 100   ·   %.1f block hours" % [int(result.get("score", 0.0)), float(result.get("hours", 0.0))], 16, UIStyle.ACCENT))
 	h.add_child(c)
 	v.add_child(h)
 
@@ -79,7 +84,7 @@ func _scores(v: VBoxContainer) -> void:
 	grid.add_theme_constant_override("h_separation", 18)
 	grid.add_theme_constant_override("v_separation", 8)
 	for k in ["landing", "approach", "procedures", "atc", "comfort", "efficiency", "safety"]:
-		var l := UIStyle.label(String(k).capitalize(), 15, UIStyle.TEXT)
+		var l := UIStyle.label("ATC" if k == "atc" else String(k).capitalize(), 15, UIStyle.TEXT)
 		l.custom_minimum_size = Vector2(130, 0)
 		grid.add_child(l)
 		var pb := ProgressBar.new()
@@ -103,6 +108,36 @@ func _scores(v: VBoxContainer) -> void:
 	var pay := float(result.get("pay", 0.0)) + float(result.get("bonus", 0.0))
 	if pay != 0.0:
 		v.add_child(UIStyle.label("Pay %s%s" % [U.fmt_money(pay), "  (incl. bonus %s)" % U.fmt_money(float(result.bonus)) if float(result.get("bonus", 0.0)) > 0.0 else ""], 16, UIStyle.GREEN))
+
+
+func _journey(v: VBoxContainer) -> void:
+	## Passenger mode: the trip as experienced from the seat.
+	var rt: Dictionary = result.get("ratings", {})
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 18)
+	grid.add_theme_constant_override("v_separation", 8)
+	for k in ["smoothness", "landing", "punctuality", "cabin"]:
+		var l := UIStyle.label({"smoothness": "Smoothness", "landing": "Landing", "punctuality": "Punctuality", "cabin": "Cabin mood"}[k], 15, UIStyle.TEXT)
+		l.custom_minimum_size = Vector2(130, 0)
+		grid.add_child(l)
+		var pb := ProgressBar.new()
+		pb.value = float(rt.get(k, 0.0))
+		pb.custom_minimum_size = Vector2(520, 16)
+		var col := UIStyle.GREEN if pb.value >= 80.0 else (UIStyle.AMBER if pb.value >= 55.0 else UIStyle.RED)
+		pb.add_theme_stylebox_override("fill", UIStyle.box(col, 6, Color(0, 0, 0, 0), 0, 0))
+		grid.add_child(pb)
+	v.add_child(grid)
+	var txt := ""
+	for n in result.get("notes", []):
+		txt += "• %s\n" % n
+	if txt != "":
+		v.add_child(UIStyle.rich(txt, 15))
+	var reviews: Array = result.get("reviews", [])
+	if not reviews.is_empty():
+		v.add_child(UIStyle.label("Overheard in the aisle", 18, UIStyle.ACCENT, true))
+		for rv in reviews:
+			v.add_child(UIStyle.rich("[i]“%s”[/i]  [color=#9fb1c2]— %s, %d, %s[/color]" % [rv.text, rv.name, int(rv.age), rv.home], 15))
 
 
 func _accident(v: VBoxContainer) -> void:
@@ -166,12 +201,16 @@ func _memorial(v: VBoxContainer) -> void:
 	var name := String(Game.player.get("name", "The pilot")) if Game.has_character() else "The pilot"
 	v.add_child(UIStyle.label("In memoriam", 30, UIStyle.TEXT, true))
 	var hrs := float(Game.player.get("hours", 0.0)) if Game.has_character() else 0.0
-	v.add_child(UIStyle.rich("[i]%s did not survive the accident at %s.\n%d flight hours, %d flights.[/i]\n\nThis character's story has ended. Their record is kept in the archive, and the world will remember what happened." % [
-		name, String(result.get("aftermath", {}).get("place", "")), int(hrs), int(Game.player.get("flights", 0)) if Game.has_character() else 0], 16))
+	var place := String(result.get("aftermath", {}).get("place", ""))
+	var life := "%d flight hours, %d flights." % [int(hrs), int(Game.player.get("flights", 0)) if Game.has_character() else 0]
+	if String(result.get("mode", "pilot")) == "passenger":
+		life = "A passenger on flight %s from %s." % [String(result.get("callsign", "")), Airports.get_ap(String(result.get("dep", ""))).get("city", "")]
+	v.add_child(UIStyle.rich("[i]%s did not survive the accident %s.\n%s[/i]\n\nThis character's story has ended. Their record is kept in the archive, and the world will remember what happened." % [
+		name, place, life], 16))
 
 
 func _continue() -> void:
-	if Game.has_character() and String(result.get("mode", "pilot")) == "pilot" and not bool(result.get("free_flight", false)):
+	if Game.has_character() and (String(result.get("mode", "pilot")) == "passenger" or not bool(result.get("free_flight", false))):
 		CareerRules.apply_result(result)
 	elif News.has_method("on_flight_result"):
 		News.call("on_flight_result", result, cons)

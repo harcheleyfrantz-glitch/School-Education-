@@ -410,6 +410,10 @@ func _setup_camera_and_hud() -> void:
 	layer.add_child(hud)
 	hud.call("setup", self)
 	_update_interior_visibility()
+	Audio.music(false)
+	Audio.attach(ac, rig)
+	if atc:
+		atc.transmission.connect(func(_st, _who, _t): Audio.squelch())
 
 
 func _setup_passenger_mode() -> void:
@@ -797,7 +801,7 @@ func start_pushback() -> void:
 	if ac.model:
 		ac.model.set_door("L1", 0.0)
 	ground_ops.release_for_pushback()
-	toast.emit("Ground: tug connecting. Release the parking brake when cleared.", "info")
+	toast.emit("The doors are closed and armed. A tug is connecting for pushback." if mode == "passenger" else "Ground: tug connecting. Release the parking brake when cleared.", "info")
 	ground_ops.call_tug(func(): _begin_push(sd))
 
 
@@ -815,7 +819,7 @@ func _begin_push(sd: Dictionary) -> void:
 	ac.kinematic = true
 	ac.sys.parking_brake = false
 	recorder.mark("pushback", "Pushback started")
-	toast.emit("Pushback in progress - start the engines.", "info")
+	toast.emit("We're moving backwards - pushback. The engines will spool up in a moment." if mode == "passenger" else "Pushback in progress - start the engines.", "info")
 
 
 func _update_pushback(delta: float) -> void:
@@ -842,7 +846,7 @@ func _update_pushback(delta: float) -> void:
 		ac.sys.parking_brake = true
 		ground_ops.disconnect_tug()
 		recorder.mark("pushback", "Pushback complete")
-		toast.emit("Pushback complete. Tug disconnected - wait for the hand signal, then request taxi.", "info")
+		toast.emit("The tug pulls away and the ground crew waves us off." if mode == "passenger" else "Pushback complete. Tug disconnected - wait for the hand signal, then request taxi.", "info")
 		_build_taxi_ribbon()
 
 
@@ -1011,6 +1015,7 @@ func open_pa() -> void:
 
 func pa_announcement(kind: String) -> void:
 	recorder.voice("PA", kind)
+	Audio.play("chime", -8.0 if kind in ["welcome", "crew_seats", "turbulence"] else -2.0)
 	var lines := {"welcome": "Good %s ladies and gentlemen, welcome aboard." % ("evening" if view.night > 0.5 else "morning"),
 		"turbulence": "We're expecting some turbulence. Please return to your seats and fasten your seat belts.",
 		"crew_seats": "Cabin crew, please prepare the cabin for landing.", "brace": "BRACE, BRACE, BRACE!",
@@ -1146,6 +1151,7 @@ func _on_crash(info: Dictionary) -> void:
 func _update_ai(delta: float) -> void:
 	if ai == null:
 		return
+	ai.cleared_alt = atc.clearance.alt_m if atc and phase in ["cruise", "descent", "approach"] else -1.0
 	if phase == "preflight":
 		var boarded := people == null or people.state == "seated"
 		if boarded and _phase_t > 6.0 and not _tug_requested:
@@ -1185,6 +1191,75 @@ func _update_ai(delta: float) -> void:
 
 
 # ================================================================== end of flight
+func _exit_tree() -> void:
+	Audio.detach()
+
+
+func _passenger_debrief(res: Dictionary, late: float) -> void:
+	## Rates the trip from the seat: how it felt, how it ended, and what the people around said.
+	var vs := absf(float(touchdown.get("vs_fpm", 0.0)))
+	var g_hi := float(recorder.max_nz)
+	var g_lo := float(recorder.min_nz)
+	var bumps := events.history.filter(func(e): return String(e.id) in ["turbulence", "storm_route", "windshear", "icing"]).size()
+	var smooth := clampf(100.0 - maxf(g_hi - 1.25, 0.0) * 120.0 - maxf(0.75 - g_lo, 0.0) * 120.0 - bumps * 8.0, 5.0, 100.0)
+	var landing := clampf(100.0 - maxf(vs - 120.0, 0.0) * 0.12, 5.0, 100.0) if vs > 0.0 else 50.0
+	var punctual := clampf(100.0 - maxf(late, 0.0) * 1.5, 0.0, 100.0)
+	var cabin_mood := clampf((people.mood if people else 1.0) * 100.0, 0.0, 100.0)
+	res.ratings = {"smoothness": smooth, "landing": landing, "punctuality": punctual, "cabin": cabin_mood}
+	res.score = smooth * 0.3 + landing * 0.3 + punctual * 0.2 + cabin_mood * 0.2
+	res.grade = "A" if res.score >= 88.0 else ("B" if res.score >= 75.0 else ("C" if res.score >= 60.0 else "D"))
+	var notes := []
+	if vs > 0.0:
+		if vs < 180.0:
+			notes.append("A feather-light touchdown - a few people actually applauded.")
+		elif vs < 420.0:
+			notes.append("A normal, positive landing.")
+		elif vs < 650.0:
+			notes.append("A firm landing that rattled the overhead bins.")
+		else:
+			notes.append("A hard landing. Several passengers gasped and a few bags fell from the bins.")
+	if bumps > 0:
+		notes.append("The flight was bumpy at times; the seat-belt sign came on %s." % ("once" if bumps == 1 else "%d times" % bumps))
+	elif smooth > 90.0:
+		notes.append("Smooth air all the way - drinks stayed in their cups.")
+	if go_arounds > 0:
+		notes.append("The crew went around %s before landing and explained it over the PA." % ("once" if go_arounds == 1 else "%d times" % go_arounds))
+	if String(res.get("outcome", "")) == "diverted" or arr_icao != String(params.get("arr", arr_icao)):
+		notes.append("The flight diverted to %s instead of %s." % [Airports.get_ap(arr_icao).name, Airports.get_ap(String(params.get("arr", arr_icao))).name])
+	if late <= 5.0:
+		notes.append("On time%s." % (" - even a few minutes early" if late < -3.0 else ""))
+	else:
+		notes.append("%d minutes late." % int(late))
+	res.notes = notes
+	var reviews := []
+	if people and not people.pax.is_empty():
+		var ctx := {"landing_fpm": vs, "late_min": late, "bumps": bumps, "go_arounds": go_arounds, "smooth": smooth,
+			"arr_city": Airports.get_ap(arr_icao).city}
+		var pool: Array = people.pax.filter(func(p): return String(p.get("state", "")) != "deceased")
+		var picked := {}
+		var said := {}
+		for i in mini(12, pool.size()):
+			if reviews.size() >= 4:
+				break
+			var p: Dictionary = pool[_rng.randi() % pool.size()]
+			var line := Dialogue.review(p, ctx)
+			if picked.has(p.get("id", 0)) or said.has(line):
+				continue
+			picked[p.get("id", 0)] = true
+			said[line] = true
+			reviews.append({"name": "%s %s" % [p.get("first", ""), String(p.get("last", "")).left(1) + "."], "age": int(p.get("age", 30)),
+				"home": String(p.get("home", "")), "text": line})
+	res.reviews = reviews
+
+
+func _captain_name() -> String:
+	## The player when they fly; otherwise the airline's captain for this flight (stable per flight).
+	if mode == "pilot" and Game.has_character():
+		return String(Game.player.get("name", "the captain"))
+	var p := Names.person(U.rng(U.hash_str(flight_id + "captain")), 34, 60)
+	return "%s %s" % [p.first, p.last]
+
+
 func finish_flight(outcome: String) -> void:
 	if ended:
 		return
@@ -1217,7 +1292,8 @@ func finish_flight(outcome: String) -> void:
 		"recorder": recorder.export(), "crash": crash_info, "aftermath": aftermath, "max_g": recorder.max_nz,
 		"weather": ac.weather, "fuel_planned": fuel_planned, "fuel_start": fuel_start, "accepted_defects": accepted_defects,
 		"walkaround": walk_frac, "emergency_declared": emergency != "", "phase": phase, "late_min": late,
-		"free_flight": bool(params.get("free_flight", false)), "aircraft_record": WorldSim.aircraft(ac.reg)}, true)
+		"free_flight": bool(params.get("free_flight", false)), "aircraft_record": WorldSim.aircraft(ac.reg),
+		"captain": _captain_name()}, true)
 	if outcome in ["crashed", "ditched"] or not incidents.is_empty():
 		var inv_in := res.duplicate()
 		inv_in.fatalities = int(aftermath.get("counts", {}).get("fatal", 0))
@@ -1226,6 +1302,8 @@ func finish_flight(outcome: String) -> void:
 		if Game.has_character():
 			inv_in.pilot_type_hours = float(Game.player.get("hours_by_type", {}).get(ac.type_id, 0.0))
 		res.investigation = Investigation.analyse(inv_in)
+	if mode == "passenger" and not outcome in ["crashed", "ditched"]:
+		_passenger_debrief(res, late)
 	WorldSim.sim_running = false
 	WeatherModel.override_preset = ""
 	Engine.time_scale = 1.0

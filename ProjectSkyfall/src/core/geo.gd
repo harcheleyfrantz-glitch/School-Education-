@@ -371,7 +371,7 @@ static func place_name(x: float, z: float) -> String:
 		var brg := U.bearing_deg(c.x, c.z, x, z)
 		var dirs := ["north", "north-east", "east", "south-east", "south", "south-west", "west", "north-west"]
 		var dn: String = dirs[int(round(brg / 45.0)) % 8]
-		var where := "off the coast " if on_water else ""
+		var where := "in the sea " if on_water else ""
 		return "%s%d km %s of %s" % [where, int(round(d / 1000.0)), dn, c.name]
 	if on_water:
 		if x < -60000.0:
