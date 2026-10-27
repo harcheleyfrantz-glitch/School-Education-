@@ -1,0 +1,75 @@
+; Engine configuration file.
+; Project Skyfall - aviation life simulator.
+; Desktop uses Forward+, phones/tablets automatically use the Mobile renderer.
+
+config_version=5
+
+[application]
+
+config/name="Project Skyfall"
+config/description="Aviation life simulator: fly, operate an airline career, and live with the consequences in a persistent simulated world."
+config/version="1.0.0"
+run/main_scene="res://scenes/main.tscn"
+config/features=PackedStringArray("4.4", "Forward Plus")
+boot_splash/bg_color=Color(0.03, 0.05, 0.08, 1)
+boot_splash/show_image=false
+config/icon="res://icon.svg"
+
+[autoload]
+
+Game="*res://src/autoload/game.gd"
+WorldSim="*res://src/autoload/world_sim.gd"
+News="*res://src/autoload/news.gd"
+Audio="*res://src/autoload/audio.gd"
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/size/window_width_override=1600
+window/size/window_height_override=900
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+window/handheld/orientation=4
+window/vsync/vsync_mode=1
+
+[input_devices]
+
+pointing/emulate_mouse_from_touch=true
+sensors/enable_accelerometer=true
+
+[gui]
+
+common/drop_mouse_on_gui_input_disabled=true
+
+[physics]
+
+common/physics_ticks_per_second=60
+common/max_physics_steps_per_frame=6
+3d/default_gravity=9.80665
+
+[rendering]
+
+renderer/rendering_method="forward_plus"
+renderer/rendering_method.mobile="mobile"
+textures/vram_compression/import_etc2_astc=true
+lights_and_shadows/directional_shadow/size=4096
+lights_and_shadows/directional_shadow/size.mobile=2048
+lights_and_shadows/directional_shadow/soft_shadow_filter_quality=2
+lights_and_shadows/directional_shadow/soft_shadow_filter_quality.mobile=0
+environment/defaults/default_clear_color=Color(0.42, 0.55, 0.72, 1)
+anti_aliasing/quality/screen_space_aa=1
+global_illumination/gi/use_half_resolution=true
+reflections/sky_reflections/roughness_layers=7
+reflections/sky_reflections/ggx_samples.mobile=32
+occlusion_culling/use_occlusion_culling=false
+limits/global_shader_variables/buffer_size=65536
+
+[debug]
+
+gdscript/warnings/inference_on_variant=0
+gdscript/warnings/unused_parameter=0
+gdscript/warnings/integer_division=0
+gdscript/warnings/narrowing_conversion=0
+gdscript/warnings/unused_signal=0
+gdscript/warnings/return_value_discarded=0
