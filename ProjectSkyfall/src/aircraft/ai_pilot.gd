@@ -142,81 +142,121 @@ func update(dt: float) -> void:
 				ac.ap.mach_sel = float(spec.mmo) - 0.04
 			else:
 				ac.ap.spd_sel = float(spec.cruise_ias) if n.alt > 3100.0 else minf(float(spec.cruise_ias), 250.0)
-			var dist := _dist_to_arr(n)
-			var need = (n.alt - (float(arr.elev) + 900.0)) / tan(deg_to_rad(2.8)) + 18000.0
+			# top of descent: when the planned descent path through the approach pattern meets us
+			var pos := Vector2(n.x, n.z)
+			var dtg_est := _plan_length(_approach_plan(pos, n.alt), pos)
 			var route_done := not route.is_empty() and ac.ap.lat_mode != "LNAV" and t_phase > 5.0
-			if dist < need or route_done:
+			if n.alt > _path_alt(dtg_est) - 60.0 or route_done:
 				_set_phase("descent")
-				ac.ap.alt_sel = float(arr.elev) + 900.0
+				ac.ap.alt_sel = _app_alt()
 				ac.ap.use_mach = false
 				ac.ap.spd_sel = float(spec.descent_ias)
-				ac.ap.set_vert("FLCH")
-				ac.ap.set_thr("IDLE")
+				ac.ap.set_vert("VS")
+				ac.ap.set_thr("SPD")
 		"descent":
-			if n.alt < 3300.0:
-				ac.ap.spd_sel = minf(float(spec.descent_ias), 250.0)
 			if not pattern_built:
 				_build_approach_route(n)
-			var dist2 := _dist_to_arr(n)
-			if dist2 < 28000.0:
-				ac.ap.spd_sel = minf(ac.ap.spd_sel, 210.0 if spec.category != "trainer" else 90.0)
-			if ac.ap.vert_mode == "ALT" and dist2 < 40000.0:
+			var dtg := ac.ap.distance_to_go(n)
+			var spd := float(spec.descent_ias)
+			if n.alt < 3300.0:
+				spd = minf(spd, 250.0)
+			if dtg < 45000.0:
+				spd = minf(spd, 220.0 if spec.category != "trainer" else 95.0)
+			ac.ap.spd_sel = spd
+			_vnav_descent(n, dtg, dt)
+			if dtg < 32000.0 or (ac.ap.vert_mode == "ALT" and dtg < 40000.0):
 				_set_phase("approach")
 		"approach":
 			_approach_config(n, ias)
-			if ac.ap.lat_mode == "LNAV" and ac.ap.leg >= _faf_leg and not ac.ap.arm_loc:
-				ac.ap.arm_loc = true
-				ac.ap.arm_gs = true
+			if ac.ap.vert_mode == "VS" and not ac.ap.arm_gs:
+				# finish any remaining descent to the approach altitude
+				_vnav_descent(n, ac.ap.distance_to_go(n), dt)
+			else:
+				_speedbrake(n, ias, dt)
+			if (ac.ap.lat_mode == "LNAV" and ac.ap.leg >= _faf_leg) or ac.ap.lat_mode == "LOC":
+				if not ac.ap.arm_loc and ac.ap.lat_mode != "LOC":
+					ac.ap.arm_loc = true
+				if not ac.ap.arm_gs and ac.ap.vert_mode != "GS":
+					ac.ap.arm_gs = true
+			# established on the localizer but high: descend to capture the glideslope from above
+			if ac.ap.lat_mode == "LOC" and ac.ap.vert_mode != "GS" and ac.ap.gs_dev > 0.45 and ac.ap.dist_thr < 24000.0:
+				ac.ap.alt_sel = float(arr.elev) + 60.0
+				var steep := float(n.gs) * tan(deg_to_rad(3.0)) + clampf(ac.ap.gs_dev * 2.5, 1.0, 5.0)
+				ac.ap.vs_sel = -minf(steep, 12.0)
+				ac.ap.set_vert("VS")
 			if ac.ap.lat_mode == "LOC" and ac.ap.vert_mode == "GS":
 				_set_phase("final")
+			elif ac.ap.dist_thr < 2500.0 and ac.ap.lat_mode == "LOC":
+				_callout("Missed approach")
+				_go_around()
+				return
 		"final":
 			_approach_config(n, ias)
+			_speedbrake(n, ias, dt)
 			if agl < 300.0 and not flown_callouts.has("1000"):
 				_callout("One thousand")
 				flown_callouts["1000"] = true
-			# stabilised-approach gate between 1000 ft and 100 ft above the runway
-			if agl < 300.0 and agl > 30.0 and not _stable(n):
+			# stabilised-approach gate: 1000 ft for airliners, 500 ft for light aircraft
+			var gate := 300.0 if spec.category != "trainer" else 150.0
+			if agl < gate and agl > 30.0 and not _stable(n):
+				_go_around()
+				return
+			if _landing_long(n):
+				_callout("Long landing, go around")
 				_go_around()
 				return
 			if not bool(spec.autoland) or not allow_autoland:
-				if agl < 60.0:
+				var flare_h := Autopilot.flare_height(spec)
+				var above_rwy := float(n.alt) - float(arr.elev) - float(spec.gear_height)
+				if agl < flare_h + 2.0 and ac.ap.dist_thr < 600.0 and above_rwy < flare_h + 25.0:
 					ac.ap.engage(false, "MANUAL LAND")
+					ac.ap.at_engaged = false
+					ac.ap.flare_reset(n.pitch)
 					_set_phase("manual_flare")
 			elif ac.ap.vert_mode == "ROLLOUT":
 				_set_phase("rollout")
 		"manual_flare":
 			# hand-flown flare for aircraft without autoland: same sink-rate law as the autopilot
-			if t_phase < dt * 1.5:
-				ac.ap.flare_pitch = n.pitch
-			var flare_h := 12.0 if spec.category != "trainer" else 6.0
-			if agl > flare_h:
-				# keep the approach path until the flare height
-				ac.ap.flare_pitch = move_toward(ac.ap.flare_pitch, n.pitch, dt * 2.0)
-				ac.laws.target_pitch = ac.ap.flare_pitch + clampf((-3.6 - float(n.vs)) * 0.6, -2.0, 2.0)
-			else:
-				ac.laws.target_pitch = ac.ap.flare_law(n, dt)
+			ac.laws.target_pitch = ac.ap.flare_law(n, dt)
 			ac.in_pitch = 0.0
 			ac.in_roll = clampf(-n.bank * 0.05, -0.3, 0.3)
 			ac.laws.target_bank = 0.0
-			if agl < 10.0:
-				ac.throttle_lever = move_toward(ac.throttle_lever, 0.0, dt * 0.6)
+			ac.ap.at_engaged = false
+			# close the throttles through the flare: idle by touchdown
+			var idle_h := 9.0 if spec.category != "trainer" else 6.0
+			if agl < idle_h:
+				ac.throttle_lever = move_toward(ac.throttle_lever, 0.0, dt * (0.5 if spec.category != "trainer" else 0.3))
 			if ac.fdm.wow[1] or ac.fdm.wow[2]:
+				ac.throttle_lever = 0.0
 				_set_phase("rollout")
 				ac.ap.set_lat("ROLLOUT")
+			elif _landing_long(n):
+				_callout("Long landing, go around")
+				_go_around()
+				return
 		"rollout":
 			ac.throttle_lever = 0.0
 			if ac.ap.at_engaged:
 				ac.ap.at_engaged = false
 			ac.ap.update(dt, n, ac.fdm, ac.sys)
 			ac.in_yaw = ac.ap.out_rudder
-			ac.in_pitch = -0.2
+			# light aircraft keep a little back pressure to protect the nose wheel (not enough to
+			# fly again) and dump the flaps; jets lower the nose
+			if spec.category == "trainer":
+				ac.in_pitch = 0.08 if ias > 50.0 else 0.2
+				if ac.sys.flap_lever > 0 and t_phase > 1.0:
+					ac.set_flaps(0)
+			else:
+				ac.in_pitch = -0.2
 			ac.in_roll = 0.0
 			ac.sys.reverse_cmd = ias > 70.0 and bool(spec.reverser)
-			if ac.sys.autobrake == 0 or ac.spec.category == "trainer":
+			if spec.category == "trainer":
+				ac.sys.brake_input = 0.25 if ias < 45.0 else 0.0
+			elif ac.sys.autobrake == 0:
 				ac.sys.brake_input = 0.6 if ias < 100.0 else 0.3
 			if ias < 30.0:
 				ac.sys.reverse_cmd = false
-				ac.sys.brake_input = 0.4
+				ac.sys.brake_input = 0.4 if spec.category != "trainer" else 0.3
 				if ac.ap.engaged:
 					ac.ap.engage(false, "ROLLOUT COMPLETE")
 			if ac.fdm.ground_speed() < 8.0:
@@ -224,6 +264,7 @@ func update(dt: float) -> void:
 				_set_phase("landed")
 		"go_around":
 			ac.throttle_lever = 1.0
+			ac.sys.spoiler_lever = 0.0
 			if ac.sys.flap_lever > takeoff_flaps + 1:
 				ac.set_flaps(ac.sys.flap_lever - 1)
 			if ac.ra > 20.0 and ac.sys.gear_down_cmd and n.vs > 2.0:
@@ -231,7 +272,8 @@ func update(dt: float) -> void:
 			if n.alt > float(arr.elev) + 400.0:
 				pattern_built = false
 				_set_phase("descent")
-				ac.ap.alt_sel = float(arr.elev) + 900.0
+				ac.ap.alt_sel = _app_alt()
+				ac.ap.at_engaged = true
 				ac.ap.set_vert("FLCH")
 				ac.ap.set_thr("SPD")
 
@@ -239,7 +281,8 @@ func update(dt: float) -> void:
 func _stable(n: Dictionary) -> bool:
 	var ias: float = n.true_ias_kt
 	var vapp := float(ac.spec.vapp)
-	return absf(ac.ap.loc_dev) < 1.5 and absf(ac.ap.gs_dev) < 1.0 and n.vs > -7.5 and ias > vapp - 12.0 and ias < vapp + 25.0
+	var low := 16.0 if ac.spec.category == "trainer" else 12.0
+	return absf(ac.ap.loc_dev) < 1.5 and absf(ac.ap.gs_dev) < 1.0 and n.vs > -7.5 and ias > vapp - low and ias < vapp + 25.0
 
 
 func _go_around() -> void:
@@ -249,8 +292,10 @@ func _go_around() -> void:
 	ac.ap.arm_loc = false
 	ac.ap.set_vert("TOGA")
 	ac.ap.set_thr("TOGA")
-	ac.ap.alt_sel = float(arr.elev) + 900.0
+	ac.ap.alt_sel = _app_alt()
 	ac.ap.hdg_sel = arr.hdg
+	ac.ap.at_engaged = true
+	ac.sys.spoiler_lever = 0.0
 	ac.ap.set_lat("HDG")
 	if not ac.ap.engaged:
 		ac.ap.out_pitch = ac.fdm.pitch_deg()
@@ -278,7 +323,7 @@ func _approach_config(n: Dictionary, ias: float) -> void:
 		dtg = maxf(ac.ap.dist_thr, 0.0)
 	# configuration follows progress along the approach, not straight-line distance
 	var tgt_flap := 0
-	var spd := 220.0
+	var spd := 220.0 if dtg > 32000.0 else 210.0
 	if dtg < 32000.0:
 		tgt_flap = 1
 		spd = minf(float(flaps[1].vfe) - 15.0, 205.0)
@@ -292,12 +337,12 @@ func _approach_config(n: Dictionary, ias: float) -> void:
 		if ac.sys.gear_down_cmd == false and bool(spec.gear_retract):
 			ac.toggle_gear()
 			_callout("Gear down")
-	if dtg < 9000.0 and gs_alive:
+	if dtg < 11500.0 and gs_alive:
 		tgt_flap = nf - 1
 		spd = float(spec.vapp)
 	spd = maxf(spd, float(spec.vapp))
 	if spec.category == "trainer":
-		spd = 90.0 if dtg > 5000.0 else float(spec.vapp)
+		spd = 90.0 if dtg > 5000.0 else float(spec.vapp) + 3.0
 	var lever := ac.sys.flap_lever
 	if lever < tgt_flap and ias < float(flaps[lever + 1].vfe) - 3.0:
 		ac.set_flaps(lever + 1)
@@ -323,30 +368,108 @@ func _activate_route(_n: Dictionary) -> void:
 	ac.ap.set_lat("LNAV")
 
 
-func _build_approach_route(n: Dictionary) -> void:
-	## Straight-in or a simple downwind/base pattern ending 14 km out on the extended centreline.
-	pattern_built = true
+func _app_alt() -> float:
+	## Altitude flown level onto the localizer, below the glideslope so it is captured from below.
+	return float(arr.elev) + (720.0 if ac.spec.category != "trainer" else 480.0)
+
+
+func _path_alt(dtg: float) -> float:
+	## Planned descent profile: a 2.6 degree idle path that reaches the approach altitude early
+	## enough to leave a level segment for slowing down and configuring.
+	var level := 22000.0 if ac.spec.category != "trainer" else 9000.0
+	return _app_alt() + maxf(dtg - level, 0.0) * tan(deg_to_rad(2.6))
+
+
+func _vnav_descent(n: Dictionary, dtg: float, dt: float) -> void:
+	## Path descent: vertical speed follows the profile, speed brakes when high or fast.
+	var gamma := tan(deg_to_rad(2.6))
+	var err := float(n.alt) - _path_alt(dtg)              # + above the path
+	var vs := -float(n.gs) * gamma - clampf(err * 0.02, -4.0, 6.0)
+	var max_rate := 15.0 if ac.spec.category != "trainer" else 4.0
+	ac.ap.alt_sel = _app_alt()
+	if float(n.alt) - ac.ap.alt_sel < 30.0:
+		if ac.ap.vert_mode == "VS":
+			ac.ap.set_vert("ALT")
+		return
+	ac.ap.vs_sel = clampf(vs, -max_rate, 0.0)
+	if ac.ap.vert_mode != "VS" and ac.ap.vert_mode != "ALT":
+		ac.ap.set_vert("VS")
+	elif ac.ap.vert_mode == "ALT" and err > 120.0:
+		ac.ap.set_vert("VS")
+	_speedbrake(n, float(n.true_ias_kt), dt, err)
+
+
+func _speedbrake(n: Dictionary, ias: float, dt: float, path_err: float = 0.0) -> void:
+	## Speed brakes to lose excess speed or height; never close to the ground or with full flap.
+	if not bool(ac.spec.spoilers):
+		return
+	var over := ias - ac.ap.spd_sel
+	var want := 0.0
+	if ac.ra > 280.0 and ac.sys.flap_lever < ac.spec.flaps.size() - 1:
+		if over > 8.0 and ac.throttle_lever < 0.08:
+			want = clampf((over - 8.0) / 15.0, 0.3, 1.0)
+		if path_err > 250.0:
+			want = maxf(want, clampf((path_err - 250.0) / 400.0, 0.3, 1.0))
+		if ac.ap.vert_mode == "GS" and ac.ap.gs_dev > 0.5:
+			want = maxf(want, 0.5)
+	ac.sys.spoiler_lever = move_toward(ac.sys.spoiler_lever, want, dt * 0.6)
+
+
+func _landing_long(n: Dictionary) -> bool:
+	## Still airborne well past the touchdown zone: the landing will not fit on the runway.
+	if ac.fdm.on_ground or ac.ra > 40.0:
+		return false
+	var limit := minf(900.0, float(arr.get("len", 2500.0)) * 0.4)
+	return ac.ap.dist_thr < -limit
+
+
+func _approach_plan(p: Vector2, alt: float) -> Array:
+	## Straight-in or a downwind/base pattern onto a final approach fix 16 km out. The initial
+	## fix moves further out until the track is long enough to descend and slow down on.
 	var d := Vector2(sin(deg_to_rad(arr.hdg)), -cos(deg_to_rad(arr.hdg)))
+	var side_v := Vector2(-d.y, d.x)
 	var thr := Vector2(arr.thr_x, arr.thr_z)
 	var faf := thr - d * 16000.0
-	var iaf := thr - d * 26000.0
-	var p := Vector2(n.x, n.z)
-	var plan := [{"name": "PPOS", "x": p.x, "z": p.y}]
-	var to_faf := (faf - p)
-	var behind := (p - thr).dot(-d) > 12000.0
-	if not behind or absf((p - thr).dot(Vector2(-d.y, d.x))) > 18000.0:
-		var side := signf((p - thr).dot(Vector2(-d.y, d.x)))
-		if side == 0.0:
-			side = 1.0
-		var dw := thr - d * 4000.0 + Vector2(-d.y, d.x) * side * 9000.0
-		var base := iaf + Vector2(-d.y, d.x) * side * 9000.0
-		if (p - thr).dot(-d) < 0.0:
-			plan.append({"name": "DWND", "x": dw.x, "z": dw.y})
-		plan.append({"name": "BASE", "x": base.x, "z": base.y})
-	plan.append({"name": "IAF", "x": iaf.x, "z": iaf.y})
-	plan.append({"name": "FAF", "x": faf.x, "z": faf.y})
-	plan.append({"name": "RW" + String(arr.name), "x": thr.x, "z": thr.y})
-	var _u := to_faf
+	var out_d := (p - thr).dot(-d)                         # how far out on the approach side
+	var lat := (p - thr).dot(side_v)
+	var side := signf(lat)
+	if side == 0.0:
+		side = 1.0
+	var level := 22000.0 if ac.spec.category != "trainer" else 9000.0
+	var need := (alt - _app_alt()) / tan(deg_to_rad(3.2)) + level
+	var plan: Array = []
+	for k in 12:
+		var iaf_d := 26000.0 + k * 6000.0
+		var iaf := thr - d * iaf_d
+		plan = [{"name": "PPOS", "x": p.x, "z": p.y}]
+		var straight := out_d > iaf_d - 4000.0 and absf(lat) < 12000.0
+		if not straight:
+			var dw := thr - d * 4000.0 + side_v * side * 9000.0
+			var base := iaf + side_v * side * 9000.0
+			if out_d < 0.0:
+				plan.append({"name": "DWND", "x": dw.x, "z": dw.y})
+			plan.append({"name": "BASE", "x": base.x, "z": base.y})
+		plan.append({"name": "IAF", "x": iaf.x, "z": iaf.y})
+		plan.append({"name": "FAF", "x": faf.x, "z": faf.y})
+		plan.append({"name": "RW" + String(arr.name), "x": thr.x, "z": thr.y})
+		if _plan_length(plan, p) >= need:
+			break
+	return plan
+
+
+func _plan_length(plan: Array, p: Vector2) -> float:
+	var total := 0.0
+	var prev := p
+	for i in range(1, plan.size()):
+		var q := Vector2(plan[i].x, plan[i].z)
+		total += prev.distance_to(q)
+		prev = q
+	return total
+
+
+func _build_approach_route(n: Dictionary) -> void:
+	pattern_built = true
+	var plan := _approach_plan(Vector2(n.x, n.z), float(n.alt))
 	ac.ap.plan = plan
 	ac.ap.leg = 1
 	ac.ap.set_lat("LNAV")

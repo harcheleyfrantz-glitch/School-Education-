@@ -60,6 +60,12 @@ var surface := "runway"
 var oat := 15.0
 var weather: Dictionary = {}
 var sim_rate := 1.0
+# session hooks: event effects and kinematic control (pushback, cinematics)
+var extra_turb := 0.0
+var wind_bias_kt := 0.0
+var shear := 0.0
+var crosswind_extra_kt := 0.0
+var kinematic := false
 
 var _acc := 0.0
 var _gust := Vector3.ZERO
@@ -343,7 +349,17 @@ func _update_weather(dt: float) -> void:
 					# downdraft / microburst near the core
 					wind += Vector3(0, -6.0 * (1.0 - d / cell.r), 0)
 	var low_level := clampf(1.0 - ra / 600.0, 0.0, 1.0) * float(weather.get("gust_kt", 0.0) - weather.get("wind_kt", 0.0)) / 25.0
-	t_int += maxf(low_level, 0.0)
+	t_int += maxf(low_level, 0.0) + extra_turb
+	# event effects: stronger winds aloft, windshear near the ground, gusty crosswind
+	var fwd := -basis.z
+	var flat_fwd := Vector3(fwd.x, 0.0, fwd.z).normalized()
+	if wind_bias_kt != 0.0 and fdm.pos.y > 3000.0:
+		wind += -flat_fwd * wind_bias_kt * U.KT
+	if shear > 0.0 and ra < 600.0:
+		wind += Vector3(0, -7.0 * shear, 0) + flat_fwd * 8.0 * shear
+		t_int += 0.6 * shear
+	if crosswind_extra_kt > 0.0 and ra < 500.0:
+		wind += flat_fwd.cross(Vector3.UP) * crosswind_extra_kt * U.KT * (0.75 + 0.25 * sin(_gust_t * 0.7))
 	turbulence = clampf(t_int, 0.0, 2.0)
 	_gust_t += dt * (1.0 + fdm.tas / 60.0)
 	var amp := turbulence * 3.2
@@ -356,6 +372,13 @@ func _update_weather(dt: float) -> void:
 func _physics_process(delta: float) -> void:
 	if crashed_state:
 		_wreck_update(delta)
+		return
+	if kinematic:
+		# position driven externally (pushback tug, cinematics); systems keep running
+		sys.update(delta, fdm, fdm.pos.y, oat, false, false)
+		_sync_transform()
+		if model:
+			model.animate(self, delta)
 		return
 	var dt := delta * sim_rate
 	_read_input(delta)

@@ -72,26 +72,70 @@ func set_vert(m: String) -> void:
 		if m in ["VS", "ALT"]:
 			_vs_i = 0.0
 		if m == "FLARE":
-			flare_pitch = out_pitch
+			flare_reset(out_pitch)
 		mode_changed.emit(fma())
 
 
 var flare_pitch := 0.0
+## Sink-rate flare: from the flare height the commanded descent rate shrinks in proportion to
+## height, from the sink rate at flare entry down to a gentle touchdown rate. The error against a
+## *predicted* sink rate (current + filtered vertical acceleration x lead) is integrated into
+## pitch, which damps the lag between attitude and flight path that otherwise makes the flare
+## overshoot into a balloon. Never pushes while descending; holds attitude after a float.
+var _flare_h0 := -1.0
+var _flare_vs0 := -3.5
+var _flare_p0 := 0.0
+var _flare_last_vs := 0.0
+var _flare_acc := 0.0
 
 
-## Sink-rate flare: commands a descent rate that shrinks with height (never zero, so the
-## aircraft cannot float in ground effect) and integrates it into pitch, capped short of a
-## tail strike. Returns the target pitch in degrees.
+## Flare initiation height (m): heavier aircraft respond more slowly and start earlier.
+static func flare_height(t: Dictionary) -> float:
+	match String(t.category):
+		"widebody", "cargo":
+			return 16.0
+		"turboprop":
+			return 10.0
+		"trainer":
+			return 6.0
+	return 12.5
+
+
+func flare_reset(pitch_now: float) -> void:
+	flare_pitch = pitch_now
+	_flare_h0 = -1.0
+
+
 func flare_law(n: Dictionary, dt: float) -> float:
 	var h := maxf(float(n.ra), 0.0)
-	var tau := 2.6 if spec.category != "trainer" else 2.0
-	var vs_cmd := -(h / tau) - (0.55 if spec.category != "trainer" else 0.35)
-	var rate := clampf((vs_cmd - float(n.vs)) * 1.7, -3.0, 3.2)
+	var vs := float(n.vs)
+	var light: bool = spec.category == "trainer"
+	if _flare_h0 < 0.0:
+		_flare_h0 = maxf(h, 4.0)
+		_flare_vs0 = minf(vs, -1.0)
+		_flare_p0 = flare_pitch
+		_flare_last_vs = vs
+		_flare_acc = 0.0
+	var acc := (vs - _flare_last_vs) / maxf(dt, 0.001)
+	_flare_last_vs = vs
+	_flare_acc = lerpf(_flare_acc, clampf(acc, -6.0, 6.0), clampf(dt * 5.0, 0.0, 1.0))
+	var vs_td := -0.35 if light else -0.6
+	var frac := clampf(h / _flare_h0, 0.0, 1.0)
+	var vs_cmd := vs_td + (_flare_vs0 - vs_td) * frac
+	var vs_pred := vs + _flare_acc * (0.9 if light else 1.4)
+	var rate := clampf((vs_cmd - vs_pred) * 1.5, -1.2, 3.0)
+	# the flare only ever pulls while still descending; after a float it holds the attitude
+	if rate < 0.0 and vs < 0.3:
+		rate = 0.0
 	# never keep pulling once the speed has decayed well below the approach speed
 	if float(n.true_ias_kt) < float(spec.vref) - 8.0 and rate > 0.0:
 		rate *= 0.3
-	var max_p := minf(float(spec.get("tailstrike", 11.0)) - 2.2, 12.0)
-	flare_pitch = clampf(flare_pitch + rate * dt, -3.0, max_p)
+	var max_p := minf(float(spec.get("tailstrike", 11.0)) - 2.2, _flare_p0 + (4.0 if not light else 8.0))
+	# land on the main wheels: be a little nose-up from the approach attitude in the last metres
+	var min_td := _flare_p0 + (1.2 if not light else 3.0)
+	if h < 2.5 and flare_pitch < min_td:
+		rate = maxf(rate, (min_td - flare_pitch) * 0.6)
+	flare_pitch = clampf(flare_pitch + rate * dt, _flare_p0 - 0.5, maxf(max_p, _flare_p0))
 	return flare_pitch
 
 
@@ -191,8 +235,10 @@ func _lateral(dt: float, n: Dictionary, fdm: FlightModel) -> void:
 			var lat_rate := 0.0
 			var cross_track_vel := Vector2(fdm.vel.x, fdm.vel.z).dot(Vector2(cos(deg_to_rad(rd)), sin(deg_to_rad(rd))))
 			lat_rate = cross_track_vel
-			var k := clampf(4500.0 / maxf(absf(dist_thr) + 1500.0, 1500.0), 0.12, 1.0)
-			var intercept := clampf(-lateral * 0.025 * k - lat_rate * 0.35 * k, -30.0, 30.0)
+			# constant time-constant law (~25 s) scheduled on ground speed, damped by the
+			# cross-track velocity; works from a wide intercept down to the flare
+			var v := maxf(float(n.gs), 30.0)
+			var intercept := clampf(-lateral * (1.4 / v) - lat_rate * 0.32, -30.0, 30.0)
 			bank_t = _bank_for_track(rd + intercept, n, 20.0)
 			if n.ra < 30.0:
 				bank_t = clampf(bank_t, -5.0, 5.0)
@@ -285,7 +331,7 @@ var _gamma_f := 0.0
 func _vertical(dt: float, n: Dictionary, fdm: FlightModel) -> void:
 	var alt: float = n.alt
 	var pitch_t := out_pitch
-	if arm_gs and gs_valid and lat_mode == "LOC" and gs_dev < 0.1 and vert_mode != "GS":
+	if arm_gs and gs_valid and lat_mode == "LOC" and (absf(gs_dev) < 0.12 or (gs_dev > 0.0 and gs_dev < 1.6 and dist_thr < 20000.0)) and vert_mode != "GS":
 		set_vert("GS")
 		arm_gs = false
 	var cap_vs := 7.6 if spec.category != "trainer" else 3.6     # ~1500 / 700 fpm
@@ -315,8 +361,7 @@ func _vertical(dt: float, n: Dictionary, fdm: FlightModel) -> void:
 			var h_gs := float(approach.elev) + (maxf(dist_thr, -250.0) + 300.0) * tan(deg_to_rad(approach.slope))
 			var vs_t3 := -float(n.gs) * tan(deg_to_rad(approach.slope)) + clampf((h_gs - alt) * 0.15, -3.0, 3.0)
 			pitch_t = _pitch_for_vs(vs_t3, n, fdm, dt)
-			var flare_h := 15.0 if spec.category != "trainer" else 8.0
-			if n.ra < flare_h and bool(spec.autoland):
+			if n.ra < flare_height(spec) and bool(spec.autoland):
 				set_vert("FLARE")
 		"FLARE":
 			pitch_t = flare_law(n, dt)

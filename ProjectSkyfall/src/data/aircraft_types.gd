@@ -197,9 +197,9 @@ const TYPES := {
 		"cyb": -0.6, "cydr": 0.2, "inertia_k": [0.25, 0.36, 0.44],
 		"flaps": [
 			{"label": "0", "deg": 0.0, "dcl": 0.0, "dclmax": 0.0, "dcd": 0.0, "dcm": 0.0, "vfe": 340},
-			{"label": "10", "deg": 10.0, "dcl": 0.3, "dclmax": 0.45, "dcd": 0.012, "dcm": -0.03, "vfe": 250},
-			{"label": "20", "deg": 20.0, "dcl": 0.55, "dclmax": 0.78, "dcd": 0.03, "dcm": -0.05, "vfe": 220},
-			{"label": "39", "deg": 39.0, "dcl": 0.88, "dclmax": 1.12, "dcd": 0.07, "dcm": -0.08, "vfe": 180},
+			{"label": "10", "deg": 10.0, "dcl": 0.18, "dclmax": 0.24, "dcd": 0.012, "dcm": -0.03, "vfe": 250},
+			{"label": "20", "deg": 20.0, "dcl": 0.32, "dclmax": 0.38, "dcd": 0.03, "dcm": -0.05, "vfe": 220},
+			{"label": "39", "deg": 39.0, "dcl": 0.5, "dclmax": 0.52, "dcd": 0.07, "dcm": -0.08, "vfe": 180},
 		],
 		"gear_retract": true, "gear_cd": 0.02, "spoilers": true, "spoiler_cd": 0.045, "reverser": true,
 		"gear_height": 2.25, "nose_gear_x": -11.2, "main_gear_x": 1.0, "gear_track": 4.3,

@@ -61,17 +61,47 @@ func _fly(type_id: String, dep_icao: String, dep_rwy: String, arr_icao: String, 
 		route = [{"name": "OUT", "x": p1.x, "z": p1.y}, {"name": "SIDE", "x": p2.x, "z": p2.y}]
 	var pilot := AIPilot.new()
 	pilot.setup(ac, dep, arr, cruise, route)
-	pilot.start_takeoff()
+	if OS.get_cmdline_user_args().has("land"):
+		# landing-only run: established on the ILS 9 km out, configured, autopilot coupled
+		var rd := Vector2(sin(deg_to_rad(arr.hdg)), -cos(deg_to_rad(arr.hdg)))
+		var dist := 9000.0
+		var h := float(arr.elev) + (dist + 300.0) * tan(deg_to_rad(3.0)) + float(spec.gear_height)
+		var p2 := Vector2(arr.thr_x, arr.thr_z) - rd * dist
+		ac.place_at(Vector3(p2.x, h, p2.y), arr.hdg, false, (float(spec.vapp) + 8.0) * U.KT)
+		ac.sys.gear_down_cmd = true
+		ac.sys.gear_pos = [1.0, 1.0, 1.0]
+		ac.set_flaps(spec.flaps.size() - 1)
+		ac.sys.flap_pos = float(spec.flaps.size() - 1)
+		ac.fdm.flap_frac = ac.sys.flap_pos
+		ac.throttle_lever = 0.45
+		ac.ap.set_approach(arr, 3.0)
+		ac.ap.spd_sel = float(spec.vapp)
+		ac.ap.at_engaged = true
+		ac.ap.out_throttle = 0.45
+		ac.ap.set_thr("SPD")
+		ac.ap.set_lat("LOC")
+		ac.ap.set_vert("GS")
+		ac.ap.out_pitch = 1.0
+		ac.ap.engage(true)
+		ac.laws.mode = "assisted"
+		ac.laws.reset_to_current(ac.fdm)
+		pilot.pattern_built = true
+		pilot._set_phase("final")
+		ac._physics_process(1.0 / 60.0)
+	else:
+		pilot.start_takeoff()
 	var log := []
 	pilot.phase_changed.connect(func(p): log.append("%.0fs %s" % [pilot.t_phase, p]))
 	var t := 0.0
 	var dt := 1.0 / 60.0
 	var next_print := 0.0
 	var max_t := 3600.0 * 1.5
-	var crashed := false
-	var td := {}
-	ac.crashed.connect(func(info): crashed = true)
-	ac.touchdown.connect(func(info): td = info)
+	# lambdas capture locals by value, so results go into a shared dictionary
+	var st := {"crashed": false, "td": {}}
+	ac.crashed.connect(func(info): st.crashed = true)
+	ac.touchdown.connect(func(info):
+		if st.td.is_empty():
+			st.td = info)
 	var incidents := []
 	ac.incident.connect(func(k, info): incidents.append(k))
 	var t0 := Time.get_ticks_msec()
@@ -80,19 +110,20 @@ func _fly(type_id: String, dep_icao: String, dep_rwy: String, arr_icao: String, 
 		ac._physics_process(dt)
 		t += dt
 		if verbose and t >= next_print:
-			next_print += (2.0 if t < 120.0 else (1.0 if ac.ra < 150.0 and pilot.phase != "climb" and pilot.phase != "initial_climb" else 20.0))
+			next_print += (0.5 if ac.ra < 20.0 and pilot.phase in ["final", "manual_flare", "rollout"] else (2.0 if t < 120.0 else (1.0 if ac.ra < 150.0 and pilot.phase != "climb" and pilot.phase != "initial_climb" else 20.0)))
 			var n := ac.nav_state()
 			print("%5.0fs %-14s alt=%5.0fft ra=%5.1f ias=%3.0f vs=%5.0f pit=%5.1f bnk=%5.1f hdg=%3.0f flap=%s gear=%s thr=%.2f AP=%s/%s/%s dist=%.1fkm loc=%.2f gs=%.2f fuel=%.0f" % [
 				t, pilot.phase, n.alt / U.FT, ac.ra / U.FT, n.true_ias_kt, n.vs / U.FPM, n.pitch, n.bank, n.hdg, ac.flap_label(), ac.gear_state_text(),
 				ac.throttle_lever, ac.ap.lat_mode, ac.ap.vert_mode, ac.ap.thr_mode, U.dist2d(n.x, n.z, arr.thr_x, arr.thr_z) / 1000.0,
 				ac.ap.loc_dev, ac.ap.gs_dev, ac.sys.fuel_total()])
-		if crashed or pilot.phase == "landed":
+		if st.crashed or pilot.phase == "landed":
 			break
 		if int(t * 60.0) % 600 == 0:
 			await get_tree().process_frame
 	var wall := (Time.get_ticks_msec() - t0) / 1000.0
-	var res := "%s: %s after %.0fs sim (%.1fs wall). " % [type_id, "CRASHED" if crashed else pilot.phase, t, wall]
-	if crashed:
+	var td: Dictionary = st.td
+	var res := "%s: %s after %.0fs sim (%.1fs wall). " % [type_id, "CRASHED" if st.crashed else pilot.phase, t, wall]
+	if st.crashed:
 		res += "crash=%s " % str(ac.crash_info)
 	if not td.is_empty():
 		res += "TD vs=%.0ffpm ias=%.0f dist=%.0fm cl=%.1fm rwy=%s " % [td.vs_fpm, td.ias_kt, td.dist_from_thr, td.centerline, td.runway]
