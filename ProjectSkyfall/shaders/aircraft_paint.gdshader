@@ -93,7 +93,7 @@ void fragment() {
 		for (int i = 0; i < 4; i++) {
 			float dv = doors[i];
 			if (dv < 0.0) continue;
-			float dz = abs(zm - (win_start + dv * (win_end - win_start)) * fuse_len);
+			float dz = abs(zm - dv * fuse_len);
 			float in_door = step(dz, 0.55) * step(wy, 1.0);
 			window *= 1.0 - step(dz, 0.95);
 			door_line = max(door_line, in_door * (1.0 - step(dz, 0.5) * step(wy, 0.94)));
@@ -101,7 +101,7 @@ void fragment() {
 		for (int i = 0; i < 4; i++) {
 			float dv2 = doors2[i];
 			if (dv2 < 0.0) continue;
-			float dz2 = abs(zm - (win_start + dv2 * (win_end - win_start)) * fuse_len);
+			float dz2 = abs(zm - dv2 * fuse_len);
 			door_line = max(door_line, step(dz2, 0.38) * step(wy, 0.55) * (1.0 - step(dz2, 0.34) * step(wy, 0.5)));
 		}
 		col = mix(col, col * 0.35, door_line);

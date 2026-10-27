@@ -80,9 +80,9 @@ func _fly(type_id: String, dep_icao: String, dep_rwy: String, arr_icao: String, 
 		ac._physics_process(dt)
 		t += dt
 		if verbose and t >= next_print:
-			next_print += (2.0 if t < 120.0 else 20.0)
+			next_print += (2.0 if t < 120.0 else (1.0 if ac.ra < 150.0 and pilot.phase != "climb" and pilot.phase != "initial_climb" else 20.0))
 			var n := ac.nav_state()
-			print("%5.0fs %-14s alt=%5.0fft ra=%5.0f ias=%3.0f vs=%5.0f pit=%5.1f bnk=%5.1f hdg=%3.0f flap=%s gear=%s thr=%.2f AP=%s/%s/%s dist=%.1fkm loc=%.2f gs=%.2f fuel=%.0f" % [
+			print("%5.0fs %-14s alt=%5.0fft ra=%5.1f ias=%3.0f vs=%5.0f pit=%5.1f bnk=%5.1f hdg=%3.0f flap=%s gear=%s thr=%.2f AP=%s/%s/%s dist=%.1fkm loc=%.2f gs=%.2f fuel=%.0f" % [
 				t, pilot.phase, n.alt / U.FT, ac.ra / U.FT, n.true_ias_kt, n.vs / U.FPM, n.pitch, n.bank, n.hdg, ac.flap_label(), ac.gear_state_text(),
 				ac.throttle_lever, ac.ap.lat_mode, ac.ap.vert_mode, ac.ap.thr_mode, U.dist2d(n.x, n.z, arr.thr_x, arr.thr_z) / 1000.0,
 				ac.ap.loc_dev, ac.ap.gs_dev, ac.sys.fuel_total()])

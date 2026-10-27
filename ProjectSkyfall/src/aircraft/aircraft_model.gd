@@ -90,15 +90,18 @@ static func _material(airline_code: String, type_id: String) -> ShaderMaterial:
 	m.set_shader_parameter("fuse_len", float(t.length))
 	m.set_shader_parameter("fuse_r", float(t.fuse_h) * 0.5)
 	var nose_t := _nose_frac(t)
-	var win_start := nose_t + 0.05
-	var win_end := 1.0 - _tail_frac(t) + 0.03
+	var dl: Array = t.doors
+	var win_start: float = float(dl[0]) + 0.6 / float(t.length)
+	var win_end: float = float(dl[dl.size() - 1]) - 0.6 / float(t.length)
+	if dl.size() == 1:
+		win_end = 1.0 - _tail_frac(t) + 0.02
 	if t.category == "trainer":
 		win_start = 0.3
 		win_end = 0.52
 	m.set_shader_parameter("win_start", win_start)
 	m.set_shader_parameter("win_end", win_end)
 	m.set_shader_parameter("win_pitch", 0.53 if t.category != "bizjet" else 1.1)
-	m.set_shader_parameter("cockpit_v", nose_t * 0.82)
+	m.set_shader_parameter("cockpit_v", (pilot_eye_station(t) - 0.85) / float(t.length))
 	var d: Array = t.doors
 	var dv := Vector4(-1, -1, -1, -1)
 	for i in mini(d.size(), 4):
@@ -120,12 +123,24 @@ static func _nose_frac(t: Dictionary) -> float:
 	var L: float = t.length
 	match String(t.nose):
 		"pointy":
-			return clampf(2.7 * D / L, 0.08, 0.2)
+			return clampf(2.4 * D / L, 0.08, 0.2)
 		"ga":
 			return 0.16
 		"regional":
-			return clampf(1.9 * D / L, 0.07, 0.16)
-	return clampf(1.75 * D / L, 0.06, 0.16)
+			return clampf(1.5 * D / L, 0.07, 0.16)
+	return clampf(1.35 * D / L, 0.06, 0.15)
+
+
+## Station (metres from the nose) of the pilots' eyes; the windscreen sits ~0.8 m ahead of it.
+static func pilot_eye_station(t: Dictionary) -> float:
+	match String(t.category):
+		"trainer": return 2.25
+		"turboprop": return 2.6
+		"regional": return 2.6
+		"bizjet": return 2.6
+		"widebody": return 3.7
+		"cargo": return 5.4
+	return 3.0
 
 
 static func _tail_frac(t: Dictionary) -> float:
@@ -133,12 +148,30 @@ static func _tail_frac(t: Dictionary) -> float:
 	var L: float = t.length
 	if t.category == "trainer":
 		return 0.5
-	return clampf(2.7 * D / L, 0.18, 0.34)
+	return clampf(2.2 * D / L, 0.16, 0.3)
 
 
 # ------------------------------------------------------------------ fuselage
 func _ring(t: float, segs: int) -> PackedVector3Array:
 	var rw: float = float(spec.fuse_w) * 0.5
+	var rh: float = float(spec.fuse_h) * 0.5
+	var sp := section(spec, t)
+	var sx := sp.x
+	var s_top := sp.y
+	var s_bot := sp.z
+	var cy := sp.w
+	var z := cg_z + t * body_len
+	var pts := PackedVector3Array()
+	for i in segs:
+		var th := TAU * float(i) / segs
+		var sy := s_top if cos(th) >= 0.0 else s_bot
+		pts.append(Vector3(sin(th) * rw * sx, cos(th) * rh * sy + cy, z))
+	return pts
+
+
+## Cross-section scale at body station t (0 nose .. 1 tail): x = width scale, y = upper height
+## scale, z = lower height scale, w = vertical centre offset (metres).
+static func section(spec: Dictionary, t: float) -> Vector4:
 	var rh: float = float(spec.fuse_h) * 0.5
 	var tn := _nose_frac(spec)
 	var tt := 1.0 - _tail_frac(spec)
@@ -175,20 +208,14 @@ func _ring(t: float, segs: int) -> PackedVector3Array:
 			s_bot = 1.0 - 0.6 * k2
 			cy = rh * 0.35 * k2
 		else:
-			sx = 1.0 - 0.86 * pow(k2, 1.1)
-			s_top = 1.0 - 0.7 * pow(k2, 1.3)
-			s_bot = 1.0 - 0.92 * pow(k2, 0.9)
-			cy = rh * 0.55 * pow(k2, 1.1)
+			sx = 1.0 - 0.86 * pow(k2, 1.55)
+			s_top = 1.0 - 0.7 * pow(k2, 1.6)
+			s_bot = 1.0 - 0.92 * pow(k2, 1.05)
+			cy = rh * 0.55 * pow(k2, 1.25)
 	if bool(spec.hump) and t > 0.03 and t < 0.36:
 		var hk := clampf((t - 0.03) / 0.08, 0.0, 1.0) * clampf((0.36 - t) / 0.1, 0.0, 1.0)
 		s_top *= 1.0 + 0.42 * U.smooth01(hk)
-	var z := cg_z + t * body_len
-	var pts := PackedVector3Array()
-	for i in segs:
-		var th := TAU * float(i) / segs
-		var sy := s_top if cos(th) >= 0.0 else s_bot
-		pts.append(Vector3(sin(th) * rw * sx, cos(th) * rh * sy + cy, z))
-	return pts
+	return Vector4(sx, s_top, s_bot, cy)
 
 
 func _build_fuselage(mb: MeshBuilder) -> void:
@@ -637,10 +664,7 @@ func _build_doors() -> void:
 	if d.is_empty() or spec.category == "trainer":
 		return
 	var tn := _nose_frac(spec)
-	var tt := 1.0 - _tail_frac(spec)
-	var win_start := tn + 0.05
-	var win_end := tt + 0.03
-	var dz := cg_z + (win_start + float(d[0]) * (win_end - win_start)) * body_len
+	var dz := cg_z + float(d[0]) * body_len
 	var rw: float = float(spec.fuse_w) * 0.5
 	var rh: float = float(spec.fuse_h) * 0.5
 	door_l1_local = Vector3(-rw, rh * 0.05, dz)

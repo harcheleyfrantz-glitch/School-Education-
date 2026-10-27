@@ -24,6 +24,7 @@ var _faf_leg := 99
 
 func setup(aircraft: Aircraft, dep_end: Dictionary, arr_end: Dictionary, cruise_alt_m: float, waypoints: Array = []) -> void:
 	ac = aircraft
+	ac.laws.mode = "assisted"    # the AI always flies through the attitude-command law
 	dep = dep_end
 	arr = arr_end
 	cruise_alt = cruise_alt_m
@@ -143,7 +144,8 @@ func update(dt: float) -> void:
 				ac.ap.spd_sel = float(spec.cruise_ias) if n.alt > 3100.0 else minf(float(spec.cruise_ias), 250.0)
 			var dist := _dist_to_arr(n)
 			var need = (n.alt - (float(arr.elev) + 900.0)) / tan(deg_to_rad(2.8)) + 18000.0
-			if dist < need:
+			var route_done := not route.is_empty() and ac.ap.lat_mode != "LNAV" and t_phase > 5.0
+			if dist < need or route_done:
 				_set_phase("descent")
 				ac.ap.alt_sel = float(arr.elev) + 900.0
 				ac.ap.use_mach = false
@@ -183,13 +185,19 @@ func update(dt: float) -> void:
 			elif ac.ap.vert_mode == "ROLLOUT":
 				_set_phase("rollout")
 		"manual_flare":
-			# hand flare for aircraft without autoland
-			var flare_h := 9.0 if spec.category != "trainer" else 5.0
-			var vs_t := -3.5 if agl > flare_h else -maxf(agl * 0.35, 0.5)
-			var gamma := rad_to_deg(asin(clampf(vs_t / maxf(ac.fdm.tas, 30.0), -0.3, 0.3)))
-			ac.laws.target_pitch = clampf(gamma + rad_to_deg(ac.fdm.alpha), -5.0, 12.0)
-			ac.in_pitch = clampf((ac.laws.target_pitch - n.pitch) * 0.05, -0.4, 0.4)
+			# hand-flown flare for aircraft without autoland: same sink-rate law as the autopilot
+			if t_phase < dt * 1.5:
+				ac.ap.flare_pitch = n.pitch
+			var flare_h := 12.0 if spec.category != "trainer" else 6.0
+			if agl > flare_h:
+				# keep the approach path until the flare height
+				ac.ap.flare_pitch = move_toward(ac.ap.flare_pitch, n.pitch, dt * 2.0)
+				ac.laws.target_pitch = ac.ap.flare_pitch + clampf((-3.6 - float(n.vs)) * 0.6, -2.0, 2.0)
+			else:
+				ac.laws.target_pitch = ac.ap.flare_law(n, dt)
+			ac.in_pitch = 0.0
 			ac.in_roll = clampf(-n.bank * 0.05, -0.3, 0.3)
+			ac.laws.target_bank = 0.0
 			if agl < 10.0:
 				ac.throttle_lever = move_toward(ac.throttle_lever, 0.0, dt * 0.6)
 			if ac.fdm.wow[1] or ac.fdm.wow[2]:

@@ -38,6 +38,10 @@ window/vsync/vsync_mode=1
 pointing/emulate_mouse_from_touch=true
 sensors/enable_accelerometer=true
 
+[audio]
+
+general/text_to_speech=true
+
 [gui]
 
 common/drop_mouse_on_gui_input_disabled=true
@@ -64,6 +68,13 @@ reflections/sky_reflections/roughness_layers=7
 reflections/sky_reflections/ggx_samples.mobile=32
 occlusion_culling/use_occlusion_culling=false
 limits/global_shader_variables/buffer_size=65536
+
+[shader_globals]
+
+crowd_time={
+"type": "float",
+"value": 0.0
+}
 
 [debug]
 

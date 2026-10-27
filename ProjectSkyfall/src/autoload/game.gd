@@ -295,7 +295,14 @@ func goto(screen: String, params: Dictionary = {}) -> void:
 		main.show_screen(screen, params)
 
 
+## Clock driving crowd animation in shaders; the news video player overrides it while rendering.
+var crowd_clock := 0.0
+var crowd_clock_override := -1.0
+
+
 func _process(delta: float) -> void:
+	crowd_clock = fmod(crowd_clock + delta, 7200.0)
+	RenderingServer.global_shader_parameter_set("crowd_time", crowd_clock if crowd_clock_override < 0.0 else crowd_clock_override)
 	_autosave_timer += delta
 	if _autosave_timer > 120.0:
 		_autosave_timer = 0.0

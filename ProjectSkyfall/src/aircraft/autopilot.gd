@@ -71,7 +71,28 @@ func set_vert(m: String) -> void:
 		vert_mode = m
 		if m in ["VS", "ALT"]:
 			_vs_i = 0.0
+		if m == "FLARE":
+			flare_pitch = out_pitch
 		mode_changed.emit(fma())
+
+
+var flare_pitch := 0.0
+
+
+## Sink-rate flare: commands a descent rate that shrinks with height (never zero, so the
+## aircraft cannot float in ground effect) and integrates it into pitch, capped short of a
+## tail strike. Returns the target pitch in degrees.
+func flare_law(n: Dictionary, dt: float) -> float:
+	var h := maxf(float(n.ra), 0.0)
+	var tau := 2.6 if spec.category != "trainer" else 2.0
+	var vs_cmd := -(h / tau) - (0.55 if spec.category != "trainer" else 0.35)
+	var rate := clampf((vs_cmd - float(n.vs)) * 1.7, -3.0, 3.2)
+	# never keep pulling once the speed has decayed well below the approach speed
+	if float(n.true_ias_kt) < float(spec.vref) - 8.0 and rate > 0.0:
+		rate *= 0.3
+	var max_p := minf(float(spec.get("tailstrike", 11.0)) - 2.2, 12.0)
+	flare_pitch = clampf(flare_pitch + rate * dt, -3.0, max_p)
+	return flare_pitch
 
 
 func set_thr(m: String) -> void:
@@ -298,8 +319,8 @@ func _vertical(dt: float, n: Dictionary, fdm: FlightModel) -> void:
 			if n.ra < flare_h and bool(spec.autoland):
 				set_vert("FLARE")
 		"FLARE":
-			var vs_t4 := -maxf(float(n.ra) * 0.3, 0.3)
-			pitch_t = _pitch_for_vs(vs_t4, n, fdm, dt)
+			pitch_t = flare_law(n, dt)
+			out_pitch = pitch_t
 			if n.ra < 9.0:
 				set_thr("RETARD")
 			if fdm.wow[1] or fdm.wow[2]:

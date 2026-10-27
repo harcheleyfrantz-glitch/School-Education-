@@ -35,7 +35,7 @@ const TYPES := {
 		"cruise_alt": 6500, "ceiling": 14000, "climb_fpm": 700,
 		"autopilot": true, "fbw": false, "ils": true, "autoland": false,
 		"pilots": 1, "fa": 0, "cabin": [{"cls": "ga", "rows": 2, "layout": "1-1", "pitch": 0.95, "seat_w": 0.5}],
-		"doors": [0.36], "cockpit": "ga", "sound": "piston", "cargo_door": false, "hump": false,
+		"doors": [0.38], "cockpit": "ga", "sound": "piston", "cargo_door": false, "hump": false,
 		"hourly_cost": 180, "rating_hours": 0.0, "range_nm": 640, "tailstrike": 14.0,
 	},
 	"tp72": {
@@ -66,7 +66,7 @@ const TYPES := {
 		"cruise_alt": 17000, "ceiling": 25000, "climb_fpm": 1600,
 		"autopilot": true, "fbw": false, "ils": true, "autoland": false,
 		"pilots": 2, "fa": 2, "cabin": [{"cls": "economy", "rows": 18, "layout": "2-2", "pitch": 0.79, "seat_w": 0.46}],
-		"doors": [0.06, 0.9], "cockpit": "turboprop", "sound": "turboprop", "cargo_door": true, "hump": false,
+		"doors": [0.165, 0.85], "cockpit": "turboprop", "sound": "turboprop", "cargo_door": true, "hump": false,
 		"hourly_cost": 2400, "rating_hours": 60.0, "range_nm": 820, "tailstrike": 10.0,
 	},
 	"rj90": {
@@ -102,7 +102,7 @@ const TYPES := {
 			{"cls": "business", "rows": 3, "layout": "1-2", "pitch": 0.97, "seat_w": 0.56},
 			{"cls": "economy", "rows": 19, "layout": "2-2", "pitch": 0.79, "seat_w": 0.47},
 		],
-		"doors": [0.07, 0.92], "cockpit": "boeing", "sound": "fan_small", "cargo_door": true, "hump": false,
+		"doors": [0.15, 0.86], "cockpit": "boeing", "sound": "fan_small", "cargo_door": true, "hump": false,
 		"hourly_cost": 4200, "rating_hours": 250.0, "range_nm": 2000, "tailstrike": 11.0,
 	},
 	"s320": {
@@ -139,7 +139,7 @@ const TYPES := {
 			{"cls": "business", "rows": 3, "layout": "2-2", "pitch": 0.96, "seat_w": 0.56},
 			{"cls": "economy", "rows": 27, "layout": "3-3", "pitch": 0.79, "seat_w": 0.46},
 		],
-		"doors": [0.07, 0.92], "overwing": [0.43, 0.48], "cockpit": "airbus", "sound": "fan_med", "cargo_door": true, "hump": false,
+		"doors": [0.16, 0.855], "overwing": [0.41, 0.437], "cockpit": "airbus", "sound": "fan_med", "cargo_door": true, "hump": false,
 		"hourly_cost": 7200, "rating_hours": 900.0, "range_nm": 3300, "tailstrike": 11.5,
 	},
 	"w350": {
@@ -177,7 +177,7 @@ const TYPES := {
 			{"cls": "premium", "rows": 5, "layout": "2-3-2", "pitch": 0.97, "seat_w": 0.5},
 			{"cls": "economy", "rows": 25, "layout": "3-3-3", "pitch": 0.81, "seat_w": 0.45},
 		],
-		"doors": [0.06, 0.3, 0.62, 0.9], "cockpit": "boeing", "sound": "fan_large", "cargo_door": true, "hump": false,
+		"doors": [0.107, 0.32, 0.58, 0.845], "cockpit": "boeing", "sound": "fan_large", "cargo_door": true, "hump": false,
 		"hourly_cost": 16500, "rating_hours": 3000.0, "range_nm": 7600, "tailstrike": 9.5,
 	},
 	"bj6": {
@@ -208,7 +208,7 @@ const TYPES := {
 		"cruise_alt": 43000, "ceiling": 51000, "climb_fpm": 3200,
 		"autopilot": true, "fbw": true, "ils": true, "autoland": true,
 		"pilots": 2, "fa": 1, "cabin": [{"cls": "vip", "rows": 4, "layout": "1-1", "pitch": 1.9, "seat_w": 0.75}],
-		"doors": [0.12], "cockpit": "bizjet", "sound": "fan_small", "cargo_door": false, "hump": false,
+		"doors": [0.15], "cockpit": "bizjet", "sound": "fan_small", "cargo_door": false, "hump": false,
 		"hourly_cost": 6200, "rating_hours": 700.0, "range_nm": 7000, "tailstrike": 12.0,
 	},
 	"f4": {
@@ -241,7 +241,7 @@ const TYPES := {
 		"cruise_alt": 35000, "ceiling": 43000, "climb_fpm": 1800,
 		"autopilot": true, "fbw": false, "ils": true, "autoland": true,
 		"pilots": 2, "fa": 0, "cabin": [{"cls": "crew_rest", "rows": 1, "layout": "2-2", "pitch": 1.2, "seat_w": 0.55}],
-		"doors": [0.12], "cockpit": "boeing", "sound": "fan_large", "cargo_door": true, "hump": true,
+		"doors": [0.1], "cockpit": "boeing", "sound": "fan_large", "cargo_door": true, "hump": true,
 		"hourly_cost": 21000, "rating_hours": 2500.0, "range_nm": 4400, "tailstrike": 10.5,
 	},
 }
