@@ -105,7 +105,6 @@ class Carousel extends Control:
 		if _dots:
 			move_child(_dots, get_child_count() - 1)
 			_dots.offset_top = 46 if c.ribbon != "" else 16
-		resized.connect(func(): c.size = size)
 
 	func _process(delta: float) -> void:
 		if cards.size() < 2:
