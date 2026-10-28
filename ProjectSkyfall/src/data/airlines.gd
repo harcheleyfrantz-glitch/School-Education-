@@ -95,3 +95,13 @@ static func operates_type(code: String, type_id: String) -> bool:
 
 static func types_for(code: String) -> Array:
 	return get_al(code).fleet.keys()
+
+
+## Airline code of a livery key ("SKF.retro" -> "SKF").
+static func base_code(lv: String) -> String:
+	return lv.get_slice(".", 0)
+
+
+## Livery worn by an airframe: the airline's own scheme, or a special scheme for some registrations.
+static func livery_for(code: String, reg: String, type_id: String) -> String:
+	return code
