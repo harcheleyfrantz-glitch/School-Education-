@@ -14,6 +14,8 @@ var _height := 9.0
 var _target_dist := 62.0
 var _target_height := 9.0
 var _look_off := Vector3.ZERO
+var _apron_yaw := 0.0            # direction from the terminal out over the apron
+var _swing := 70.0
 
 
 func _ready() -> void:
@@ -36,6 +38,7 @@ func _ready() -> void:
 	ac.setup("s320", "CR-SFA", "SKF", view, true)
 	ac.player_controlled = false
 	var n: Vector2 = sd.normal
+	_apron_yaw = rad_to_deg(atan2(n.x, n.y))
 	var face: Vector2 = sd.get("facade_origin", sd.stop)
 	var pos := face + n * (7.0 + float(ac.spec.length) * float(ac.spec.cg_frac))
 	ac.place_at(view.world_to_local(float(ap.x) + pos.x, float(ap.elev), float(ap.z) + pos.y), float(sd.hdg), true)
@@ -91,7 +94,8 @@ func _process(delta: float) -> void:
 	if ac == null:
 		return
 	_t += delta
-	_yaw = fmod(_yaw + delta * 1.6, 360.0)
+	# the camera swings slowly to and fro on the apron side (never behind the terminal)
+	_yaw = _apron_yaw + sin(_t * 0.045 + 0.6) * _swing
 	_dist = lerpf(_dist, _target_dist, clampf(delta * 0.8, 0.0, 1.0))
 	_height = lerpf(_height, _target_height, clampf(delta * 0.8, 0.0, 1.0))
 	var c := ac.global_position + _look_off
@@ -107,4 +111,7 @@ func _process(delta: float) -> void:
 
 
 func _exit_tree() -> void:
+	# a flight that is starting has already chosen its own weather
+	if Game.main and Game.main.get("session") != null:
+		return
 	WeatherModel.override_preset = ""

@@ -2,7 +2,8 @@ extends Node
 ## Root screen manager. Menus sit over a live 3D backdrop (an airliner being turned around at a
 ## gate at golden hour); a flight replaces the backdrop with a full FlightSession.
 
-const MENU_SCREENS := ["menu", "create", "hub", "briefing", "free", "passenger", "news", "archive", "settings", "jobs", "logbook"]
+const MENU_SCREENS := ["menu", "create", "hub", "briefing", "free", "passenger", "news", "archive", "settings", "jobs", "logbook",
+	"activities", "activity", "profile", "hangar", "world_map"]
 
 var current: Node = null
 var backdrop: Node3D = null

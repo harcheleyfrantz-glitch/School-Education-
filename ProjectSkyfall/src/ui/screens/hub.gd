@@ -1,3 +1,4 @@
+class_name HubScreen
 extends ScreenBase
 ## Career hub: the pilot's standing, what they can fly next, job offers, training, rest, and
 ## what the world is talking about.
