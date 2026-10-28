@@ -17,7 +17,7 @@ var progress := -1.0            ## 0..1 bar along the bottom
 var progress_text := ""
 var shot_id := ""
 var icon_name := "plane"        ## placeholder icon while the picture renders
-var title_size := 22
+var title_size := 20
 var top_band := false
 var kenburns := false
 var on_pressed: Callable
@@ -213,7 +213,7 @@ func _build_caption() -> Control:
 		var sl := UIStyle.label(subtitle, 13, Color(0.88, 0.91, 0.95, 0.92))
 		sl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		sl.max_lines_visible = 2
-		sl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		sl.custom_minimum_size = Vector2(10, 18 if subtitle.length() < 34 else 34)
 		sl.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.6))
 		sl.add_theme_constant_override("shadow_offset_y", 1)
 		tv.add_child(sl)

@@ -29,8 +29,7 @@ const SHOTS := {
 	"home_featured_b": {"kind": "air", "size": HERO, "type": "s320", "airline": "SKF", "at": Vector2(-50500, 8000), "agl": 1400.0,
 		"hour": 15.6, "weather": "scattered", "look_rel": 150.0, "heading_rel": 120.0, "el": -6.0, "dist": 1.45, "pitch": 7.0,
 		"bank": -12.0, "fov": 26.0, "aim": Vector2(0.2, 0.05)},
-	"home_worldmap": {"kind": "aerial", "size": CARD, "at": Vector2(-44000, 30000), "hour": 18.6, "weather": "few",
-		"cam_alt": 14000.0, "cam_dist": 24000.0, "sun_rel": 60.0, "fov": 55.0, "aim": Vector2(0.0, -0.2), "airports": false, "bright": 1.15},
+	"home_worldmap": {"kind": "map", "size": CARD, "dep": "SKPC", "arr": "SKHP", "zoom": 1.55, "center": Vector2(10, -30)},
 	"home_activities": {"kind": "air", "size": CARD, "type": "t172", "airline": "HFA", "at": Vector2(55000, 77000), "agl": 260.0,
 		"hour": 18.7, "weather": "few", "look_rel": 135.0, "heading_rel": 120.0, "el": 6.0, "dist": 2.0, "pitch": 2.0, "bank": -14.0,
 		"fov": 34.0},
@@ -260,6 +259,8 @@ func _render(id: String) -> void:
 			ok = await _studio_shot(rec)
 		"portrait":
 			ok = await _portrait_shot(rec)
+		"map":
+			ok = await _map_shot(rec)
 	if ok and is_instance_valid(_vp) and _menu_active():
 		_vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 		for i in 3:
@@ -398,7 +399,7 @@ func _world_shot(rec: Dictionary) -> bool:
 			await get_tree().process_frame
 			if not _alive():
 				return false
-	await _view.warm_up(14.0)
+	await _view.warm_up(60.0)
 	if not _alive():
 		return false
 	# a few frames for the sky radiance, shadows and LOD to settle
@@ -819,6 +820,26 @@ func _studio_shot(rec: Dictionary) -> bool:
 		m.animate_simple(1.0, 0.0, 0.0, {"nav": true, "beacon": false, "cabin": true}, 0.2, 0.05)
 	_vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	for i in 4:
+		await get_tree().process_frame
+	return _alive()
+
+
+func _map_shot(rec: Dictionary) -> bool:
+	## The world map itself (shaded relief, airports and a route) for the WORLD MAP card.
+	_vp.disable_3d = true
+	var m := WorldMapView.new()
+	m.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_vp.add_child(m)
+	m.dep = String(rec.get("dep", ""))
+	m.arr = String(rec.get("arr", ""))
+	await get_tree().process_frame
+	m.fit_all(0.0)
+	m.px_per_km *= float(rec.get("zoom", 1.0))
+	if rec.has("center"):
+		m.center = rec.center
+	m._redraw()
+	_vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	for i in 3:
 		await get_tree().process_frame
 	return _alive()
 

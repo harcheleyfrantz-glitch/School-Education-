@@ -5,6 +5,10 @@ extends ScreenBase
 
 
 func setup(params: Dictionary) -> void:
+	var act := Activities.consume(params)
+	if not act.is_empty():
+		Game.goto("activity", {"category": act.category, "focus": act.id, "result": act})
+		return
 	if not Game.has_character():
 		Game.goto("menu")
 		return
@@ -12,6 +16,7 @@ func setup(params: Dictionary) -> void:
 	var al := Airlines.get_al(String(p.get("airline", ""))) if String(p.get("airline", "")) != "" else {}
 	frame("%s %s" % [p.rank, p.name], "%s · %s · %s" % [al.get("name", "Unemployed"), Airports.get_ap(String(p.location)).get("name", p.location),
 		U.fmt_datetime(WorldSim.clock)], "menu", 0.64)
+	_next_card(p)
 	if params.get("welcome", false):
 		var w := card("")
 		w.add_child(UIStyle.rich("[b]Welcome, %s.[/b] Your first flights are listed below. Brief a flight to see the aircraft, the weather and the load, then take it from the gate. Fly safely - everything you do here is remembered." % p.first, 15))
@@ -19,6 +24,23 @@ func setup(params: Dictionary) -> void:
 	_assignments(p)
 	_actions(p)
 	_news()
+
+
+func _next_card(p: Dictionary) -> void:
+	## A picture card for the next assignment beside the career column.
+	var flights := upcoming_for(p)
+	var c: ImageCard
+	if flights.is_empty():
+		c = ImageCard.make("Job board", "Airlines hiring a pilot with your record", PhotoStudio.pilot_id("career"), func(): Game.goto("jobs"))
+	else:
+		var f: Dictionary = flights[0]
+		c = ImageCard.make("Next flight", "%s · %s → %s · departs %s" % [f.number, Airports.get_ap(String(f.from)).short, Airports.get_ap(String(f.to)).short,
+			U.fmt_clock(float(f.dep))], "ap:" + String(f.to), func(): Game.goto("briefing", {"flight": f}), {"ribbon": "BRIEF", "ribbon_color": UIStyle.GREEN})
+	c.anchor_left = 0.7
+	c.anchor_right = 1.0
+	c.anchor_top = 0.0
+	c.anchor_bottom = 0.56
+	body.add_child(c)
 
 
 func _status_card(p: Dictionary, al: Dictionary) -> void:
@@ -72,12 +94,17 @@ func _assignments(p: Dictionary) -> void:
 				Game.goto("hub")))
 		return
 	for f in flights:
-		var h := UIStyle.hbox(10)
+		var h := UIStyle.hbox(14)
 		var t := AircraftTypes.get_type(String(f.type))
-		var txt := "[b]%s[/b]  %s → %s   [color=#9fb1c2]%s · dep %s · %s · %s[/color]" % [f.number, f.from, f.to, t.short,
-			U.fmt_clock(float(f.dep)), U.fmt_duration(float(f.block)), ("%d pax" % int(f.pax)) if int(f.pax) > 0 else ("training" if bool(f.training) else "cargo")]
-		var r := UIStyle.rich(txt, 15)
-		h.add_child(r)
+		var num := UIStyle.title(String(f.number), 20, Color.WHITE)
+		num.custom_minimum_size = Vector2(70, 0)
+		h.add_child(num)
+		var v := UIStyle.vbox(0)
+		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		v.add_child(UIStyle.label("%s → %s" % [Airports.get_ap(String(f.from)).short, Airports.get_ap(String(f.to)).short], 15, Color.WHITE, true))
+		v.add_child(UIStyle.caps("%s · dep %s · %s · %s" % [t.short, U.fmt_clock(float(f.dep)), U.fmt_duration(float(f.block)),
+			("%d pax" % int(f.pax)) if int(f.pax) > 0 else ("training" if bool(f.training) else "cargo")], 10, UIStyle.DIM, 700, 1))
+		h.add_child(v)
 		var b := UIStyle.button("Brief", func(): Game.goto("briefing", {"flight": f}), 90, UIStyle.ACCENT)
 		b.disabled = blocked
 		h.add_child(b)

@@ -34,7 +34,7 @@ func setup(params: Dictionary) -> void:
 		func(): Game.goto("world_map"), {"icon_name": "globe"}))
 	var done := Activities.completed_count()
 	var total := Activities.SCENARIOS.size()
-	row2.add_child(ImageCard.make("Activities", "Discovery flights, landing challenges and bush trips", "act_landing",
+	row2.add_child(ImageCard.make("Activities", "Discovery flights, landing challenges and bush trips", "act_bush",
 		func(): Game.goto("activities"), {"ribbon": "NEW", "progress": float(done) / float(total), "progress_text": "%d/%d" % [done, total],
 			"icon_name": "trophy"}))
 	row2.add_child(ImageCard.make("Passenger Journey", "Book a seat on any departure and ride along in the cabin", "home_passenger",
