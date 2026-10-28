@@ -343,7 +343,7 @@ func _track_facts(samples: Array) -> Dictionary:
 func _world_spec(inc: Dictionary, air_clock: float) -> Dictionary:
 	return {"mode": "incident", "incident": inc.get("id", ""), "x": float(inc.get("x", 0.0)), "z": float(inc.get("z", 0.0)),
 		"heading": float(inc.get("heading", 0.0)), "type": String(inc.get("type", "s320")), "airline": String(inc.get("airline", "SKF")),
-		"reg": String(inc.get("reg", "")), "samples": inc.get("samples", []), "ending": "ditch" if bool(inc.get("ditching", false)) else "crash",
+		"reg": String(inc.get("reg", "")), "dep": String(inc.get("dep", "")), "arr": String(inc.get("arr", "")), "samples": inc.get("samples", []), "ending": "ditch" if bool(inc.get("ditching", false)) else "crash",
 		"clock": float(inc.get("clock", WorldSim.clock)), "air_clock": air_clock, "weather": inc.get("weather", {}),
 		"fire": bool(inc.get("fire", true)), "severity": float(inc.get("severity", inc.get("crash", {}).get("severity", 0.7))),
 		"fatal": int(inc.get("counts", {}).get("fatal", 0)), "aboard": int(inc.get("counts", {}).get("aboard", 0)), "seed": U.hash_str(String(inc.get("id", "")))}
@@ -506,7 +506,7 @@ func _accident(inc: Dictionary, art: Dictionary, pkg: String) -> Dictionary:
 	# ---------------------------------------------------------------- reporter at the scene
 	if pkg in ["breaking", "confirmed", "victims", "survivors", "pilot"]:
 		var at_site := pkg in ["breaking", "confirmed"]
-		var su := _seg("standup", "world", 10.0, {"amb": "sirens" if at_site and hours_after < 8.0 else "outdoor", "site": site_phase, "where": "site" if at_site else "terminal", "air": air})
+		var su := _seg("standup", "world" if at_site else "airport", 10.0, {"amb": ("sirens" if hours_after < 8.0 else "outdoor") if at_site else "terminal", "site": site_phase, "where": "site" if at_site else "terminal", "air": air})
 		var sl := []
 		if at_site:
 			sl.append(_pick(["This is as close as police will let us get.", "I'm at the edge of the police cordon.", "We're about a kilometre from the crash site."]))
@@ -528,7 +528,7 @@ func _accident(inc: Dictionary, art: Dictionary, pkg: String) -> Dictionary:
 	if pkg in ["breaking", "survivors", "victims"]:
 		var who := WorldSim.person(r.randi_range(WorldSim.FREQUENT_FLYERS * 5, WorldSim.POPULATION - 1))
 		var role := "Eyewitness" if pkg == "breaking" else ("Survivor" if pkg == "survivors" else "Friend of a victim")
-		var iv := _seg("interview", "world", 8.0, {"amb": "outdoor", "site": site_phase, "person": who.get("id", 0), "where": "site" if pkg == "breaking" else "terminal", "air": air})
+		var iv := _seg("interview", "world" if pkg == "breaking" else "airport", 8.0, {"amb": "outdoor" if pkg == "breaking" else "terminal", "site": site_phase, "person": who.get("id", 0), "where": "site" if pkg == "breaking" else "terminal", "air": air})
 		var q := []
 		match pkg:
 			"breaking":
@@ -606,6 +606,11 @@ func _accident(inc: Dictionary, art: Dictionary, pkg: String) -> Dictionary:
 	var e10 := _end(1.2)
 	_shots(e10, [["single_a", 0.0], ["wide_out", 0.55]])
 	_cue(e10.t1 - 2.4, "outro", -6.0)
+	for sg in segs:
+		if String(sg.stage) == "airport":
+			prog.airport_world = {"mode": "airport", "icao": String(inc.get("arr", "SKPC")), "type": String(inc.get("type", "s320")), "airline": String(inc.get("airline", "SKF")),
+				"clock": air, "air_clock": air, "seed": U.hash_str(String(inc.get("id", "")) + "apt"), "emergency": false}
+			break
 	return _finish()
 
 
