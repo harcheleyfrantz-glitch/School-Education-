@@ -258,11 +258,13 @@ static func _buildings(L: Dictionary, a: Dictionary, prod: Dictionary, detail: f
 		# MeshBuilder boxes are axis aligned: x across, z along after rotation
 		var t := Transform3D(basis, _v3(c, 0))
 		if b.kind == "terminal":
-			# ground floor (baggage, services), glazed departures level, wavy roof
+			# ground floor (baggage, services), glazed departures level (level with the jet bridge
+			# stubs, see TerminalInterior.FLOOR), wavy roof
+			var fl := TerminalInterior.FLOOR
 			concrete.xf = t
-			concrete.add_box(Vector3(0, 3.0, 0), Vector3(b.depth - 2.0, 6.0, b.len - 2.0), Color.WHITE, true)
+			concrete.add_box(Vector3(0, fl * 0.5, 0), Vector3(b.depth - 2.0, fl, b.len - 2.0), Color.WHITE, true)
 			glass.xf = t
-			glass.add_box(Vector3(0, 6.0 + (b.h - 6.0) * 0.5, 0), Vector3(b.depth, b.h - 6.0, b.len), Color.WHITE, true)
+			glass.add_box(Vector3(0, fl + (b.h - fl) * 0.5, 0), Vector3(b.depth, b.h - fl, b.len), Color.WHITE, true)
 			metal.xf = t
 			var bays := maxi(2, int(b.len / 90.0))
 			for k in bays:

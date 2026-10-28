@@ -12,6 +12,8 @@ var facility_mats: Array = []
 var bridges := []           # [{root: Node3D, tunnel: Node3D, cab: Node3D, rest_yaw, stand, docked}]
 var windsocks := []         # [Node3D sock pivots]
 var stand_occupied := {}    # stand name -> owner id
+var glass_mi: MeshInstance3D = null
+var terminal: TerminalInterior = null
 
 
 func build_from(product: Dictionary, mgr: AirportManager) -> void:
@@ -28,6 +30,8 @@ func build_from(product: Dictionary, mgr: AirportManager) -> void:
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if m.shadow else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		if m.key in ["paint", "vcolor"]:
 			mi.visibility_range_end = 9000.0
+		if m.key == "glass":
+			glass_mi = mi
 		add_child(mi)
 	for lb in product.labels:
 		var l := Label3D.new()
@@ -78,6 +82,24 @@ func build_from(product: Dictionary, mgr: AirportManager) -> void:
 		_make_bridge(b)
 	for w in product.windsocks:
 		_make_windsock(w)
+
+
+# ------------------------------------------------------------------ terminal interior
+func build_terminal_interior() -> TerminalInterior:
+	## The walkable departures level (built on demand: only where the player is).
+	if terminal != null:
+		return terminal
+	for b in layout.buildings:
+		if b.kind != "terminal":
+			continue
+		terminal = TerminalInterior.new()
+		add_child(terminal)
+		terminal.build(self, b, layout, String(Airports.get_ap(icao).get("name", icao)))
+		# daylight comes in through the curtain walls; the roof still shades the hall
+		if glass_mi:
+			glass_mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		break
+	return terminal
 
 
 # ------------------------------------------------------------------ jet bridges
