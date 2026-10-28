@@ -633,8 +633,8 @@ void fragment() {
 		col = vec3(0.02, 0.022, 0.025);
 		rough = 0.2;
 		cc = 0.8;
-		float sw = abs(fract(UV.x + UV.y * 0.9) - 0.5) - 0.44;
-		col = mix(col, vec3(0.92), fill(sw * 0.4) * step(0.12, UV.y) * step(UV.y, 0.93));
+		float sw = abs(fract(UV.x + UV.y * 0.9) - 0.5) - 0.035;
+		col = mix(col, vec3(0.92), fill(sw * 0.5) * step(0.12, UV.y) * step(UV.y, 0.93));
 		col = mix(col, vec3(0.6, 0.61, 0.63), step(0.93, UV.y));
 	} else if (pid == P_EXHAUST) {
 		col = vec3(0.38, 0.37, 0.36);

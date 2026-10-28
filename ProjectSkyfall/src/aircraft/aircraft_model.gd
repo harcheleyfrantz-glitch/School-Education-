@@ -174,7 +174,7 @@ func _instantiate(kit: Dictionary) -> void:
 		fan.name = "Engine%d" % fans.size()
 		fan.position = e.pos
 		add_child(fan)
-		_mesh_node(e.mesh, "Rotor", fan)
+		_mesh_node(e.mesh, "Rotor", fan).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		var blades: MeshInstance3D = null
 		var disc: MeshInstance3D = null
 		if e.blades != null:
@@ -250,7 +250,7 @@ static func _material(lv: String, type_id: String, geo: Dictionary) -> ShaderMat
 			m.set_shader_parameter(k, float(l[k]))
 	var st: Array = l.get("stripes", [0.0, 0.0, 0.0, 0.0])
 	m.set_shader_parameter("stripes", Vector4(st[0], st[1], st[2], st[3]))
-	var s3: Array = l.get("stripe3", [0.0, 0.0])
+	var s3: Array = l.get("stripe3_at", [0.0, 0.0])
 	m.set_shader_parameter("stripe3", Vector2(s3[0], s3[1]))
 	var stt: Array = l.get("stripe_t", [0.06, 0.985])
 	m.set_shader_parameter("stripe_t", Vector2(stt[0], stt[1]))
@@ -1159,8 +1159,8 @@ func _canoe(front: MeshBuilder, rear: MeshBuilder, side: float, s: float, xh: fl
 	var cd: Vector3 = sec.cd
 	var td: Vector3 = sec.td
 	var sd := td.cross(cd).normalized()
-	var prof := [[0.36, 0.006, 0.006], [0.42, 0.032, 0.04], [0.52, 0.048, 0.075], [0.64, 0.055, 0.1], [xh, 0.056, 0.11],
-		[0.86, 0.054, 0.115], [1.0, 0.046, 0.1], [1.12, 0.034, 0.072], [1.24, 0.018, 0.04], [1.32, 0.004, 0.012]]
+	var prof := [[0.38, 0.005, 0.006], [0.44, 0.026, 0.035], [0.54, 0.037, 0.065], [0.65, 0.042, 0.088], [xh, 0.043, 0.098],
+		[0.86, 0.042, 0.104], [1.0, 0.037, 0.092], [1.12, 0.028, 0.066], [1.24, 0.015, 0.037], [1.32, 0.004, 0.012]]
 	var n := 12 if hi else 6
 	var rings_f := []
 	var cen_f := []
@@ -1874,10 +1874,10 @@ func _gear_leg(mb: MeshBuilder, g: Dictionary) -> void:
 	_k.anchors[gname] = piv + Vector3(0, -leg, 0)
 	# nose bay doors (open while the gear is down)
 	if nose and bool(g.retract):
-		var bay_w := off + tw * 0.5 + 0.12 if twin else rc + tw + 0.1
-		var dl := leg + wr * 1.1
+		var bay_w := (off + tw * 0.5 + 0.1 if twin else rc + tw + 0.1) * 0.62
+		var dl := (leg + wr * 1.1) * 0.45
 		for sx in [-1.0, 1.0]:
-			var hinge := Vector3(sx * bay_w, top_y - 0.28, float(g.z) - dl * 0.5 + 0.2)
+			var hinge := Vector3(sx * bay_w, top_y - 0.28, float(g.z) + dl * 0.5 - 0.1)
 			var dmb := _new_mb()
 			dmb.add_box(Vector3(-sx * bay_w * 0.5, 0.0, 0.0), Vector3(bay_w, 0.04, dl), _c(P_BELLY))
 			_k.gear_doors.append({"xf": Transform3D(Basis.IDENTITY, hinge), "mesh": dmb.commit(), "axis": Vector3(0, 0, 1),
@@ -2197,6 +2197,10 @@ func _shader_geometry(panes: Array) -> void:
 	sh["win_range"] = wr
 	sh["win_shape"] = 2.0 if cat == "bizjet" else 2.7
 	sh["win_hn"] = wy / _rh
+	if cat == "cargo":
+		sh["win_hn"] = 0.1
+	elif cat == "trainer":
+		sh["win_hn"] = 0.0
 	var dz := Vector4(-1e4, -1e4, -1e4, -1e4)
 	var dw := Vector4(0.5, 0.5, 0.5, 0.5)
 	var ez4 := Vector4(-1e4, -1e4, -1e4, -1e4)
