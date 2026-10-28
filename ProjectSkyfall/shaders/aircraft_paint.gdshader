@@ -217,13 +217,17 @@ vec2 fin_art(vec2 a, vec2 s, float span) {
 	float lg = 0.0;
 	float ar = 0.0;
 	if (logo_shape == 0) {
-		// rising sun: disc on a horizon with rays fanning upward
-		vec2 c = a - vec2(-0.05, -0.18);
-		float disc = fill(length(c) - 0.42);
-		float ang = atan(c.y, -c.x);
-		float rays = fill(abs(fract(ang * 2.2 / PI + 0.25) - 0.5) - 0.22) * fill(0.6 - length(c)) * fill(length(c) - 1.25) * step(-0.05, c.y);
-		float cut = fill(-c.y - 0.0) * fill(abs(fract(c.y * 6.0) - 0.5) - 0.2);
-		lg = max(disc * (1.0 - fill(-c.y) * (1.0 - cut)), rays);
+		// rising sun: a disc sliced by horizon lines, seven tapered rays fanning upward
+		vec2 c = a - vec2(0.0, -0.3);
+		float r = length(c);
+		float disc = fill(r - 0.44);
+		float cuts = fill(abs(fract(c.y * 5.0 + 0.5) - 0.5) - 0.3) * step(c.y, -0.04);
+		disc *= 1.0 - cuts;
+		float ang = atan(c.x, c.y);
+		float kk = ang / (PI / 8.0);
+		float lat = abs(kk - round(kk)) * (PI / 8.0) * r;
+		float rays = fill(lat - 0.05 * (1.3 - r * 0.55)) * step(0.58, r) * fill(r - 1.18) * step(abs(ang), PI * 0.42);
+		lg = max(disc, rays);
 	} else if (logo_shape == 1) {
 		// three breaking waves
 		float w = 0.0;
@@ -248,19 +252,19 @@ vec2 fin_art(vec2 a, vec2 s, float span) {
 		lg = max(fill(st), fill(st2));
 		ar = fill(abs(length(a) - 0.62) - 0.035) * (1.0 - lg);
 	} else if (logo_shape == 4) {
-		// stylised wing / feather sweeping forward
+		// stylised wing: three crescent feathers sweeping up and forward
 		float acc = 0.0;
-		for (int i = 0; i < 5; i++) {
+		for (int i = 0; i < 3; i++) {
 			float fi = float(i);
-			vec2 q = a - vec2(-0.55 + fi * 0.2, -0.65 + fi * 0.08);
-			float len = 1.15 - fi * 0.13;
-			vec2 dir = normalize(vec2(-0.55, 1.0));
-			float along = dot(q, dir);
-			float across = dot(q, vec2(dir.y, -dir.x)) + 0.06 * along * along;
-			float shape = abs(across) - 0.07 * (1.0 - along / len);
-			acc = max(acc, fill(shape) * step(0.0, along) * step(along, len));
+			vec2 q = a - vec2(-0.35 + fi * 0.16, -0.7 + fi * 0.16);
+			float r1 = 1.2 - fi * 0.22;
+			float d1 = length(q) - r1;
+			float d2 = length(q - vec2(0.16, -0.12)) - (r1 - 0.04);
+			float cres = max(d1, -d2);
+			acc = max(acc, fill(cres) * step(0.02, q.y) * step(-0.1, q.x));
 		}
 		lg = acc;
+		ar = fill(length(a - vec2(0.55, -0.62)) - 0.09);
 	} else if (logo_shape == 5) {
 		// diagonal speed bands
 		float b = a.y - a.x * 0.55;

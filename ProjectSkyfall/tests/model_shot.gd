@@ -5,7 +5,8 @@ extends Node3D
 ##   beauty  one aircraft at a time on the apron, posed against the sun: hero (3/4 front low), side,
 ##           top, rear, nose / flight deck, engine inlet, main gear, wingtip and tail; saves
 ##           <type>_<shot>.png. hour 18.9 = golden hour, 12.5 = midday, 22.5 = night (all lights on).
-##           livery: airline code or special scheme key ("NWC.tanker"); default per type.
+##           livery: airline code or special scheme key ("NWC.tanker"); default per type. Types may
+##           also be given as type:livery ("f4:NWC.tanker,s320:SKF.retro"), saved as <type>-<livery>_<shot>.
 var out_dir := "/tmp"
 var view: WorldView
 var cam: Camera3D
@@ -88,8 +89,13 @@ func _beauty(ap: Dictionary, which: String, hour: float, livery: String) -> void
 	var spot := face + nrm * 80.0
 	var night := hour > 20.5 or hour < 5.0
 	await view.warm_up(20.0)
-	for t in types:
+	for entry in types:
+		var t := String(entry).get_slice(":", 0)
 		var al: String = livery if livery != "" else String(DEFAULT_AIRLINE.get(t, "SKF"))
+		var tag := t
+		if String(entry).contains(":"):
+			al = String(entry).get_slice(":", 1)
+			tag = t + "-" + al
 		var ac := Aircraft.new()
 		view.dynamic_root.add_child(ac)
 		var t0 := Time.get_ticks_msec()
@@ -120,7 +126,7 @@ func _beauty(ap: Dictionary, which: String, hour: float, livery: String) -> void
 			cam.look_at(ac.global_transform * (sh[2] as Vector3))
 			for k in 5:
 				await get_tree().process_frame
-			get_viewport().get_texture().get_image().save_png(out_dir.path_join("%s_%s.png" % [t, sh[0]]))
+			get_viewport().get_texture().get_image().save_png(out_dir.path_join("%s_%s.png" % [tag, sh[0]]))
 		ac.queue_free()
 		await get_tree().process_frame
 
@@ -148,9 +154,10 @@ func _shots(ac: Aircraft) -> Array:
 	var ed: float = an.get("engine_d_0", 1.5)
 	out.append(["engine", e0 + Vector3(-ed * 0.8 - 0.4, ed * 0.15 + 0.1, -ed * 2.6 - 0.8), e0 + Vector3(0, 0, ed * 0.35), 40.0])
 	var mg: Vector3 = an.get("main_gear_L", Vector3(-2, -H, 1))
-	out.append(["gear", Vector3(mg.x * 0.25, g + 0.75, mg.z - 2.6 - H * 0.9), mg + Vector3(0.0, H * 0.3, 0.2), 50.0])
+	var clear := clampf(0.45 * (H - fh * 0.53), 0.25, 0.9)
+	out.append(["gear", Vector3(mg.x * 0.25, g + clear, mg.z - 2.6 - H * 0.9), mg + Vector3(0.0, H * 0.3, 0.2), 50.0])
 	var wt: Vector3 = an.get("wingtip_L", Vector3(-S * 0.5, 0, 0))
-	out.append(["wingtip", wt + Vector3(-1.4 - S * 0.03, 1.0 + S * 0.03, -2.8 - S * 0.06), wt + Vector3(0.9, 0.3, 0.9), 45.0])
+	out.append(["wingtip", wt + Vector3(1.0 + S * 0.05, 1.5 + S * 0.03, 2.6 + S * 0.05), wt + Vector3(-0.4, 0.3, -0.4), 45.0])
 	var ft: Vector3 = an.get("fin_top", Vector3(0, fh, nz + L * 0.9))
 	out.append(["tail", Vector3(-fh * 2.8 - 2.5, ft.y * 0.5, ft.z - fh * 1.2), Vector3(0, ft.y * 0.62, ft.z - fh * 0.4), 42.0])
 	return out

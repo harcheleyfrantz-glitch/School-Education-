@@ -77,6 +77,8 @@ var _rh := 1.0
 var _boxy := 0.0
 var _bulges := []
 var _W := {}
+var _rk_z0 := -1e4              # trainer: windscreen rake starts here (matches the cockpit interior)
+var _rk_y0 := 0.0
 
 
 func build(type_id: String, airline_code: String, reg: String, detail_level: float = 1.0) -> void:
@@ -715,6 +717,11 @@ func _setup_geometry() -> void:
 	_rw = float(spec.fuse_w) * 0.5
 	_rh = float(spec.fuse_h) * 0.5
 	_boxy = 2.6 if spec.category == "trainer" else 0.0
+	_rk_z0 = -1e4
+	if spec.category == "trainer":
+		var ck: Dictionary = CabinLayout.get_layout(_type_id).cockpit
+		_rk_z0 = float(ck.eye_z) - 1.25
+		_rk_y0 = float(ck.eye_y) - 0.263
 	_W = _wing_setup()
 	_bulges = []
 	var cat: String = spec.category
@@ -836,13 +843,14 @@ func _hw(z: float, y: float) -> float:
 
 ## Point on the nose skin at half width x and height y (searching aft from z_lo to z_hi).
 func _skin_at_x(x: float, y: float, z_lo: float, z_hi: float) -> Vector3:
-	if _hw(z_hi, y) <= x:
+	var xq := maxf(x, 0.015)
+	if _hw(z_hi, y) <= xq:
 		return Vector3(_hw(z_hi, y), y, z_hi)
 	var a := z_lo
 	var b := z_hi
 	for i in 28:
 		var m := (a + b) * 0.5
-		if _hw(m, y) < x:
+		if _hw(m, y) < xq:
 			a = m
 		else:
 			b = m
@@ -882,6 +890,18 @@ func _bulge(x: float, y: float, z: float, c: float) -> Vector2:
 	return Vector2(x, y)
 
 
+## Trainer cowling line ahead of the windscreen, then the 30 degree windscreen rake.
+func _rake_top(z: float) -> float:
+	if z < _rk_z0:
+		return _rk_y0
+	return _rk_y0 + (z - _rk_z0) * 0.577
+
+
+static func _smin(a: float, b: float, k: float) -> float:
+	var h := maxf(k - absf(a - b), 0.0) / k
+	return minf(a, b) - h * h * k * 0.25
+
+
 func _fpt(sp: Vector4, t: float, th: float) -> Vector3:
 	var s := sin(th)
 	var c := cos(th)
@@ -896,6 +916,10 @@ func _fpt(sp: Vector4, t: float, th: float) -> Vector3:
 		x = s * _rw * sp.x
 		y = c * _rh * sy
 	var z := cg_z + t * body_len
+	if _rk_z0 > -1e3 and c > 0.0:
+		var yt := _rake_top(z) - sp.w
+		if y > yt - 0.12:
+			y = _smin(y, yt, 0.1)
 	if not _bulges.is_empty():
 		var q := _bulge(x, y, z, c)
 		x = q.x
@@ -961,6 +985,16 @@ func _build_fuselage(mb: MeshBuilder) -> void:
 			uv2.append(Vector2(p.z, p.y))
 	var nrm := _grid_normals(rows, cols, pos, hint, true)
 	_emit_grid(mb, rows, cols, pos, nrm, col, uv, uv2)
+	# blunt noses (GA cowling) get a front face
+	var sp0 := section(spec, 0.0)
+	if sp0.x > 0.01:
+		var r0 := PackedVector3Array()
+		var c0 := Vector3.ZERO
+		for j in segs:
+			var p0 := _fpt(sp0, 0.0, TAU * float(j) / segs)
+			r0.append(p0)
+			c0 += p0
+		_fan(mb, c0 / segs, r0, Vector3(0, 0, -1), _c(P_BODY))
 	# tail closure and the APU exhaust
 	var spe := section(spec, 1.0)
 	var ring := PackedVector3Array()
@@ -1660,10 +1694,10 @@ func _prop_blades(mb: MeshBuilder, D: float, nb: int, r_hub: float, z0: float) -
 
 func _piston(mb: MeshBuilder, p: Vector3, idx: int) -> void:
 	var D: float = spec.get("prop_diam", 1.9)
-	var hub := Vector3(0, -0.04, cg_z - 0.06)
+	var hub := Vector3(0, -0.11, cg_z - 0.06)
 	# cowling intakes either side of the spinner and the exhaust stub
 	for sx in [-1.0, 1.0]:
-		mb.add_rounded_box(Vector3(sx * 0.17, -0.06, cg_z + 0.06), Vector3(0.16, 0.12, 0.08), _c(P_DARK), 0.4, 8, 6)
+		mb.add_rounded_box(Vector3(sx * 0.21, -0.07, cg_z + 0.03), Vector3(0.13, 0.1, 0.06), _c(P_DARK), 0.4, 8, 6)
 	mb.add_cylinder(Vector3(0.12, -_rh * 0.62, cg_z + 0.75), Vector3(0.14, -_rh * 0.7, cg_z + 1.05), 0.035, 0.03, 8, _c(P_EXHAUST), true)
 	_k.anchors["engine_%d" % idx] = hub
 	_k.anchors["engine_d_%d" % idx] = 0.6
@@ -2085,16 +2119,18 @@ func _cockpit_panes() -> Array:
 	var z_hi := ez + 2.0
 	var out := []
 	if cat == "trainer":
-		var yb := ey - 0.3
-		var yt := ey + 0.24
-		var w0 := _skin_at_x(-0.03, yb, z_lo, z_hi)
-		var w1 := _skin_at_x(0.43, yb, z_lo, z_hi)
-		var w2 := _skin_at_x(0.4, yt, z_lo, z_hi)
-		var w3 := _skin_at_x(-0.03, yt, z_lo, z_hi)
-		out.append([w0, w1, w2, w3, 0.08])
-		var za := maxf(w1.z, w2.z) + 0.1
-		out.append([_skin_at_z(za, ey - 0.26), _skin_at_z(ez + 0.5, ey - 0.26), _skin_at_z(ez + 0.5, ey + 0.2), _skin_at_z(za + 0.12, ey + 0.2), 0.08])
-		out.append([_skin_at_z(ez + 0.6, ey - 0.22), _skin_at_z(ez + 1.25, ey - 0.12), _skin_at_z(ez + 1.25, ey + 0.08), _skin_at_z(ez + 0.6, ey + 0.17), 0.1])
+		# windscreen on the raked plateau, door window, rear side window
+		var za := _rk_z0 + 0.06
+		var zb := _rk_z0 + 1.02
+		var ya := _rake_top(za) - 0.012
+		var yb := _rake_top(zb) - 0.03
+		var xa := _hw(za, ya - 0.08) * 0.84
+		var xb := _hw(zb, yb - 0.08) * 0.78
+		out.append([Vector3(-0.03, ya, za), Vector3(xa, ya, za), Vector3(xb, yb, zb), Vector3(-0.03, yb, zb), 0.06])
+		var zd := zb + 0.12
+		var top := minf(ey + 0.2, _crown_y(zd) - 0.08)
+		out.append([_skin_at_z(zd, ey - 0.24), _skin_at_z(ez + 0.48, ey - 0.24), _skin_at_z(ez + 0.48, top), _skin_at_z(zd + 0.1, top), 0.07])
+		out.append([_skin_at_z(ez + 0.58, ey - 0.2), _skin_at_z(ez + 1.25, ey - 0.1), _skin_at_z(ez + 1.25, ey + 0.08), _skin_at_z(ez + 0.58, top - 0.02), 0.09])
 		return out
 	var s := clampf(_rw / 1.98, 0.75, 1.25)
 	var fb := ey - 0.24
@@ -2400,8 +2436,12 @@ func _build_labels(lv: String, reg: String) -> void:
 	var y := wy + 0.19 + 0.12 + h * 0.5
 	y = minf(y, _rh * 0.78)
 	var zc := cg_z + body_len * (_nose_frac(spec) + 0.2 + tpos)
-	if cat in ["widebody", "cargo"]:
+	if cat == "widebody":
 		zc = cg_z + body_len * (_nose_frac(spec) + 0.16 + tpos)
+	elif cat == "cargo":
+		# main deck, behind the upper deck hump
+		y = _rh * 0.3
+		zc = cg_z + body_len * (0.41 + tpos)
 	for side in [-1.0, 1.0]:
 		_label(title, font, h, txt, side, zc, y, rng)
 	if hi and reg != "":
