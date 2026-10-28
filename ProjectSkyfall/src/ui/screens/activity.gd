@@ -22,10 +22,12 @@ func setup(params: Dictionary) -> void:
 	h.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	body.add_child(h)
+	var left_panel := UIStyle.glass_panel(16, 4, 0.8)
+	left_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	left_panel.size_flags_stretch_ratio = 0.8
+	h.add_child(left_panel)
 	var left := UIStyle.vbox(12)
-	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	left.size_flags_stretch_ratio = 0.8
-	h.add_child(left)
+	left_panel.add_child(left)
 	var info: Dictionary = Activities.CATEGORIES[category]
 	var head := UIStyle.hbox(14)
 	head.add_child(back_button("activities"))

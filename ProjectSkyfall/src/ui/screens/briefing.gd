@@ -23,7 +23,7 @@ func setup(params: Dictionary) -> void:
 	_fuel_card(t)
 	var row := UIStyle.hbox(10)
 	row.add_child(option(["Start at the gate (full turnaround)", "Start lined up on the runway"], 0, func(i): start_kind = ["gate", "runway"][i]))
-	row.add_child(UIStyle.button("Go to the aircraft", _start, 240, UIStyle.ACCENT))
+	row.add_child(UIStyle.primary("Go to the aircraft", _start, 260))
 	content.add_child(row)
 
 
@@ -104,10 +104,12 @@ func _update_fuel_label() -> void:
 
 func _start() -> void:
 	var p: Dictionary = Game.player
-	Game.goto("flight", {
+	var params := {
 		"mode": "pilot", "type": f.type, "airline": f.airline, "reg": f.reg if String(f.reg) != "" else "CR-SFX",
 		"dep": f.from, "arr": f.to, "callsign": f.callsign, "flight_id": f.id, "clock": maxf(WorldSim.clock, float(f.dep) - 35.0 * 60.0),
 		"sched_arr": float(f.arr), "pax": int(f.pax), "fuel": fuel_kg, "start": start_kind, "stand": "",
 		"cargo": 2500.0 if not bool(f.cargo) else float(AircraftTypes.get_type(String(f.type)).max_payload) * 0.7,
 		"pilot_name": p.get("name", ""),
-	})
+	}
+	launch_with_loading("Flight %s" % f.number, "%s → %s · %s" % [Airports.get_ap(String(f.from)).short, Airports.get_ap(String(f.to)).short,
+		AircraftTypes.get_type(String(f.type)).name], "ap:" + String(f.from), func(): Game.goto("flight", params))

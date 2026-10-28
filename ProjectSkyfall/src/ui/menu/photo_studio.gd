@@ -9,7 +9,7 @@ extends Node
 signal shot_ready(id: String, tex: Texture2D)
 
 const CACHE_DIR := "user://studio_cache"
-const VERSION := 1
+const VERSION := 2
 const WIDE := Vector2i(1024, 576)
 const HERO := Vector2i(1280, 600)
 const CARD := Vector2i(768, 640)
@@ -69,6 +69,7 @@ var _vp: SubViewport = null
 var _view: WorldView = null
 var _cam: Camera3D = null
 var _props: Array = []
+var _settled := true
 
 
 static func instance() -> PhotoStudio:
@@ -252,6 +253,7 @@ func _render(id: String) -> void:
 	_cam.near = 0.1
 	_cam.far = 220000.0
 	var ok := false
+	_settled = true
 	match String(rec.get("kind", "")):
 		"air", "final", "ground", "aerial", "cockpit", "cabin":
 			ok = await _world_shot(rec)
@@ -272,7 +274,8 @@ func _render(id: String) -> void:
 				img.convert(Image.FORMAT_RGB8)
 				if img.get_size() != size:
 					img.resize(size.x, size.y, Image.INTERPOLATE_LANCZOS)
-				if use_disk:
+				# a render whose terrain had not finished streaming is shown but not kept
+				if use_disk and _settled:
 					DirAccess.make_dir_recursive_absolute(CACHE_DIR)
 					img.save_webp(_cache_path(id, rec), true, 0.88)
 				var tex := _to_texture(img)
@@ -402,6 +405,7 @@ func _world_shot(rec: Dictionary) -> bool:
 	await _view.warm_up(60.0)
 	if not _alive():
 		return false
+	_settled = _view.terrain.is_settled()
 	# a few frames for the sky radiance, shadows and LOD to settle
 	_vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	for i in 4:
