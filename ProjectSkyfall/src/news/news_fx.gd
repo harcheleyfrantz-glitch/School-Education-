@@ -18,6 +18,7 @@ static func _billboard_mat(add: bool, tex: Texture2D) -> StandardMaterial3D:
 	if add:
 		m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 	m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	m.billboard_keep_scale = true
 	m.vertex_color_use_as_albedo = true
 	m.vertex_color_is_srgb = true
 	m.albedo_texture = tex

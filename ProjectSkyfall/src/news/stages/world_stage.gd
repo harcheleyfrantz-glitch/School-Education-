@@ -110,8 +110,8 @@ func build(prog: Dictionary) -> void:
 		_build_ribbon()
 	if mode == "incident":
 		_build_wreck()
-		_build_site()
 		_spots()
+		_build_site()
 	elif mode == "airport":
 		_build_airport_scene()
 	elif mode == "replay":
@@ -426,9 +426,9 @@ func _build_site() -> void:
 	site_root = Node3D.new()
 	view.dynamic_root.add_child(site_root)
 	fires = Node3D.new()
-	site_root.add_child(fires)
+	view.dynamic_root.add_child(fires)
 	smoke = Node3D.new()
-	site_root.add_child(smoke)
+	view.dynamic_root.add_child(smoke)
 	fireball = NewsFX.fireball()
 	view.dynamic_root.add_child(fireball)
 	var r := _rng
@@ -494,7 +494,7 @@ func _build_site() -> void:
 		site_root.add_child(amb)
 		amb.position = _local(_wv(px2, pz2))
 		amb.rotation.y = atan2(-dir2.x, -dir2.y) + PI * 0.5
-		amb.set_meta("phase", "any")
+		amb.set_meta("phase", "late2")
 	var cmdv := VehicleBuilder.build("follow_me", {})
 	site_root.add_child(cmdv)
 	cmdv.position = _local(_wv(site_w.x + access.x * 110.0 - dir2.x * 30.0, site_w.z + access.y * 110.0 - dir2.y * 30.0))
@@ -816,6 +816,8 @@ func _set_phase(phase: String) -> void:
 				vis = late
 			"investigation":
 				vis = phase == "investigation"
+			"late2":
+				vis = phase in ["response", "aftermath", "investigation"]
 		(c as Node3D).visible = vis
 	var burning := bool(world.get("fire", true)) and not ditch
 	if fires:
@@ -876,7 +878,7 @@ func apply(seg: Dictionary, shot: Dictionary, lt: float, st: float, delta: float
 	if mode == "incident" and recon_kind:
 		_set_phase("impact" if after else "pre")
 		if site_root:
-			site_root.visible = after and kind in ["impact"]
+			site_root.visible = false
 		if fires:
 			fires.visible = after and bool(world.get("fire", true)) and not ditch
 		if smoke:
@@ -933,6 +935,8 @@ func _camera(seg: Dictionary, shot: Dictionary, lt: float, st: float, sample_t: 
 	var site_l := _local(site_w)
 	var shake := Vector2.ZERO
 	_dof(false)
+	cam.far = 15000.0 if c in ["standup", "standup_wide", "interview"] else 90000.0
+	cam.near = 0.1 if c in ["standup", "interview"] else 0.3
 	if c == "director":
 		c = _director(sample_t, lt)
 	match c:
@@ -955,11 +959,11 @@ func _camera(seg: Dictionary, shot: Dictionary, lt: float, st: float, sample_t: 
 			var want := target + bk.rotated(Vector3.UP, deg_to_rad(18.0)) * L * 2.3 + Vector3(0, L * 0.5, 0)
 			_look(want, target, 52.0)
 		"recon_ground", "fdr_ground":
-			var gp := site_w - Vector3(dir2.x, 0, dir2.y) * 700.0 + Vector3(side2.x, 0, side2.y) * 520.0
-			var from3 := _local(_wv(gp.x, gp.z, 2.0))
-			var aim := target if model.visible else _local(impact_w) + Vector3(0, 40, 0)
+			var gp := impact_w - Vector3(dir2.x, 0, dir2.y) * 260.0 + Vector3(side2.x, 0, side2.y) * 300.0
+			var from3 := _local(_wv(gp.x, gp.z, 1.8))
+			var aim := target if model.visible else _local(impact_w) + Vector3(0, 30.0 + clampf(sample_t - t_end, 0.0, 8.0) * 8.0, 0)
 			var dist3 := from3.distance_to(aim)
-			_look(from3, aim, clampf(rad_to_deg(2.0 * atan(L * 3.0 / maxf(dist3, 1.0))), 6.0, 50.0))
+			_look(from3, aim, clampf(rad_to_deg(2.0 * atan(L * 2.2 / maxf(dist3, 1.0))), 14.0, 55.0) if model.visible else 40.0)
 		"fdr_cockpit", "cockpit":
 			var eye := Vector3(-0.5, float(spec.fuse_h) * 0.18, -L * float(spec.cg_frac) + AircraftModel.pilot_eye_station(spec))
 			cam.global_transform = model.global_transform * Transform3D(Basis.from_euler(Vector3(deg_to_rad(-6.0), 0, 0)), eye)

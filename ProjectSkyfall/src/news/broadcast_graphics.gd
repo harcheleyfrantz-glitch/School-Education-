@@ -70,7 +70,7 @@ func setup(prog: Dictionary) -> void:
 			hi2 = Vector2(maxf(hi2.x, float(s2[1])), maxf(hi2.y, float(s2[2])))
 		map_center = (lo + hi2) * 0.5
 		map_half = clampf(maxf(hi2.x - lo.x, hi2.y - lo.y) * 0.65, 4000.0, 120000.0)
-		map_tex = NewsMap.texture(map_center, map_half, 160, Color(0.06, 0.12, 0.2), Color(0.2, 0.25, 0.22), Color(0.48, 0.46, 0.4), Color(0.5, 0.7, 0.85))
+		map_tex = NewsMap.texture(map_center, map_half, 160, Color(0.1, 0.24, 0.42), Color(0.36, 0.45, 0.32), Color(0.66, 0.62, 0.52), Color(0.75, 0.88, 1.0))
 		for k in [3, 4, 5, 6, 7]:
 			var a := INF
 			var b := -INF
