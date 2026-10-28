@@ -207,7 +207,10 @@ static func _compute(icao: String) -> Dictionary:
 		if (term_center - tb.center).dot(tn2) < 0.0:
 			tn2 = -tn2
 		var end_a: Vector2 = tb.center + tax * (tb.len * 0.5 + 90.0)
-		L.tower = end_a + tn2 * 0.0
+		# stand the tower forward of the terminal, level with the airside facade, so the cab
+		# looks along the stands rather than across the terminal roof
+		var airside: Vector2 = facade_list[0].normal if not facade_list.is_empty() else tn2
+		L.tower = end_a + airside * (float(tb.depth) * 0.5 + 25.0)
 		L.tower_h = 72.0 if big else 38.0
 		var hang_base: Vector2 = tb.center - tax * (tb.len * 0.5 + (150.0 if big else 90.0))
 		var hn := 3 if big else 2

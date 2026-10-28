@@ -282,11 +282,27 @@ func _setup_people() -> void:
 		people.flight_phase = "cruise"
 	if mode == "passenger":
 		var seat_id := String(params.get("seat", ""))
-		for pp in people.pax:
-			if seat_id == "" or String(pp.seat.id) == seat_id:
-				pax_seat = String(pp.seat.id)
-				pp.state = "player"
-				break
+		var pick: Dictionary = {}
+		if seat_id != "":
+			for pp in people.pax:
+				if String(pp.seat.id) == seat_id:
+					pick = pp
+					break
+		if pick.is_empty() and not people.pax.is_empty():
+			# by default a left window seat a third of the way back, ahead of the wing: the
+			# terminal at the gate, the wing and engine in flight, the runway on the way down
+			var zs: Array = people.pax.map(func(q): return float(q.seat.pos.z))
+			var z_target := lerpf(float(zs.min()), float(zs.max()), 0.3)
+			var best := INF
+			for pp2 in people.pax:
+				var st: Dictionary = pp2.seat
+				var score := absf(float(st.pos.z) - z_target) + (0.0 if bool(st.get("window", false)) else 6.0) + (0.0 if float(st.pos.x) < 0.0 else 3.0)
+				if score < best:
+					best = score
+					pick = pp2
+		if not pick.is_empty():
+			pax_seat = String(pick.seat.id)
+			pick.state = "player"
 
 
 func _setup_ops() -> void:
@@ -670,6 +686,7 @@ func _update_interior_visibility() -> void:
 		people.visible = in_cabin
 	if ac.model:
 		ac.model.show_exterior_fuselage(not (m == "cockpit" or in_cabin))
+	view.set_interior(m == "cockpit" or in_cabin)
 
 
 # ================================================================== views and walking
@@ -881,6 +898,7 @@ func _build_taxi_ribbon() -> void:
 	var m := StandardMaterial3D.new()
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	m.vertex_color_use_as_albedo = true
+	m.vertex_color_is_srgb = true
 	m.albedo_color = Color(1.6, 1.6, 1.6)
 	taxi_ribbon.material_override = m
 	taxi_ribbon.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF

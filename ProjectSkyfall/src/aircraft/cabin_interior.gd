@@ -51,6 +51,7 @@ func build(type_id: String, airline_code: String) -> void:
 	name = "CabinInterior"
 	mat_shell = StandardMaterial3D.new()
 	mat_shell.vertex_color_use_as_albedo = true
+	mat_shell.vertex_color_is_srgb = true
 	mat_shell.roughness = 0.82
 	mat_glass = StandardMaterial3D.new()
 	mat_glass.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
@@ -73,7 +74,49 @@ func build(type_id: String, airline_code: String) -> void:
 	_build_seats()
 	_build_masks()
 	_build_lights()
+	_build_interior_probe()
 	set_light_mode("boarding")
+
+
+func _build_interior_probe() -> void:
+	## Without global illumination the open sky would light the inside of the tube as brightly
+	## as the outside. Interior geometry sits on its own render layer, and an interior probe
+	## covering the whole section gives just that layer a dimmer, warm cabin ambient; the
+	## exterior skin keeps the sky's light.
+	var z0 := float(lay.cabin_front)
+	var z1 := float(lay.cabin_back)
+	add_child(make_interior_probe("InteriorProbe", Vector3(0, (floor_y + ceil_y) * 0.5, (z0 + z1) * 0.5),
+		Vector3(float(spec.fuse_w) + 0.4, float(spec.fuse_h) + 0.4, maxf(z1 - z0, 1.0)), Color(0.9, 0.92, 0.95), 0.34))
+	tag_interior(self)
+
+
+const INTERIOR_LAYER := 1 << 10     # render layer 11: geometry lit by the interior probes
+
+
+static func make_interior_probe(probe_name: String, center: Vector3, size: Vector3, ambient: Color, energy: float) -> ReflectionProbe:
+	var probe := ReflectionProbe.new()
+	probe.name = probe_name
+	probe.size = size
+	probe.position = center
+	probe.interior = true
+	probe.ambient_mode = ReflectionProbe.AMBIENT_COLOR
+	probe.ambient_color = ambient
+	probe.ambient_color_energy = energy
+	probe.intensity = 0.25
+	probe.blend_distance = 0.05
+	probe.reflection_mask = INTERIOR_LAYER     # only interior geometry takes this ambient
+	probe.cull_mask = INTERIOR_LAYER           # and only interior geometry shows in its reflections
+	probe.update_mode = ReflectionProbe.UPDATE_ONCE
+	probe.max_distance = maxf(size.z, 6.0)
+	return probe
+
+
+static func tag_interior(root: Node) -> void:
+	## Puts every visual under root on the interior layer (cameras still draw it: they see all layers).
+	if root is VisualInstance3D:
+		(root as VisualInstance3D).layers |= INTERIOR_LAYER
+	for c in root.get_children():
+		tag_interior(c)
 
 
 # ---------------------------------------------------------------- helpers
@@ -188,7 +231,7 @@ func _build_walls() -> void:
 			if zu.is_empty() or v - float(zu[zu.size() - 1]) > 0.02:
 				zu.append(v)
 		var facing := Vector3(-side, 0, 0)
-		var wall_col := Color(0.9, 0.9, 0.87)
+		var wall_col := Color(0.76, 0.76, 0.74)
 		var lower_col := Color(0.78, 0.79, 0.8)
 		for i in zu.size() - 1:
 			var za: float = zu[i]
@@ -227,48 +270,75 @@ func _build_walls() -> void:
 
 
 func _window_cell(side: int, za: float, zb: float, ya: float, yb: float, wz: float, yc: float, hw: float, hh: float, col: Color) -> void:
+	## One wall cell with a window: a rounded-rectangle opening (superellipse) joined to the cell
+	## edges by a ring of quads, a reveal down to the glazing, and the pane.
 	var mb := _mb("shell", wz)
 	var gmb := _mb("glass", wz)
+	# sample angles so that four of them point exactly at the cell corners (watertight ring)
+	var ca := [atan2(yb - yc, zb - wz), atan2(yb - yc, za - wz), atan2(ya - yc, za - wz) + TAU, atan2(ya - yc, zb - wz) + TAU]
+	var per := 6
+	var angles := []
+	for c in 4:
+		var a0: float = ca[c]
+		var a1: float = ca[(c + 1) % 4] + (TAU if c == 3 else 0.0)
+		for k in per:
+			angles.append(lerpf(a0, a1, float(k) / per))
+	var n := angles.size()
 	var hole := []
 	var bnd := []
-	for k in 8:
-		var a := float(k) * PI * 0.25
-		var cz := cos(a)
-		var cy := sin(a)
-		if k % 2 == 0:
-			hole.append(Vector2(wz + hw * cz, yc + hh * cy))
-			bnd.append(Vector2(zb if cz > 0.5 else (za if cz < -0.5 else wz), yb if cy > 0.5 else (ya if cy < -0.5 else yc)))
-		else:
-			hole.append(Vector2(wz + hw * 0.80 * signf(cz), yc + hh * 0.84 * signf(cy)))
-			bnd.append(Vector2(zb if cz > 0.0 else za, yb if cy > 0.0 else ya))
+	for a in angles:
+		var d := Vector2(cos(a), sin(a))
+		var r := 1.0 / pow(pow(absf(d.x) / hw, 4.0) + pow(absf(d.y) / hh, 4.0), 0.25)
+		hole.append(Vector2(wz, yc) + d * r)
+		var tz := INF
+		var ty := INF
+		if absf(d.x) > 1e-6:
+			tz = ((zb if d.x > 0.0 else za) - wz) / d.x
+		if absf(d.y) > 1e-6:
+			ty = ((yb if d.y > 0.0 else ya) - yc) / d.y
+		bnd.append(Vector2(wz, yc) + d * minf(tz, ty))
 	var facing := Vector3(-side, 0, 0)
 	var reveal_col := Color(0.8, 0.8, 0.79)
 	var inner := []
 	var outer := []
-	for k in 8:
+	for k in n:
 		var h: Vector2 = hole[k]
 		inner.append(Vector3(side * _wall_x(h.x, h.y), h.y, h.x))
 		outer.append(Vector3(side * (_wall_x(h.x, h.y) + INSET - 0.03), h.y, h.x))
-	for k in 8:
-		var k2 := (k + 1) % 8
+	for k in n:
+		var k2 := (k + 1) % n
 		var b0: Vector2 = bnd[k]
 		var b1: Vector2 = bnd[k2]
 		var pb0 := Vector3(side * _wall_x(b0.x, b0.y), b0.y, b0.x)
 		var pb1 := Vector3(side * _wall_x(b1.x, b1.y), b1.y, b1.x)
 		_quad(mb, inner[k], inner[k2], pb1, pb0, facing, col)
-		# reveal facing the window axis
+		# reveal facing the window axis, smooth-shaded around the opening
 		var mid: Vector3 = (inner[k] + inner[k2]) * 0.5
 		var axis_pt := Vector3(mid.x, yc, wz)
-		_quad(mb, inner[k], inner[k2], outer[k2], outer[k], axis_pt - mid, reveal_col)
+		var pts := [inner[k], inner[k2], outer[k2], outer[k]]
+		var nrm := []
+		for q in pts:
+			var to_axis := Vector3(0.0, yc - (q as Vector3).y, wz - (q as Vector3).z)
+			nrm.append(to_axis.normalized() if to_axis.length() > 1e-5 else facing)
+		var fn = ((pts[1] as Vector3) - pts[0]).cross((pts[3] as Vector3) - pts[0])
+		var base := mb.vcount()
+		for qi in 4:
+			mb.add_vertex(pts[qi], nrm[qi], reveal_col)
+		if fn.dot(axis_pt - mid) >= 0.0:
+			mb.add_tri_idx(base, base + 2, base + 1)
+			mb.add_tri_idx(base, base + 3, base + 2)
+		else:
+			mb.add_tri_idx(base, base + 1, base + 2)
+			mb.add_tri_idx(base, base + 2, base + 3)
 	# glazing
 	var gc := Vector3(side * (_wall_x(wz, yc) + INSET - 0.035), yc, wz)
 	var ci := gmb.add_vertex(gc, facing, Color.WHITE)
 	var st := gmb.vcount()
-	for k in 8:
+	for k in n:
 		var o: Vector3 = outer[k]
 		gmb.add_vertex(Vector3(o.x - side * 0.005, o.y, o.z), facing, Color.WHITE)
-	for k in 8:
-		gmb.add_tri_idx(ci, st + k, st + (k + 1) % 8)
+	for k in n:
+		gmb.add_tri_idx(ci, st + k, st + (k + 1) % n)
 
 
 func _opening_frame(side: int, o: Dictionary) -> void:
@@ -305,7 +375,7 @@ func _build_ceiling_and_bins() -> void:
 	var segs := 6
 	var z := z0
 	var step := 0.5
-	var ceil_col := Color(0.93, 0.93, 0.91)
+	var ceil_col := Color(0.84, 0.84, 0.82)
 	while z < z1 - 0.001:
 		var za := z
 		var zb := minf(z + step, z1)
@@ -326,7 +396,7 @@ func _build_ceiling_and_bins() -> void:
 		return
 	# side bins as continuous runs over the seat rows
 	var runs := _runs()
-	var bin_col := Color(0.88, 0.89, 0.9)
+	var bin_col := Color(0.8, 0.81, 0.82)
 	var seam_col := Color(0.55, 0.57, 0.6)
 	for run in runs:
 		for side2 in [-1, 1]:
@@ -485,7 +555,7 @@ func _section_wall(mb: MeshBuilder, z: float, facing: float, door_hw: float, doo
 func _build_bulkheads() -> void:
 	var front: float = lay.cabin_front
 	var back: float = lay.cabin_back
-	var col := Color(0.86, 0.86, 0.84)
+	var col := Color(0.74, 0.74, 0.72)
 	_section_wall(_mb("shell", front), front, 1.0, 0.42, 1.95, col)
 	_section_wall(_mb("shell", back), back, -1.0, 0.0, 0.0, col)
 	# class dividers: half-height panels from the wall to the aisle edge, curtains tied back
@@ -583,7 +653,7 @@ func _build_galleys_lavs() -> void:
 		var cx2 := float(side3) * (xw2 - depth2 * 0.5 + 0.05)
 		var top2 := minf(floor_y + 2.0, ceil_y - 0.02)
 		var mb5 := _mb("shell", zcb)
-		mb5.add_box(Vector3(cx2, (floor_y + top2) * 0.5, zcb), Vector3(depth2, top2 - floor_y, z1b - z0b), Color(0.9, 0.9, 0.88))
+		mb5.add_box(Vector3(cx2, (floor_y + top2) * 0.5, zcb), Vector3(depth2, top2 - floor_y, z1b - z0b), Color(0.78, 0.78, 0.76))
 		# door on the aisle side with a sign
 		var dx := cx2 - float(side3) * (depth2 * 0.5 + 0.005)
 		mb5.add_box(Vector3(dx, floor_y + 0.95, zcb), Vector3(0.012, 1.8, (z1b - z0b) - 0.18), Color(0.82, 0.83, 0.82))
@@ -618,7 +688,7 @@ func _build_signs() -> void:
 
 # ---------------------------------------------------------------- doors and escape slides
 func _build_doors() -> void:
-	var panel_col := Color(0.86, 0.86, 0.84)
+	var panel_col := Color(0.74, 0.74, 0.72)
 	for d in lay.doors:
 		var side: int = d.side
 		var pivot := Node3D.new()
@@ -681,6 +751,7 @@ func deploy_slide(door_name: String, ground_y: float, water: bool = false) -> vo
 	mi.mesh = mb.commit()
 	var m := StandardMaterial3D.new()
 	m.vertex_color_use_as_albedo = true
+	m.vertex_color_is_srgb = true
 	m.roughness = 0.5
 	mi.material_override = m
 	var piv := Node3D.new()
@@ -700,7 +771,7 @@ static func seat_mesh(cls: String, width: float, airline_code: String) -> ArrayM
 		fabric = (lc.get("stripe", Color(0.3, 0.3, 0.6)) as Color).darkened(0.35)
 	var frame := Color(0.3, 0.31, 0.33)
 	var plastic := Color(0.78, 0.78, 0.76)
-	var head := Color(0.92, 0.92, 0.9)
+	var head := Color(0.86, 0.86, 0.84)
 	var mb := MeshBuilder.new()
 	var w := width - 0.05
 	match cls:
@@ -755,6 +826,7 @@ func _build_seats() -> void:
 		groups[key].append(Transform3D(b, s.pos))
 	var mat := StandardMaterial3D.new()
 	mat.vertex_color_use_as_albedo = true
+	mat.vertex_color_is_srgb = true
 	mat.roughness = 0.75
 	for key2 in groups.keys():
 		var parts: PackedStringArray = key2.split(":")
@@ -796,6 +868,7 @@ func _build_masks() -> void:
 	mmi.multimesh = mm
 	var m := StandardMaterial3D.new()
 	m.vertex_color_use_as_albedo = true
+	m.vertex_color_is_srgb = true
 	mmi.material_override = m
 	mask_root.add_child(mmi)
 	mask_root.visible = false
@@ -828,7 +901,7 @@ func _build_lights() -> void:
 func set_light_mode(mode: String) -> void:
 	light_mode = mode
 	var energy := 0.5
-	var col := Color(1.0, 0.93, 0.82)
+	var col := Color(1.0, 0.97, 0.92)
 	var wash := 1.0
 	var tint := Color(1.0, 0.95, 0.86)
 	var path := 0.0

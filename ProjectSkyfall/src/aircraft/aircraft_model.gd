@@ -951,10 +951,11 @@ func _set_surface_deg(name: String, deg: float) -> void:
 
 func show_exterior_fuselage(show: bool) -> void:
 	## From inside, the exterior skin stays visible (seen through the windows, its inner faces
-	## are culled) but stops casting shadows: the interior shells shadow the sun instead, so
-	## light enters only through real window openings.
+	## are culled) and keeps casting its shadow: the closed skin is what keeps direct sun out of
+	## the cabin (the thinner interior shells alone let it leak through). Interiors are lit by
+	## their own lights and an interior ambient probe.
 	exterior.visible = true
-	fuselage_mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if show else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	fuselage_mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 	for l in label_nodes:
 		l.visible = show
 	for d in doors.values():

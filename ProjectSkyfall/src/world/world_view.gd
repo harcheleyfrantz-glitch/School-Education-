@@ -197,6 +197,25 @@ func _build_environment() -> void:
 	add_child(sun)
 
 
+var interior := false
+
+
+func set_interior(on: bool) -> void:
+	## Camera inside a cabin or flight deck: only the view through the windows is outdoors, so
+	## the sun's shadows are concentrated on the few metres around the camera. Sharp, tightly
+	## biased shadows keep sunlight from leaking through the thin interior shells (even on low
+	## quality, where outdoor shadows are off).
+	if on == interior:
+		return
+	interior = on
+	var q_shadows := int(Game.q("shadows"))
+	sun.shadow_enabled = on or q_shadows > 0
+	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS if on or q_shadows < 2 else DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
+	sun.directional_shadow_max_distance = 45.0 if on else float(Game.q("shadow_distance"))
+	sun.shadow_normal_bias = 0.5 if on else 1.2
+	sun.shadow_bias = 0.02 if on else 0.04
+
+
 func _build_water() -> void:
 	water_mat = ShaderMaterial.new()
 	water_mat.shader = load("res://shaders/water.gdshader")

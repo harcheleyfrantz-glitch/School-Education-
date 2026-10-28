@@ -235,6 +235,7 @@ func _make_flames(pos: Vector3) -> GPUParticles3D:
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
 	m.vertex_color_use_as_albedo = true
+	m.vertex_color_is_srgb = true
 	m.albedo_texture = GroundOps._soft_dot()
 	q.material = m
 	p.draw_pass_1 = q
@@ -277,6 +278,7 @@ func _make_smoke() -> GPUParticles3D:
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
 	m.vertex_color_use_as_albedo = true
+	m.vertex_color_is_srgb = true
 	m.albedo_texture = GroundOps._soft_dot()
 	q.material = m
 	p.draw_pass_1 = q
@@ -310,6 +312,7 @@ func _impact_burst() -> void:
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
 	m.vertex_color_use_as_albedo = true
+	m.vertex_color_is_srgb = true
 	m.albedo_texture = GroundOps._soft_dot()
 	q.material = m
 	p.draw_pass_1 = q
@@ -342,6 +345,7 @@ func _spawn_debris() -> void:
 	mi.mesh = mb.commit()
 	var m := StandardMaterial3D.new()
 	m.vertex_color_use_as_albedo = true
+	m.vertex_color_is_srgb = true
 	m.roughness = 0.55
 	m.metallic = 0.35
 	mi.material_override = m

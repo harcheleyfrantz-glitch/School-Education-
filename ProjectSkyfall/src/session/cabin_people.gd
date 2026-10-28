@@ -44,6 +44,7 @@ func setup(aircraft: Aircraft, manifest: Array, crew_list: Array, crowd_lod: int
 	crowd.name = "People"
 	add_child(crowd)
 	crowd.setup(manifest.size() + crew_list.size() + 2, crowd_lod, ac.airline)
+	CabinInterior.tag_interior(crowd)
 	# boarding door: rear door for turboprops, first door otherwise
 	var doors: Array = lay.doors
 	_board_door = doors[0]

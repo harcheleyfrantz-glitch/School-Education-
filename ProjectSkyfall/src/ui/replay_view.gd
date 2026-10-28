@@ -147,6 +147,7 @@ func _build_path_ribbon() -> void:
 	var m := StandardMaterial3D.new()
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	m.vertex_color_use_as_albedo = true
+	m.vertex_color_is_srgb = true
 	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	m.albedo_color = Color(1, 1, 1, 0.65)
 	_path_mesh.material_override = m
@@ -348,6 +349,7 @@ func _ensure_fire() -> void:
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
 	m.vertex_color_use_as_albedo = true
+	m.vertex_color_is_srgb = true
 	m.albedo_texture = GroundOps._soft_dot()
 	q.material = m
 	p.draw_pass_1 = q

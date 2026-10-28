@@ -57,7 +57,8 @@ func set_mode(m: String) -> void:
 			look_pitch = -8.0
 			cam.near = 0.02
 		"cabin":
-			look_yaw = 0.0
+			# a window seat looks half out of the window to start with
+			look_yaw = 35.0 if seat_local.x < -0.4 else (-35.0 if seat_local.x > 0.4 else 0.0)
 			look_pitch = -4.0
 			cam.near = 0.02
 		"chase", "orbit":
@@ -138,7 +139,7 @@ func _process(delta: float) -> void:
 			cam.global_position = tp
 			cam.look_at(ac.global_position, Vector3.UP)
 			var d := tp.distance_to(ac.global_position)
-			cam.fov = clampf(rad_to_deg(2.0 * atan(float(ac.spec.span) * 2.5 / maxf(d, 1.0))), 2.0, 60.0)
+			cam.fov = clampf(rad_to_deg(2.0 * atan(float(ac.spec.span) * 1.4 / maxf(d, 1.0))), 2.0, 50.0)
 		"flyby":
 			_flyby_t -= delta
 			var to_ac := ac.global_position - _flyby_pos

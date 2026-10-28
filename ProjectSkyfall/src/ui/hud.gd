@@ -79,6 +79,12 @@ func setup(sess: Node) -> void:
 		session.walker.prompt_changed.connect(func(t): prompt_label.text = t)
 		session.walker.interacted.connect(_on_walker_interact)
 		session.walker.inspected.connect(_on_inspected)
+	if session.atc:
+		# the controller may already have spoken (and offered replies) before the HUD existed
+		for e in session.atc.transcript:
+			_on_transmission(String(e.station), String(e.who), String(e.text))
+		_on_options(session.atc.options)
+		atc_station.text = "%s  %s" % [session.atc.station_name(session.atc.station), session.atc.station_freq(session.atc.station)]
 	toggle_panel("atc", session.mode == "pilot")
 	toggle_panel("checklist", false)
 	_refresh_top()
@@ -134,7 +140,11 @@ func _build_toasts() -> void:
 func _build_strip() -> void:
 	strip = UIStyle.panel(Vector2(0, 0), Color(0.02, 0.04, 0.06, 0.72))
 	strip.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
-	strip.position.y -= 12
+	# grow up and out from the bottom centre as the content sizes it
+	strip.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	strip.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	strip.offset_top = -12.0
+	strip.offset_bottom = -12.0
 	add_child(strip)
 	var v := UIStyle.vbox(2)
 	strip.add_child(v)
@@ -738,7 +748,9 @@ func _refresh_top() -> void:
 
 func _update_strip() -> void:
 	var n := ac.nav_state()
-	strip_labels["IAS"].text = "%d" % int(n.ias_kt)
+	# airliner speed tapes start at 30 kt; a light aircraft's needle reads lower
+	var ias_floor := 30.0 if ac.spec.category != "trainer" else 20.0
+	strip_labels["IAS"].text = "%d" % int(n.ias_kt) if float(n.ias_kt) >= ias_floor else "--"
 	strip_labels["ALT"].text = "%d" % int(round(float(n.alt) / U.FT / 10.0) * 10.0)
 	strip_labels["V/S"].text = "%+d" % int(round(float(n.vs) / U.FPM / 50.0) * 50.0)
 	strip_labels["HDG"].text = "%03d" % int(n.hdg)
@@ -868,7 +880,7 @@ func _cockpit_click(screen_pos: Vector2, dir: int, wheel: bool = false) -> bool:
 	var cam := rig.cam
 	var origin := cam.project_ray_origin(screen_pos)
 	var normal := cam.project_ray_normal(screen_pos)
-	var inv := session.cockpit.global_transform.affine_inverse()
+	var inv = session.cockpit.global_transform.affine_inverse()
 	var hit: Dictionary = session.cockpit.hit_test(inv * origin, (inv.basis * normal).normalized())
 	if hit.is_empty():
 		return false

@@ -57,17 +57,29 @@ func build(type_id: String, airline_code: String, quality: String = "high") -> v
 	match style:
 		"airbus":
 			c_panel = Color(0.29, 0.33, 0.38)
+			c_shell = Color(0.72, 0.75, 0.78)
+			c_trim = Color(0.33, 0.37, 0.42)
 		"boeing":
 			c_panel = Color(0.33, 0.335, 0.34)
+			c_shell = Color(0.74, 0.73, 0.7)
+			c_trim = Color(0.36, 0.36, 0.37)
 		"bizjet":
 			c_panel = Color(0.2, 0.21, 0.23)
+			c_shell = Color(0.82, 0.78, 0.7)
+			c_trim = Color(0.4, 0.33, 0.26)
 		"turboprop":
 			c_panel = Color(0.27, 0.29, 0.31)
+			c_shell = Color(0.7, 0.71, 0.72)
+			c_trim = Color(0.34, 0.35, 0.37)
 		"ga":
 			c_panel = Color(0.1, 0.1, 0.11)
+			c_shell = Color(0.66, 0.64, 0.6)
+			c_trim = Color(0.26, 0.25, 0.24)
 	mat = StandardMaterial3D.new()
 	mat.vertex_color_use_as_albedo = true
-	mat.roughness = 0.62
+	mat.vertex_color_is_srgb = true      # colours below are picked in sRGB
+	mat.roughness = 0.78                 # flight-deck plastics and paint are matte
+	mat.metallic_specular = 0.3
 	mat_glass = StandardMaterial3D.new()
 	mat_glass.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	mat_glass.albedo_color = Color(0.55, 0.65, 0.72, 0.1)
@@ -100,6 +112,15 @@ func build(type_id: String, airline_code: String, quality: String = "high") -> v
 	mi.material_override = mat
 	add_child(mi)
 	_build_lights()
+	# interior ambient (see CabinInterior._build_interior_probe): daylight floods a flight deck
+	# more than a cabin, so it is brighter and cooler here
+	var zb := float(ck.back_z) if cat != "trainer" else float(lay.cabin_back)
+	var zf := E.z - 2.8
+	var top := _shell_point(0.0, E.z, 0.0).y
+	var bottom := _shell_point(PI, E.z, 0.0).y
+	add_child(CabinInterior.make_interior_probe("InteriorProbe", Vector3(0, (top + bottom) * 0.5, (zf + zb) * 0.5),
+		Vector3(float(spec.fuse_w) + 0.4, top - bottom + 0.4, maxf(zb - zf, 1.0)), Color(0.9, 0.93, 0.97), 0.38))
+	CabinInterior.tag_interior(self)
 
 
 # ============================================================================== helpers
@@ -275,6 +296,11 @@ func _setup_displays(quality: String) -> void:
 
 
 # ============================================================================== shell
+var _rake_z0 := -INF                # windscreen rake: the crown may not rise above a line
+var _rake_y0 := 0.0                 # through (_rake_z0, _rake_y0) climbing aft at _rake_slope
+var _rake_slope := 0.0
+
+
 func _shell_point(th: float, z: float, inset: float) -> Vector3:
 	var L: float = spec.length
 	var t := clampf((z - float(lay.nose_z)) / L, 0.0, 1.0)
@@ -282,6 +308,10 @@ func _shell_point(th: float, z: float, inset: float) -> Vector3:
 	var rw := float(spec.fuse_w) * 0.5
 	var rh := float(spec.fuse_h) * 0.5
 	var sy := sp.y if cos(th) >= 0.0 else sp.z
+	if cos(th) > 0.0 and _rake_z0 > -INF:
+		# the crown comes down towards the nose along the raked windscreen line
+		var lim := _rake_y0 + (z - _rake_z0) * _rake_slope
+		sy = minf(sy, maxf((lim - sp.w) / rh, sp.y * 0.08))
 	var o := Vector3(sin(th) * rw * sp.x, cos(th) * rh * sy + sp.w, z)
 	if inset <= 0.0:
 		return o
@@ -292,36 +322,110 @@ func _shell_point(th: float, z: float, inset: float) -> Vector3:
 
 func _build_shell() -> void:
 	## Nose shell on a fine (theta, z) grid. Windows come from a smooth field of the pilots'
-	## sightlines; cells crossing a window edge are cut with marching squares so frames are
-	## clean curves, with a reveal (frame depth) along every edge.
+	## sightlines. Every cell is clipped exactly along iso-contours - the glass edge, the outer
+	## edge of the window frame (a fixed width in metres) and the sill line - so frames and trim
+	## are crisp curves whatever the grid resolution. Normals are smooth across the lining.
 	var smb := MeshBuilder.new()
 	var gmb := MeshBuilder.new()
 	var z0 := maxf(float(lay.nose_z) + 0.25, E.z - 2.6)
 	if cat == "trainer":
 		z0 = E.z - 1.25
 	var z1 := float(ck.back_z) if cat != "trainer" else float(lay.cabin_back)
-	var nz := int((z1 - z0) / 0.03)
-	var nth := 160
+	var nz := int((z1 - z0) / 0.025)
+	var nth := 220
 	var inset := 0.07 if cat != "trainer" else 0.05
 	var eyes := [E, Vector3(-E.x, E.y, E.z)]
-	var frame := Color(0.085, 0.09, 0.095)
+	var band := 0.05 if cat != "trainer" else 0.035        # window frame width (m)
+	_glaze_z0 = z0 + 0.04 if cat != "trainer" else z_panel - 0.08
+	# raked windscreen: from just above the coaming (or the cowling) at the front of the shell
+	_rake_z0 = z0
+	if cat == "trainer":
+		_rake_y0 = E.y - 0.2 - (z_panel - z0) * tan(deg_to_rad(10.0)) + 0.03
+		_rake_slope = tan(deg_to_rad(30.0))
+	else:
+		_rake_y0 = E.y - 0.175
+		_rake_slope = tan(deg_to_rad(38.0))
+	var y_sill := E.y - (0.2 if cat != "trainer" else 0.24)
+	var c_frame := Color(0.1, 0.105, 0.11)
+	var c_reveal := Color(0.07, 0.072, 0.075)
+	var c_upper := c_shell
+	var c_lower := c_trim.lightened(0.25)
+	var c_accent := c_trim.darkened(0.35)
 	var pin := []
 	var pout := []
 	var fv := []
+	var fv2 := []
 	for j in nz + 1:
 		var z := lerpf(z0, z1, float(j) / nz)
 		var ri := []
 		var ro := []
 		var rf := []
+		var r2 := []
 		for i in nth + 1:
 			var th := -PI + TAU * float(i) / nth
 			var p := _shell_point(th, z, inset)
 			ri.append(p)
 			ro.append(_shell_point(th, z, 0.004))
-			rf.append(_window_field(p, eyes))
+			var wf := _window_fields(p, eyes)
+			rf.append(wf.x)
+			r2.append(wf.y)
 		pin.append(ri)
 		pout.append(ro)
 		fv.append(rf)
+		fv2.append(r2)
+	# per-vertex smooth inward normals, and the field's gradient so the field can be turned into
+	# a signed distance to the glass edge in metres (blurred: the field has kinks where windows meet)
+	var nrm := []
+	var grad := []
+	for j in nz + 1:
+		var rn := []
+		var rg := PackedFloat32Array()
+		var ja := maxi(j - 1, 0)
+		var jb := mini(j + 1, nz)
+		for i in nth + 1:
+			var ia := maxi(i - 1, 0)
+			var ib := mini(i + 1, nth)
+			var p: Vector3 = pin[j][i]
+			var du: Vector3 = (pin[j][ib] as Vector3) - pin[j][ia]
+			var dv: Vector3 = (pin[jb][i] as Vector3) - pin[ja][i]
+			var n := du.cross(dv).normalized()
+			var axis := Vector3(0.0, _shell_point(0.0, p.z, 0.5).y * 0.5 + _shell_point(PI, p.z, 0.5).y * 0.5, p.z)
+			if n.dot(axis - p) < 0.0:
+				n = -n
+			rn.append(n)
+			var gu := (float(fv[j][ib]) - float(fv[j][ia])) / maxf(du.length(), 1e-4)
+			var gv := (float(fv[jb][i]) - float(fv[ja][i])) / maxf(dv.length(), 1e-4)
+			rg.append(sqrt(gu * gu + gv * gv))
+		nrm.append(rn)
+		grad.append(rg)
+	for _blur in 3:
+		var sm := []
+		for j in nz + 1:
+			var row := PackedFloat32Array()
+			row.resize(nth + 1)
+			for i in nth + 1:
+				var acc := 0.0
+				var cnt := 0.0
+				for dj in [-1, 0, 1]:
+					for di in [-1, 0, 1]:
+						var jj := clampi(j + dj, 0, nz)
+						var ii := clampi(i + di, 0, nth)
+						acc += (grad[jj] as PackedFloat32Array)[ii]
+						cnt += 1.0
+				row[i] = acc / cnt
+			sm.append(row)
+		grad = sm
+	var dist := []
+	for j in nz + 1:
+		var rd := []
+		for i in nth + 1:
+			var g := maxf((grad[j] as PackedFloat32Array)[i], 0.05)
+			var d := float(fv[j][i]) / g
+			# on a post between two windows the frames merge into one solid dark pillar
+			if d < 0.0 and float(fv2[j][i]) / g > -band * 3.0:
+				d = maxf(d, -band * 0.6)
+			rd.append(d)
+		dist.append(rd)
 	for j2 in nz:
 		var zc := lerpf(z0, z1, (float(j2) + 0.5) / nz)
 		var axis_y := (_shell_point(0.0, zc, 0.5).y + _shell_point(PI, zc, 0.5).y) * 0.5
@@ -329,67 +433,79 @@ func _build_shell() -> void:
 			var idx := [Vector2i(i2, j2), Vector2i(i2 + 1, j2), Vector2i(i2 + 1, j2 + 1), Vector2i(i2, j2 + 1)]
 			var ins := []
 			var outs := []
-			var fs := []
+			var ns := []
+			var ds := []
 			var low := true
 			for c in idx:
 				var pi_: Vector3 = pin[c.y][c.x]
 				ins.append(pi_)
 				outs.append(pout[c.y][c.x])
-				fs.append(float(fv[c.y][c.x]))
+				ns.append(nrm[c.y][c.x])
+				ds.append(float(dist[c.y][c.x]))
 				if pi_.y > floor_y - 0.12:
 					low = false
 			if low:
 				continue
 			var ctr: Vector3 = (ins[0] + ins[2]) * 0.5
 			var inward := Vector3(-ctr.x, axis_y - ctr.y, 0.0)
-			var wall_pts := []
-			var wall_f := []
-			var glass_pts := []
+			# glass on the outer skin
+			var gl := _clip_poly(outs, ns, ds, 0.0, true)
+			if (gl[0] as Array).size() >= 3:
+				var gc := []
+				for g2 in gl[0]:
+					gc.append(Color.WHITE)
+				_poly(gmb, gl[0], gc, inward)
+			var wall := _clip_poly(ins, ns, ds, 0.0, false)
+			if (wall[0] as Array).size() < 3:
+				continue
+			# frame band next to the glass, lining beyond it
+			var fr := _clip_poly(wall[0], wall[1], wall[2], -band, true)
+			_poly_smooth(smb, fr[0], fr[1], c_frame, inward)
+			var lin := _clip_poly(wall[0], wall[1], wall[2], -band, false)
+			if (lin[0] as Array).size() >= 3:
+				# two-tone lining split at the sill line, with a narrow accent stripe
+				var ys := []
+				for q in lin[0]:
+					ys.append((q as Vector3).y)
+				var up := _clip_poly(lin[0], lin[1], ys, y_sill, true)
+				_poly_smooth(smb, up[0], up[1], c_upper, inward)
+				var dn := _clip_poly(lin[0], lin[1], ys, y_sill, false)
+				if (dn[0] as Array).size() >= 3:
+					var ys2 := []
+					for q2 in dn[0]:
+						ys2.append((q2 as Vector3).y)
+					var acc := _clip_poly(dn[0], dn[1], ys2, y_sill - 0.014, true)
+					_poly_smooth(smb, acc[0], acc[1], c_accent, inward)
+					var lo := _clip_poly(dn[0], dn[1], ys2, y_sill - 0.014, false)
+					_poly_smooth(smb, lo[0], lo[1], c_lower, inward)
+			# reveal: the frame's depth between the lining and the glass along the window edge
 			var cut_in := []
 			var cut_out := []
 			for k in 4:
 				var k2 := (k + 1) % 4
-				var fa: float = fs[k]
-				var fb: float = fs[k2]
-				if fa < 0.0:
-					wall_pts.append(ins[k])
-					wall_f.append(fa)
-				else:
-					glass_pts.append(outs[k])
+				var fa: float = ds[k]
+				var fb: float = ds[k2]
 				if (fa < 0.0) != (fb < 0.0):
 					var t := fa / (fa - fb)
-					var ci: Vector3 = (ins[k] as Vector3).lerp(ins[k2], t)
-					var co: Vector3 = (outs[k] as Vector3).lerp(outs[k2], t)
-					wall_pts.append(ci)
-					wall_f.append(0.0)
-					glass_pts.append(co)
-					cut_in.append(ci)
-					cut_out.append(co)
-			if wall_pts.size() >= 3:
-				var cols := []
-				for f in wall_f:
-					var ff: float = f
-					cols.append(frame.lerp(c_shell, smoothstep(-0.02, -0.075, ff)))
-				_poly(smb, wall_pts, cols, inward)
-			if glass_pts.size() >= 3:
-				var gc := []
-				for g in glass_pts:
-					gc.append(Color.WHITE)
-				_poly(gmb, glass_pts, gc, inward)
-			if cut_in.size() == 2:
-				var a: Vector3 = cut_in[0]
-				var b: Vector3 = cut_in[1]
+					cut_in.append((ins[k] as Vector3).lerp(ins[k2], t))
+					cut_out.append((outs[k] as Vector3).lerp(outs[k2], t))
+			# (a saddle cell, with four crossings, is ambiguous: its neighbours carry the reveal)
+			for pr in range(0, cut_in.size() - 1 if cut_in.size() == 2 else 0, 2):
+				var a: Vector3 = cut_in[pr]
+				var b: Vector3 = cut_in[pr + 1]
 				var mid := (a + b) * 0.5
 				var gside := Vector3.ZERO
 				for k3 in 4:
-					if float(fs[k3]) >= 0.0:
+					if float(ds[k3]) >= 0.0:
 						gside += (ins[k3] as Vector3) - mid
-				_quad_in(smb, a, b, cut_out[1], cut_out[0], gside, frame)
+				if gside.length_squared() < 1e-10:
+					gside = -inward
+				_quad_in(smb, a, b, cut_out[pr + 1], cut_out[pr], gside, c_reveal)
 	# glareshield coaming deck runs forward to the windscreen, hiding the nose bay below
 	if cat != "trainer":
 		var yd := E.y - 0.205
 		var zd := z0
-		var deck := Color(0.06, 0.063, 0.068)
+		var deck := Color(0.045, 0.047, 0.05)
 		while zd < z_panel - 0.05:
 			var zn := minf(zd + 0.05, z_panel - 0.05)
 			var wa := CabinLayout.half_width(spec, zd, yd) - inset - 0.005
@@ -397,18 +513,39 @@ func _build_shell() -> void:
 			if wa > 0.02 and wb > 0.02:
 				_quad_in(smb, Vector3(-wa, yd, zd), Vector3(wa, yd, zd), Vector3(wb, yd, zn), Vector3(-wb, yd, zn), Vector3.UP, deck)
 			zd = zn
-	# forward bulkhead closing the nose
+	# forward bulkhead closing the nose below the coaming (above it the view runs out through
+	# the windscreen); a trainer looks out over a sloping engine cowling instead
+	var cap_top := E.y - 0.205
+	if cat == "trainer":
+		var y_back := E.y - 0.2
+		var y_front := y_back - (z_panel - z0) * tan(deg_to_rad(10.0))
+		cap_top = y_front
+		var cowl := Color(0.86, 0.87, 0.88)
+		var zc := z0
+		while zc < z_panel - 0.02:
+			var zn2 := minf(zc + 0.05, z_panel - 0.02)
+			var ya := lerpf(y_front, y_back, (zc - z0) / (z_panel - z0))
+			var yb := lerpf(y_front, y_back, (zn2 - z0) / (z_panel - z0))
+			var wa2 := CabinLayout.half_width(spec, zc, ya) - inset - 0.004
+			var wb2 := CabinLayout.half_width(spec, zn2, yb) - inset - 0.004
+			if wa2 > 0.02 and wb2 > 0.02:
+				_quad_in(smb, Vector3(-wa2, ya, zc), Vector3(wa2, ya, zc), Vector3(wb2, yb, zn2), Vector3(-wb2, yb, zn2), Vector3.UP, cowl)
+			zc = zn2
 	var cap_pts := []
-	var cap_cols := []
+	var cap_ns := []
+	var cap_ys := []
 	for i3 in nth:
 		var th3 := -PI + TAU * float(i3) / nth
-		cap_pts.append(_shell_point(th3, z0, inset))
-		cap_cols.append(c_trim)
-	_poly(smb, cap_pts, cap_cols, Vector3(0, 0, 1))
-	# floor
+		var cp := _shell_point(th3, z0, inset)
+		cap_pts.append(cp)
+		cap_ns.append(Vector3(0, 0, 1))
+		cap_ys.append(cp.y)
+	var capc := _clip_poly(cap_pts, cap_ns, cap_ys, cap_top, false)
+	_poly_smooth(smb, capc[0], capc[1], c_trim.darkened(0.3), Vector3(0, 0, 1))
+	# floor: dark carpet with a lighter kick strip along the walls
 	var fz0 := E.z - (1.0 if cat != "trainer" else 0.9)
 	var fhw := CabinLayout.half_width(spec, (fz0 + z1) * 0.5, floor_y + 0.05) - inset
-	smb.add_rounded_box(Vector3(0, floor_y - 0.02, (fz0 + z1) * 0.5), Vector3(fhw * 2.0, 0.04, z1 - fz0), Color(0.1, 0.105, 0.11), 0.2, 8, 4)
+	smb.add_rounded_box(Vector3(0, floor_y - 0.02, (fz0 + z1) * 0.5), Vector3(fhw * 2.0, 0.04, z1 - fz0), Color(0.11, 0.115, 0.125), 0.2, 8, 4)
 	var mi := MeshInstance3D.new()
 	mi.name = "Shell"
 	mi.mesh = smb.commit()
@@ -423,6 +560,51 @@ func _build_shell() -> void:
 	add_child(gi)
 	if cat != "trainer":
 		_wipers(pout, fv, nth, nz)
+
+
+static func _clip_poly(pts: Array, ns: Array, vals: Array, t: float, keep_above: bool) -> Array:
+	## Sutherland-Hodgman clip of a convex polygon against a linearly interpolated scalar:
+	## keeps the part where val >= t (keep_above) or val < t. Returns [points, normals, values].
+	var op := []
+	var on := []
+	var ov := []
+	var n := pts.size()
+	for k in n:
+		var k2 := (k + 1) % n
+		var a: float = vals[k]
+		var b: float = vals[k2]
+		var ina := (a >= t) == keep_above
+		var inb := (b >= t) == keep_above
+		if ina:
+			op.append(pts[k])
+			on.append(ns[k])
+			ov.append(a)
+		if ina != inb and absf(b - a) > 1e-9:
+			var u := (t - a) / (b - a)
+			op.append((pts[k] as Vector3).lerp(pts[k2], u))
+			on.append((ns[k] as Vector3).lerp(ns[k2], u).normalized())
+			ov.append(t)
+	return [op, on, ov]
+
+
+func _poly_smooth(b: MeshBuilder, pts: Array, ns: Array, col: Color, facing: Vector3) -> void:
+	## Convex polygon with per-vertex normals, wound to face `facing`.
+	if pts.size() < 3:
+		return
+	var n := Vector3.ZERO
+	for i in range(1, pts.size() - 1):
+		n += ((pts[i] as Vector3) - pts[0]).cross((pts[i + 1] as Vector3) - pts[0])
+	if n.length_squared() < 1e-14:
+		return
+	var flip := n.dot(facing) < 0.0
+	var base := b.vcount()
+	for i in pts.size():
+		b.add_vertex(pts[i], ns[i], col)
+	for i in range(1, pts.size() - 1):
+		if flip:
+			b.add_tri_idx(base, base + i, base + i + 1)
+		else:
+			b.add_tri_idx(base, base + i + 1, base + i)
 
 
 func _quad_in(b: MeshBuilder, p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3, facing: Vector3, col: Color) -> void:
@@ -454,7 +636,14 @@ func _poly(b: MeshBuilder, pts: Array, cols: Array, facing: Vector3) -> void:
 
 ## Positive inside a window, negative on the wall (roughly metres-scaled near the edges).
 func _window_field(p: Vector3, eyes: Array) -> float:
+	return _window_fields(p, eyes).x
+
+
+## x: the field of the nearest window; y: the field of the next nearest, different window
+## (high on the posts between two windows).
+func _window_fields(p: Vector3, eyes: Array) -> Vector2:
 	var best := -1.0
+	var second := -1.0
 	var wins := []
 	match cat:
 		"trainer":
@@ -465,23 +654,37 @@ func _window_field(p: Vector3, eyes: Array) -> float:
 			wins = [[1.0, 28.0, 2.0, 17.0], [54.0, 15.0, 1.0, 12.0], [82.0, 9.0, 1.0, 9.0]]
 		_:
 			wins = [[1.0, 29.0, 2.5, 18.5], [55.0, 16.5, 1.5, 13.5], [87.5, 10.0, 1.5, 10.0]]
+	# the posts that matter lie between neighbouring windows on the same side, so the runner-up
+	# is taken from the windows of the eye on this side only
 	for k in eyes.size():
 		var eye: Vector3 = eyes[k]
 		var d := (p - eye).normalized()
 		var az := rad_to_deg(atan2(d.x, -d.z))
 		var el := rad_to_deg(asin(clampf(d.y, -1.0, 1.0)))
 		var outb := -az if k == 0 else az
+		var same_side := (p.x < 0.0) == (k == 0)
 		for w in wins:
 			var nx := absf(outb - float(w[0])) / float(w[1])
 			var ny := absf(el - float(w[2])) / float(w[3])
 			var nrm := pow(pow(nx, 5.0) + pow(ny, 5.0), 0.2)
-			best = maxf(best, (1.0 - nrm) * 0.5)
+			var v := (1.0 - nrm) * 0.5
+			if v > best:
+				if same_side:
+					second = best
+				best = v
+			elif v > second and same_side:
+				second = v
 	# centre windscreen post
 	if cat != "trainer":
-		best = minf(best, (absf(p.x) - 0.035) * 3.0)
+		var post := (absf(p.x) - 0.035) * 3.0
+		if post < best:
+			second = maxf(second, best)
+			best = post
 	# glazing starts just ahead of the glareshield; the nose further forward is solid
-	best = minf(best, (p.z - (z_panel - 0.75)) * 4.0)
-	return best
+	var nose := (p.z - _glaze_z0) * 4.0
+	best = minf(best, nose)
+	second = minf(second, nose)
+	return Vector2(best, second)
 
 
 func _wipers(pout: Array, fv: Array, nth: int, nz: int) -> void:
@@ -1207,7 +1410,24 @@ func _build_ga() -> void:
 
 
 # ============================================================================== lighting
+var day_fills: Array[OmniLight3D] = []
+var _glaze_z0 := 0.0                # glazing never starts forward of this station
+
+
 func _build_lights() -> void:
+	# daylight through the glazing: soft unshadowed fill (the shell shadows the sun inside)
+	for spec_f in [[Vector3(0, E.y + 0.05, E.z - 0.35), 3.0, 1.1], [Vector3(0, E.y + 0.1, E.z + 0.75), 2.4, 0.5]]:
+		var df := OmniLight3D.new()
+		df.position = spec_f[0]
+		df.omni_range = spec_f[1]
+		df.omni_attenuation = 0.6
+		df.light_energy = spec_f[2]
+		df.set_meta("day", spec_f[2])
+		df.light_color = Color(0.94, 0.97, 1.0)
+		df.light_specular = 0.0
+		df.shadow_enabled = false
+		add_child(df)
+		day_fills.append(df)
 	dome = OmniLight3D.new()
 	dome.position = Vector3(0, E.y + 0.55, E.z + 0.1)
 	dome.omni_range = 2.2
@@ -1229,6 +1449,8 @@ func _build_lights() -> void:
 func set_night(night: float) -> void:
 	for f in floods:
 		f.light_energy = 0.35 * night
+	for df in day_fills:
+		df.light_energy = float(df.get_meta("day")) * clampf(1.0 - night * 1.15, 0.0, 1.0)
 	mat_screen.set_shader_parameter("brightness", lerpf(1.0, 0.75, night))
 	mat_ind.set_shader_parameter("night", night)
 
