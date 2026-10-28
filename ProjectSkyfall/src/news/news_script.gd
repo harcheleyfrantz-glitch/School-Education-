@@ -431,7 +431,7 @@ func _accident(inc: Dictionary, art: Dictionary, pkg: String) -> Dictionary:
 			else:
 				open_lines.append("The aviation regulator has acted against the pilot in command of flight %s." % c.num)
 		"memorial", "anniversary":
-			open_lines.append("%s %s, hundreds of people gathered near %s to remember the %s people who died on flight %s." % [_hello(air).trim_suffix("."), "and tonight" if pkg == "memorial" else "and a year on", noun, _n(int(c.fatal)), c.num])
+			open_lines.append("%s, hundreds of people gathered near %s to remember the %s people who died on flight %s." % ["Tonight" if pkg == "memorial" else "A year on", noun, _n(int(c.fatal)), c.num])
 	for tx in open_lines:
 		_line("anchor", a_name, tx, {"voice": "anchor"})
 	var lead_out := _pick(["Here's what we know about the final minutes of the flight.", "Let's look at what happened.", "This is how the flight unfolded."])

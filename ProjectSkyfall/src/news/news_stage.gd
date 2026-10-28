@@ -42,8 +42,10 @@ func _make_camera() -> void:
 	cam.current = true
 
 
-## Shallow depth of field: focus on a subject at `dist` metres.
+## Shallow depth of field: focus on a subject at `dist` metres. Off unless DOF_SETS is set: the
+## bokeh pass blurs the subject itself in sub-viewports (seen on lavapipe), so sets stay sharp.
 func _dof(on: bool, dist: float = 3.0, amount: float = 0.06) -> void:
+	on = on and OS.get_environment("DOF_SETS") == "1"
 	attrs.dof_blur_far_enabled = on
 	attrs.dof_blur_far_distance = dist + 1.2
 	attrs.dof_blur_far_transition = maxf(dist * 0.9, 2.0)
@@ -121,6 +123,8 @@ func _person(i: int, pos: Vector3, yaw: float, pose: String, outfit: int, id: in
 		var p := WorldSim.person(id)
 		if gender != "":
 			p.gender = gender
+		if outfit == Crowd.Outfit.SUIT or (id >= 30000 and id < 31000) or gender != "":
+			p.age = 26 + absi(id) % 30
 		ap = Crowd.appearance_for(p)
 		if outfit == Crowd.Outfit.SUIT:
 			ap.outfit = Crowd.Outfit.SUIT

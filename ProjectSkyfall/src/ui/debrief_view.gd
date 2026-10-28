@@ -1,10 +1,17 @@
 extends Control
-## End-of-flight debrief: grade and category scores, remarks, pay; after an accident the human
-## toll, the investigation report and what happens to the pilot. Continue applies the result to
-## the career (or, if the pilot died, closes the character's story for good).
+## End-of-flight debrief: grade and category scores, remarks, pay; after an accident a compact
+## facts card (the human toll, the probable cause, how responsibility is shared) and the
+## investigation report itself as a video - the reconstructed flight with flight-data overlays,
+## the cockpit voice transcript, narrated findings and recommendations. Normal flights can be
+## replayed right here. Continue applies the result to the career (or, if the pilot died,
+## closes the character's story for good).
 
 var result: Dictionary = {}
 var cons: Dictionary = {}
+var player: BroadcastPlayer = null
+var _replay_slot: VBoxContainer
+var _replay_btn: Button
+var _3d_was_disabled := false
 
 
 func show_result(res: Dictionary) -> void:
@@ -16,14 +23,14 @@ func show_result(res: Dictionary) -> void:
 	shade.color = Color(0.01, 0.02, 0.04, 0.82)
 	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(shade)
-	var p := UIStyle.panel(Vector2(860, 0))
+	var p := UIStyle.panel(Vector2(900, 0))
 	p.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-	p.anchor_top = 0.05
-	p.anchor_bottom = 0.95
+	p.anchor_top = 0.04
+	p.anchor_bottom = 0.96
 	p.anchor_left = 0.5
 	p.anchor_right = 0.5
-	p.offset_left = -430
-	p.offset_right = 430
+	p.offset_left = -450
+	p.offset_right = 450
 	p.offset_top = 0
 	p.offset_bottom = 0
 	add_child(p)
@@ -46,10 +53,13 @@ func show_result(res: Dictionary) -> void:
 	else:
 		_scores(v)
 	_consequences(v)
+	_replay_slot = UIStyle.vbox(6)
+	v.add_child(_replay_slot)
 	var row := UIStyle.hbox(10)
 	row.add_child(UIStyle.spacer())
-	if result.has("recorder") and not crashed:
-		row.add_child(UIStyle.button("Watch replay", func(): Game.goto("replay", {"result": result})))
+	if result.has("recorder") and not crashed and not result.get("recorder", {}).get("samples", []).is_empty():
+		_replay_btn = UIStyle.button("▶  Watch replay", _toggle_replay, 0)
+		row.add_child(_replay_btn)
 	row.add_child(UIStyle.button("Continue", _continue, 180, UIStyle.ACCENT))
 	v.add_child(row)
 
@@ -89,7 +99,7 @@ func _scores(v: VBoxContainer) -> void:
 		grid.add_child(l)
 		var pb := ProgressBar.new()
 		pb.value = float(cats.get(k, 0.0))
-		pb.custom_minimum_size = Vector2(520, 16)
+		pb.custom_minimum_size = Vector2(560, 16)
 		pb.show_percentage = true
 		var col := UIStyle.GREEN if pb.value >= 80.0 else (UIStyle.AMBER if pb.value >= 55.0 else UIStyle.RED)
 		pb.add_theme_stylebox_override("fill", UIStyle.box(col, 6, Color(0, 0, 0, 0), 0, 0))
@@ -123,7 +133,7 @@ func _journey(v: VBoxContainer) -> void:
 		grid.add_child(l)
 		var pb := ProgressBar.new()
 		pb.value = float(rt.get(k, 0.0))
-		pb.custom_minimum_size = Vector2(520, 16)
+		pb.custom_minimum_size = Vector2(560, 16)
 		var col := UIStyle.GREEN if pb.value >= 80.0 else (UIStyle.AMBER if pb.value >= 55.0 else UIStyle.RED)
 		pb.add_theme_stylebox_override("fill", UIStyle.box(col, 6, Color(0, 0, 0, 0), 0, 0))
 		grid.add_child(pb)
@@ -141,44 +151,87 @@ func _journey(v: VBoxContainer) -> void:
 
 
 func _accident(v: VBoxContainer) -> void:
+	## Facts card + the investigation report as a video.
 	var af: Dictionary = result.get("aftermath", {})
 	var c: Dictionary = af.get("counts", {})
 	var inv: Dictionary = result.get("investigation", {})
 	v.add_child(UIStyle.label("%s, %s" % [String(af.get("place", "")), U.fmt_datetime(float(result.get("clock", WorldSim.clock)))], 15, UIStyle.DIM))
-	var toll := "[b]%d[/b] on board · [color=#ff6b60][b]%d killed[/b][/color] · %d critically injured · %d seriously injured · %d minor injuries · %d unhurt" % [
-		int(c.get("aboard", 0)), int(c.get("fatal", 0)), int(c.get("critical", 0)), int(c.get("serious", 0)), int(c.get("minor", 0)), int(c.get("uninjured", 0))]
-	v.add_child(UIStyle.rich(toll, 16))
+	var chips := UIStyle.hbox(8)
+	for it in [["on board", int(c.get("aboard", 0)), UIStyle.TEXT], ["killed", int(c.get("fatal", 0)), UIStyle.RED], ["critical", int(c.get("critical", 0)), UIStyle.AMBER],
+			["serious", int(c.get("serious", 0)), Color(1.0, 0.85, 0.4)], ["minor", int(c.get("minor", 0)), UIStyle.ACCENT], ["unhurt", int(c.get("uninjured", 0)), UIStyle.GREEN]]:
+		var pc := PanelContainer.new()
+		pc.add_theme_stylebox_override("panel", UIStyle.box(Color(1, 1, 1, 0.05), 10, Color(it[2], 0.5), 1, 10))
+		pc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var cv := UIStyle.vbox(0)
+		var n := UIStyle.label(U.fmt_int(int(it[1])), 26, it[2], true)
+		n.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		cv.add_child(n)
+		var lb := UIStyle.label(String(it[0]), 12, UIStyle.DIM)
+		lb.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		cv.add_child(lb)
+		pc.add_child(cv)
+		chips.add_child(pc)
+	v.add_child(chips)
+	if not inv.is_empty():
+		v.add_child(UIStyle.rich("[b]Probable cause:[/b] %s" % inv.get("probable_cause", ""), 16))
+		var bar := ShareBar.new()
+		bar.shares = inv.get("shares", {})
+		bar.custom_minimum_size = Vector2(0, 44)
+		v.add_child(bar)
 	var victims: Array = af.get("victims", [])
 	if not victims.is_empty():
 		var names := []
-		for vi in victims.slice(0, 12):
-			names.append("%s (%d), %s" % [vi.name, int(vi.age), vi.home])
-		var more := victims.size() - names.size()
-		v.add_child(UIStyle.rich("[color=#9fb1c2]Among the victims: %s%s[/color]" % [", ".join(names), (" and %d others" % more) if more > 0 else ""], 14))
-	if inv.is_empty():
+		for vi in victims.slice(0, 6):
+			names.append("%s (%d)" % [vi.name, int(vi.age)])
+		v.add_child(UIStyle.rich("[color=#9fb1c2]In memory of %s%s.[/color]" % [", ".join(names), (" and %d others" % (victims.size() - names.size())) if victims.size() > names.size() else ""], 13))
+	var prog := NewsScript.for_result(result)
+	if prog.is_empty():
 		return
-	v.add_child(UIStyle.label("Preliminary investigation report", 20, UIStyle.AMBER, true))
-	v.add_child(UIStyle.rich("[b]Probable cause:[/b] %s" % inv.get("probable_cause", ""), 16))
-	var txt := ""
-	for f in inv.get("findings", []):
-		txt += "• %s\n" % f
-	if txt != "":
-		v.add_child(UIStyle.rich("[b]Findings[/b]\n" + txt, 15))
-	txt = ""
-	for f2 in inv.get("factors", []):
-		txt += "• %s\n" % f2
-	if txt != "":
-		v.add_child(UIStyle.rich("[b]Contributing factors[/b]\n" + txt, 15))
-	var sh: Dictionary = inv.get("shares", {})
-	var parts := []
-	for k in ["pilot", "maintenance", "weather", "atc", "manufacturer"]:
-		if float(sh.get(k, 0.0)) > 0.04:
-			parts.append("%s %d%%" % [k, int(float(sh[k]) * 100.0)])
-	v.add_child(UIStyle.label("Responsibility: " + ", ".join(parts), 15, UIStyle.DIM))
-	txt = ""
-	for r in inv.get("recommendations", []):
-		txt += "• %s\n" % r
-	v.add_child(UIStyle.rich("[b]Safety recommendations[/b]\n" + txt, 14))
+	var head := UIStyle.hbox(8)
+	head.add_child(UIStyle.label("Investigation report", 20, UIStyle.AMBER, true))
+	head.add_child(UIStyle.spacer())
+	head.add_child(UIStyle.label("Calderra Transport Safety Board · %s" % BroadcastPlayer._mmss(float(prog.duration)), 13, UIStyle.DIM))
+	v.add_child(head)
+	_embed(v, prog, true)
+
+
+func _embed(parent: Container, prog: Dictionary, autoplay: bool) -> void:
+	player = BroadcastPlayer.new()
+	player.custom_minimum_size = Vector2(860, 484)
+	player.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	parent.add_child(player)
+	player.open(prog, {"autoplay": autoplay, "closable": false})
+	# the flight session's world behind the debrief no longer needs to be drawn
+	var vp := get_viewport()
+	if vp and not _3d_was_disabled:
+		_3d_was_disabled = true
+		vp.disable_3d = true
+
+
+func _toggle_replay() -> void:
+	if player and is_instance_valid(player):
+		player.queue_free()
+		player = null
+		_replay_btn.text = "▶  Watch replay"
+		_restore_3d()
+		return
+	var prog := NewsScript.for_result(result)
+	if prog.is_empty():
+		return
+	_embed(_replay_slot, prog, true)
+	_replay_btn.text = "Hide replay"
+
+
+func _restore_3d() -> void:
+	if _3d_was_disabled:
+		_3d_was_disabled = false
+		var vp := get_viewport()
+		if vp:
+			vp.disable_3d = false
+
+
+func _exit_tree() -> void:
+	_restore_3d()
 
 
 func _consequences(v: VBoxContainer) -> void:
@@ -210,6 +263,9 @@ func _memorial(v: VBoxContainer) -> void:
 
 
 func _continue() -> void:
+	if player and is_instance_valid(player):
+		player.close()
+	_restore_3d()
 	if Game.has_character() and (String(result.get("mode", "pilot")) == "passenger" or not bool(result.get("free_flight", false))):
 		CareerRules.apply_result(result)
 	elif News.has_method("on_flight_result"):
@@ -217,3 +273,25 @@ func _continue() -> void:
 	get_tree().paused = false
 	Engine.time_scale = 1.0
 	Game.goto("hub" if Game.has_character() else "menu", {"last_result": result})
+
+
+## Stacked bar of how the investigation shares responsibility.
+class ShareBar extends Control:
+	var shares: Dictionary = {}
+	const COLS := {"pilot": Color(1.0, 0.69, 0.0), "maintenance": Color(0.35, 0.65, 1.0), "weather": Color(0.55, 0.85, 0.95), "atc": Color(0.75, 0.5, 1.0), "manufacturer": Color(0.6, 0.9, 0.55)}
+	const NAMES := {"pilot": "Flight crew", "maintenance": "Maintenance", "weather": "Weather", "atc": "ATC", "manufacturer": "Manufacturer"}
+
+	func _draw() -> void:
+		var x := 0.0
+		var w := size.x
+		var f := UIStyle.font(true)
+		draw_rect(Rect2(0, 0, w, 16), Color(1, 1, 1, 0.08))
+		for k in ["pilot", "maintenance", "weather", "atc", "manufacturer"]:
+			var s := float(shares.get(k, 0.0))
+			if s <= 0.01:
+				continue
+			var seg := w * s
+			draw_rect(Rect2(x, 0, seg - 1.0, 16), COLS[k])
+			if seg > 90.0:
+				draw_string(f, Vector2(x, 36), "%s %d%%" % [NAMES[k], int(s * 100.0)], HORIZONTAL_ALIGNMENT_LEFT, seg, 13, Color(COLS[k], 0.95))
+			x += seg
