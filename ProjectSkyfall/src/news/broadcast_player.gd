@@ -381,7 +381,7 @@ func set_playing(on: bool) -> void:
 	if _big:
 		_big.visible = not on and loaded
 	if _play_btn:
-		_play_btn.text = "❚❚" if on else "▶"
+		_set_icon(_play_btn, "pause" if on else "play")
 	if _tts_ok:
 		if on:
 			DisplayServer.tts_resume()
@@ -458,7 +458,7 @@ func set_fullscreen(on: bool) -> void:
 			_layer.queue_free()
 		_layer = null
 	if _fs_btn:
-		_fs_btn.text = "⤡" if on else "⛶"
+		_set_icon(_fs_btn, "shrink" if on else "expand")
 
 
 func close() -> void:
@@ -621,7 +621,7 @@ func _build_ui(title: String) -> void:
 	_title_lbl.offset_right = -60
 	_top.add_child(_title_lbl)
 	if allow_close:
-		var cb := UIStyle.button("✕", func(): close(), 40)
+		var cb := _flat("@close", func(): close(), 40)
 		cb.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
 		cb.offset_left = -52
 		cb.offset_top = 6
@@ -654,14 +654,14 @@ func _build_ui(title: String) -> void:
 	row.offset_top = -48
 	row.offset_bottom = -6
 	_bar.add_child(row)
-	_play_btn = _flat("▶", func(): toggle(), 44)
+	_play_btn = _flat("@play", func(): toggle(), 44)
 	row.add_child(_play_btn)
-	row.add_child(_flat("⟲", func():
+	row.add_child(_flat("@replay", func():
 		seek(0.0)
 		set_playing(true), 40))
-	_vol_btn = _flat("🔊", func():
+	_vol_btn = _flat("@volume", func():
 		muted = not muted
-		_vol_btn.text = "🔇" if muted else "🔊"
+		_set_icon(_vol_btn, "mute" if muted else "volume")
 		_apply_volume(), 40)
 	row.add_child(_vol_btn)
 	_vol = HSlider.new()
@@ -696,7 +696,7 @@ func _build_ui(title: String) -> void:
 		_cc_btn.modulate = Color.WHITE if captions else Color(1, 1, 1, 0.45), 44)
 	_cc_btn.modulate = Color.WHITE if captions else Color(1, 1, 1, 0.45)
 	row.add_child(_cc_btn)
-	_fs_btn = _flat("⛶", func(): set_fullscreen(not _fullscreen), 44)
+	_fs_btn = _flat("@expand", func(): set_fullscreen(not _fullscreen), 44)
 	row.add_child(_fs_btn)
 	# big centre play button
 	_big = Button.new()
@@ -750,13 +750,34 @@ func _build_ui(title: String) -> void:
 	add_child(_loading)
 
 
+## Flat control-bar button; text "@name" gives a drawn UIIcon instead of a glyph.
 func _flat(text: String, cb: Callable, w: float) -> Button:
+	var icon := ""
+	if text.begins_with("@"):
+		icon = text.substr(1)
+		text = ""
 	var b := UIStyle.button(text, cb, w)
+	if icon != "":
+		var ic := UIIcon.make(icon, 20.0, Color.WHITE, 2.2)
+		ic.name = "Icon"
+		ic.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+		ic.offset_left = -10
+		ic.offset_top = -10
+		ic.offset_right = 10
+		ic.offset_bottom = 10
+		b.add_child(ic)
 	b.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
 	b.add_theme_stylebox_override("hover", UIStyle.box(Color(1, 1, 1, 0.12), 8, Color(0, 0, 0, 0), 0, 6))
 	b.add_theme_stylebox_override("pressed", UIStyle.box(Color(1, 1, 1, 0.2), 8, Color(0, 0, 0, 0), 0, 6))
 	b.add_theme_font_size_override("font_size", 18)
 	return b
+
+
+func _set_icon(b: Button, kind: String) -> void:
+	var ic := b.get_node_or_null("Icon") as UIIcon
+	if ic:
+		ic.set_icon(kind)
+		ic.queue_redraw()
 
 
 static var _grad_cache := {}

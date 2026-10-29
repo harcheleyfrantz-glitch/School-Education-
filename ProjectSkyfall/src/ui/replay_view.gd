@@ -404,16 +404,16 @@ func _build_ui() -> void:
 	_ui.add_child(bar)
 	var h := UIStyle.hbox(10)
 	bar.add_child(h)
-	_play_btn = UIStyle.button("❚❚", func():
+	_play_btn = UIStyle.button("II", func():
 		playing = not playing
 		if playing and t >= duration:
 			t = 0.0
-		_play_btn.text = "❚❚" if playing else "▶", 52)
+		_play_btn.text = "II" if playing else "▶", 52)
 	h.add_child(_play_btn)
-	h.add_child(UIStyle.button("⟲", func():
+	h.add_child(UIStyle.button("↺", func():
 		t = 0.0
 		playing = true
-		_play_btn.text = "❚❚", 44))
+		_play_btn.text = "II", 44))
 	_seek = HSlider.new()
 	_seek.min_value = 0.0
 	_seek.max_value = duration
@@ -448,7 +448,7 @@ static func _mmss(x: float) -> String:
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("pause") or (event is InputEventKey and event.pressed and (event as InputEventKey).keycode == KEY_SPACE):
 		playing = not playing
-		_play_btn.text = "❚❚" if playing else "▶"
+		_play_btn.text = "II" if playing else "▶"
 	elif event is InputEventMouseButton:
 		_drag = (event as InputEventMouseButton).pressed
 	elif event is InputEventMouseMotion and _drag:

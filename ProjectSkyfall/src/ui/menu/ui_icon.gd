@@ -143,6 +143,29 @@ static func draw(ci: CanvasItem, kind: String, r: Rect2, col: Color, w: float = 
 			ci.draw_circle(p.call(0.5, 0.38), s * 0.09, Color(0, 0, 0, 0.6))
 		"play":
 			ci.draw_colored_polygon(PackedVector2Array([p.call(0.3, 0.18), p.call(0.82, 0.5), p.call(0.3, 0.82)]), col)
+		"pause":
+			ci.draw_rect(Rect2(p.call(0.26, 0.2), Vector2(0.16, 0.6) * s), col)
+			ci.draw_rect(Rect2(p.call(0.58, 0.2), Vector2(0.16, 0.6) * s), col)
+		"volume", "mute":
+			ci.draw_colored_polygon(PackedVector2Array([p.call(0.1, 0.38), p.call(0.28, 0.38), p.call(0.5, 0.18), p.call(0.5, 0.82), p.call(0.28, 0.62), p.call(0.1, 0.62)]), col)
+			if kind == "volume":
+				ci.draw_arc(p.call(0.5, 0.5), s * 0.17, -0.85, 0.85, 10, col, w, true)
+				ci.draw_arc(p.call(0.5, 0.5), s * 0.32, -0.85, 0.85, 14, col, w, true)
+			else:
+				ci.draw_line(p.call(0.62, 0.36), p.call(0.88, 0.64), col, w, true)
+				ci.draw_line(p.call(0.88, 0.36), p.call(0.62, 0.64), col, w, true)
+		"replay":
+			ci.draw_arc(c, s * 0.3, -2.4, 2.6, 20, col, w, true)
+			var tip := c + Vector2(cos(-2.4), sin(-2.4)) * s * 0.3
+			ci.draw_colored_polygon(PackedVector2Array([tip + Vector2(-0.16, -0.02) * s, tip + Vector2(0.06, -0.14) * s, tip + Vector2(0.06, 0.1) * s]), col)
+		"expand", "shrink":
+			var a := 0.16 if kind == "expand" else 0.36
+			var b := 0.36 if kind == "expand" else 0.16
+			for q in [Vector2(1, 1), Vector2(-1, 1), Vector2(1, -1), Vector2(-1, -1)]:
+				var corner := c + Vector2(-q.x, -q.y) * s * (0.5 - a)
+				var dir := Vector2(q.x, q.y) * s * (b - a) * (1.0 if kind == "expand" else -1.0)
+				ci.draw_line(corner, corner + Vector2(dir.x, 0), col, w, true)
+				ci.draw_line(corner, corner + Vector2(0, dir.y), col, w, true)
 		"lock":
 			ci.draw_rect(Rect2(p.call(0.24, 0.46), Vector2(0.52, 0.4) * s), col)
 			ci.draw_arc(p.call(0.5, 0.46), s * 0.17, PI, TAU, 12, col, w * 1.2, true)

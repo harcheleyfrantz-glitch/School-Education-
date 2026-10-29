@@ -92,6 +92,7 @@ func _pick(r: RandomNumberGenerator, arr: Array) -> String:
 # ================================================================== flights finished by the player
 func on_flight_result(res: Dictionary, cons: Dictionary) -> void:
 	var outcome := String(res.get("outcome", ""))
+	_store_replay(res)
 	if outcome in ["crashed", "ditched"]:
 		_accident(res, cons)
 	elif outcome in ["landed", "diverted"]:
@@ -106,6 +107,32 @@ func _flight_desc(res: Dictionary) -> Dictionary:
 		"type": "%s %s" % [t.maker, t.name], "short": String(t.short), "from": Airports.get_ap(String(res.get("dep", ""))).get("short", ""),
 		"to": Airports.get_ap(String(res.get("planned_arr", res.get("arr", "")))).get("short", ""),
 		"landed_at": Airports.get_ap(String(res.get("arr", ""))).get("short", ""), "pilot": String(res.get("captain", Game.player.get("name", "the captain") if Game.has_character() else "the captain"))}
+
+
+## Keeps the last five minutes of every finished flight (the approach and landing, or the
+## accident) so the player can watch them again from the video library.
+func _store_replay(res: Dictionary) -> void:
+	var rec: Dictionary = res.get("recorder", {})
+	var smp: Array = rec.get("samples", [])
+	if smp.size() < 20:
+		return
+	var t_end := float(smp[smp.size() - 1][0])
+	var keep := []
+	for sm in smp:
+		if float(sm[0]) >= t_end - 300.0:
+			keep.append(sm)
+	var cvr := []
+	for v in rec.get("cvr", []):
+		if float(v.get("t", 0.0)) >= t_end - 300.0:
+			cvr.append(v)
+	var outcome := String(res.get("outcome", "landed"))
+	replays.append({"id": _id("R"), "t": WorldSim.clock, "type": String(res.get("type", "s320")), "airline": String(res.get("airline", "SKF")),
+		"reg": String(res.get("reg", "")), "callsign": String(res.get("callsign", "")), "dep": String(res.get("dep", "")), "arr": String(res.get("arr", "")),
+		"clock": float(res.get("clock", WorldSim.clock)) - (t_end - float(keep[0][0])), "outcome": outcome, "weather": res.get("weather", {}),
+		"samples": keep, "cvr": cvr, "grade": String(res.get("grade", "")),
+		"label": {"crashed": "Accident", "ditched": "Ditching", "diverted": "Diversion and landing"}.get(outcome, "Approach and landing")})
+	if replays.size() > MAX_REPLAYS:
+		replays = replays.slice(replays.size() - MAX_REPLAYS)
 
 
 func _accident(res: Dictionary, cons: Dictionary) -> void:
@@ -189,7 +216,7 @@ func _flight_story(res: Dictionary, cons: Dictionary) -> void:
 					"A %s operated by %s suffered damage on %s. The regulator has opened an investigation into the serious incident." % [d.type, d.airline, "landing" if k != "tailstrike" else "takeoff or landing"],
 					["No injuries were reported.", "The aircraft remains grounded pending repairs."], {"importance": 2, "tags": ["incident", d.code]})
 	if not big and pax > 40 and vs < 70.0 and r.randf() < 0.35:
-		post(_citizen(r), _pick(r, ["Did we even land?? Butter. Absolute butter. 🧈 #%s" % d.num, "That landing into %s was so smooth the whole plane clapped." % place,
+		post(_citizen(r), _pick(r, ["Did we even land?? Butter. Absolute butter. #%s" % d.num, "That landing into %s was so smooth the whole plane clapped." % place,
 			"Whoever flew %s today: chef's kiss." % d.num]), {"importance": 2, "video": true})
 	elif not big and vs > 600.0 and pax > 20:
 		post(_citizen(r), _pick(r, ["That landing at %s rattled my teeth. Everyone OK?" % place, "Pretty sure the pilot was trying to plant the plane in the runway lol"]),
