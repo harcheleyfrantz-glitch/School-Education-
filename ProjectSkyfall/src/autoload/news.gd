@@ -19,11 +19,14 @@ const OUTLETS := {
 }
 const MAX_ARTICLES := 400
 const MAX_POSTS := 700
+const MAX_REPLAYS := 12
 
 var incidents: Array = []
 var articles: Array = []
 var stories: Array = []
 var posts: Array = []
+## The player's own recent flights, kept as compact flight-recorder tracks for replays.
+var replays: Array = []
 var _next := 1
 var _last_day := -1
 
@@ -459,8 +462,16 @@ func incident(id: String) -> Dictionary:
 	return _find_incident(id)
 
 
+func replay(id: String) -> Dictionary:
+	for rp in replays:
+		if String(rp.get("id", "")) == id:
+			return rp
+	return {}
+
+
 func serialize() -> Dictionary:
-	return {"incidents": incidents, "articles": articles, "stories": stories, "posts": posts, "next": _next, "last_day": _last_day}
+	return {"incidents": incidents, "articles": articles, "stories": stories, "posts": posts, "next": _next, "last_day": _last_day,
+		"replays": replays}
 
 
 func deserialize(d: Dictionary) -> void:
@@ -468,6 +479,7 @@ func deserialize(d: Dictionary) -> void:
 	articles = d.get("articles", [])
 	stories = d.get("stories", [])
 	posts = d.get("posts", [])
+	replays = d.get("replays", [])
 	_next = int(d.get("next", 1))
 	_last_day = int(d.get("last_day", -1))
 
@@ -477,5 +489,6 @@ func reset() -> void:
 	articles.clear()
 	stories.clear()
 	posts.clear()
+	replays.clear()
 	_next = 1
 	_last_day = -1
