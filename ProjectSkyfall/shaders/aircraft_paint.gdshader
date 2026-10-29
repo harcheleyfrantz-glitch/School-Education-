@@ -105,6 +105,9 @@ instance uniform float cabin_lights = 0.0;
 instance uniform float logo_light = 0.0;
 instance uniform float deck_glow = 0.0;
 instance uniform float door_open = 0.0;
+instance uniform float gear_down = 0.0;
+uniform vec4 main_well = vec4(0.0, 0.0, -1e4, 0.0);   // open main wheel wells: |x| centre, half width, z centre, half length
+uniform vec4 nose_well = vec4(0.0, -1e4, 0.0, 0.0);   // nose bay: half width, z centre, half length
 instance uniform float dirt = 0.25;
 instance uniform float scorch = 0.0;
 
@@ -537,6 +540,16 @@ void fragment() {
 				rough = mix(rough, 0.35, seal);
 				emit += glass * deck_glow * vec3(0.03, 0.05, 0.08);
 			}
+		}
+		// ---- wheel wells open while the gear is down
+		if (gear_down > 0.01 && hn < -0.5) {
+			float wm = fill(sd_rbox(vec2(abs(lpos.x) - main_well.x, zz - main_well.z), main_well.yw, 0.3));
+			float wn = fill(sd_rbox(vec2(lpos.x, zz - nose_well.y), vec2(nose_well.x, nose_well.z), 0.1));
+			float wl = max(wm, wn) * smoothstep(0.0, 0.3, gear_down);
+			col = mix(col, vec3(0.045, 0.047, 0.046), wl);
+			rough = mix(rough, 0.8, wl);
+			cc = mix(cc, 0.0, wl);
+			ao *= 1.0 - 0.6 * wl;
 		}
 		// ---- weathering
 		dirt_k = smoothstep(-0.45, -0.95, hn) * (0.4 + 0.6 * t) + smoothstep(0.975, 1.0, t) * 0.8;

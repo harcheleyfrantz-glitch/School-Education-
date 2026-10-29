@@ -1900,14 +1900,20 @@ func _gear_leg(mb: MeshBuilder, g: Dictionary) -> void:
 		for wp in wheels:
 			_wheel_into(smb, wp, wr, tw)
 	var ext_axis: Vector3 = g.axis
+	var slider: ArrayMesh = null
+	if hi:
+		slider = smb.commit()
+	else:
+		# traffic model: one mesh per leg (no oleo travel, no wheel spin)
+		lmb.add_mesh_builder(smb, Transform3D(Basis.IDENTITY, Vector3(0, -leg, 0)))
 	_k.gear.append({"pos": piv, "axis": ext_axis, "angle": float(g.angle), "leg": leg, "radius": wr, "retract": bool(g.retract),
-		"src": int(g.src), "nose": nose, "leg_mesh": lmb.commit(), "slider_mesh": smb.commit(), "wheels": wl})
+		"src": int(g.src), "nose": nose, "leg_mesh": lmb.commit(), "slider_mesh": slider, "wheels": wl, "x": float(g.x), "wb": wb if bogie else 0.0})
 	var gname := "nose_gear" if nose else ("main_gear_%s" % ("R" if side > 0.0 else "L"))
 	if g.get("body", false):
 		gname = "body_gear_%s" % ("R" if side > 0.0 else "L")
 	_k.anchors[gname] = piv + Vector3(0, -leg, 0)
 	# nose bay doors (open while the gear is down)
-	if nose and bool(g.retract):
+	if nose and bool(g.retract) and hi:
 		var bay_w := (off + tw * 0.5 + 0.1 if twin else rc + tw + 0.1) * 0.62
 		var dl := (leg + wr * 1.1) * 0.45
 		for sx in [-1.0, 1.0]:
@@ -2282,6 +2288,20 @@ func _shader_geometry(panes: Array) -> void:
 	sh["main_door"] = Vector4(nzz + body_len * 0.79, 1.7, 1.55, -_rh * 0.12) if cat == "cargo" else Vector4(-1e4, 1.7, 1.6, 0.0)
 	sh["nose_door"] = (nzz + body_len * 0.115) if (cat == "cargo" and bool(spec.cargo_door)) else -1e4
 	sh["static_port"] = Vector2(ez + 1.45, ey - 0.7) if cat != "trainer" else Vector2(-1e4, 0.0)
+	# open wheel wells in the belly (types whose main wheels sit in open bays), nose bay
+	var mw := Vector4(0.0, 0.0, -1e4, 0.0)
+	var nw := Vector4(0.0, -1e4, 0.0, 0.0)
+	for gk in _k.gear:
+		if not bool(gk.retract):
+			continue
+		var gl: float = gk.leg
+		var gr: float = gk.radius
+		if bool(gk.nose):
+			nw = Vector4(0.32 + gr * 0.2, (gk.pos as Vector3).z - (gl + gr) * 0.5, (gl + gr) * 0.5 + 0.15, 0.0)
+		elif float(gk.x) < 0.0 and cat in ["narrowbody", "regional"]:
+			mw = Vector4(absf(float(gk.x)) - gl * 0.62, gl * 0.42 + gr * 0.5, (gk.pos as Vector3).z, gr * 1.12)
+	sh["main_well"] = mw
+	sh["nose_well"] = nw
 	sh["boots"] = 1.0 if cat == "turboprop" else 0.0
 	sh["wing_body"] = 1.0 if cat == "trainer" else 0.0
 	# flight deck panes
@@ -2533,6 +2553,7 @@ func animate(ac: Node, dt: float) -> void:
 	_set_inst("cabin_lights", night * (1.0 if L.cabin and powered else 0.0))
 	_set_inst("logo_light", night * (1.0 if (bool(L.get("logo", false)) or bool(L.nav)) and powered else 0.0))
 	_set_inst("deck_glow", night * (1.0 if powered else 0.0))
+	_set_inst("gear_down", float(sys.gear_pos[1]) if sys.gear_pos.size() > 1 and bool(spec.gear_retract) else 0.0)
 
 
 ## Lightweight animation for AI traffic and replays (no flight model behind the model).
@@ -2562,6 +2583,7 @@ func animate_simple(gear_ext: float, flap_frac: float, fan_rate: float, lit: Dic
 	_set_inst("cabin_lights", night * (1.0 if bool(lit.get("cabin", true)) else 0.0))
 	_set_inst("logo_light", night * (1.0 if bool(lit.get("logo", lit.get("nav", false))) else 0.0))
 	_set_inst("deck_glow", night)
+	_set_inst("gear_down", gear_ext if bool(spec.gear_retract) else 0.0)
 
 
 func _flap_deg(pos: float) -> float:
