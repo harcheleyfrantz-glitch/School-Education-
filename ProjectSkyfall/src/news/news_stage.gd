@@ -9,6 +9,7 @@ var player: Node = null
 var cam: Camera3D
 var attrs: CameraAttributesPractical
 var people: Crowd
+var heroes: Array = []
 var env: Environment
 
 
@@ -136,6 +137,17 @@ func _person(i: int, pos: Vector3, yaw: float, pose: String, outfit: int, id: in
 	if top.r >= 0.0:
 		ap.top = top
 	var sc := float(ap.get("scale", 1.0))
+	# the people who speak to camera (anchors, reporters, witnesses, the press-conference
+	# speaker) are fully skinned characters; everyone else stays in the crowd batch
+	if pose == "talk" or (pose == "sit" and gender != ""):
+		var h := SkinnedHuman.new()
+		people.get_parent().add_child(h)
+		h.transform = people.transform * Transform3D(Basis(Vector3.UP, yaw), pos)
+		h.setup(ap)
+		h.play("talk" if pose == "talk" else "sit_talk", 0.0)
+		h.anim.seek(float(U.hash_ints(id, 5) % 1000) / 1000.0 * 4.0, true)
+		heroes.append(h)
+		return
 	var xf := Transform3D(Basis(Vector3.UP, yaw).scaled(Vector3.ONE * sc), pos)
 	people.set_person(i, xf, int(HumanMesh.POSES.get(pose, 0)), float(U.hash_ints(id, 5) % 1000) / 1000.0, rate, ap.top, int(ap.outfit),
 		float(ap.seed), int(ap.flags) | extra_flags, float(ap.build))

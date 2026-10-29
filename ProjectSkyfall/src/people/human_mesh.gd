@@ -159,15 +159,17 @@ func _limb(a: Vector3, b: Vector3, prof: Callable, nu: int, nv: int, cap_a: bool
 func _build(lod: int) -> ArrayMesh:
 	mb = MeshBuilder.new()
 	mb.use_uv2 = true
-	q = [1.0, 0.6, 0.38][clampi(lod, 0, 2)]
+	# lod -1 is the high-resolution mesh for skinned hero characters (SkinnedHuman)
+	q = 1.55 if lod < 0 else [1.0, 0.6, 0.38][clampi(lod, 0, 2)]
+	var dl := maxi(lod, 0)
 	var su := func(n: float) -> int: return maxi(int(round(n * q)), 4)
 	_torso(su)
-	_neck_head(su, lod)
-	_arms(su, lod)
-	_legs(su, lod)
-	_hair(su, lod)
-	_clothing_extras(su, lod)
-	_props(su, lod)
+	_neck_head(su, dl)
+	_arms(su, dl)
+	_legs(su, dl)
+	_hair(su, dl)
+	_clothing_extras(su, dl)
+	_props(su, dl)
 	var mesh := mb.commit()
 	mesh.custom_aabb = AABB(Vector3(-1.1, -0.3, -1.1), Vector3(2.2, 2.5, 2.2))
 	return mesh
@@ -227,7 +229,7 @@ func _head_point(u: float, v: float, inflate: float = 0.0) -> Vector3:
 	var z := dz * r.z
 	# jaw narrows toward the chin, chin juts forward slightly
 	var low := clampf((-dy - 0.15) / 0.85, 0.0, 1.0)
-	x *= lerpf(1.0, 0.8, pow(low, 1.7))
+	x *= lerpf(1.0, 0.86, pow(low, 1.7))
 	if dz < 0.0:
 		var fr := smoothstep(0.0, -0.6, dz)
 		z *= lerpf(1.0, 0.9, low)
@@ -255,7 +257,7 @@ func _neck_head(su: Callable, lod: int) -> void:
 	# neck
 	_tag(Part.HEAD, Slot.SKIN)
 	_limb(Vector3(0, 1.43, 0.008), Vector3(0, 1.6, 0.0), func(v: float) -> Array:
-		return [0.05 - 0.005 * v, 0.047 - 0.003 * v, 0.006 * (1.0 - v), 0.0], su.call(14), su.call(5), false, false)
+		return [0.058 - 0.008 * v, 0.054 - 0.006 * v, 0.006 * (1.0 - v), 0.0], su.call(14), su.call(5), false, false)
 	# head
 	_tag(Part.HEAD, Slot.SKIN)
 	var P := func(u: float, v: float) -> Vector3: return _head_point(u, v)
@@ -275,12 +277,12 @@ func _neck_head(su: Callable, lod: int) -> void:
 	# nose: ridge, rounded tip and nostril underside
 	_tag(Part.HEAD, Slot.SKIN)
 	var nose_rows := [
-		[1.703, -0.0905, 0.0065, -0.0835],
-		[1.682, -0.0975, 0.0078, -0.0855],
-		[1.657, -0.1065, 0.0098, -0.0875],
-		[1.638, -0.1135, 0.0128, -0.0885],
-		[1.627, -0.1125, 0.0152, -0.0888],
-		[1.6195, -0.1035, 0.0148, -0.0888],
+		[1.694, -0.0895, 0.0075, -0.0835],
+		[1.676, -0.0955, 0.0088, -0.0855],
+		[1.656, -0.1025, 0.0108, -0.0875],
+		[1.640, -0.1075, 0.0138, -0.0885],
+		[1.630, -0.1065, 0.0162, -0.0888],
+		[1.6215, -0.0995, 0.0158, -0.0888],
 	]
 	var Pn := func(u: float, v: float) -> Vector3:
 		var r := _lerp_rows(nose_rows, v)

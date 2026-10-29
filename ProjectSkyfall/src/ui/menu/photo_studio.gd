@@ -9,7 +9,7 @@ extends Node
 signal shot_ready(id: String, tex: Texture2D)
 
 const CACHE_DIR := "user://studio_cache"
-const VERSION := 2
+const VERSION := 3
 const WIDE := Vector2i(1024, 576)
 const HERO := Vector2i(1280, 600)
 const CARD := Vector2i(768, 640)
@@ -663,25 +663,27 @@ func _setup_cabin(rec: Dictionary, sun_az: float) -> void:
 	_view.set_interior(true)
 
 
-func _person(look: Dictionary, xf: Transform3D, pose: int, phase: float, parent: Node3D = null) -> Crowd:
-	var crowd := Crowd.new()
-	crowd.name = "Pilot"
+func _person(look: Dictionary, xf: Transform3D, pose: int, phase: float, parent: Node3D = null) -> SkinnedHuman:
+	var h := SkinnedHuman.new()
+	h.name = "Pilot"
 	if parent == null:
-		_view.dynamic_root.add_child(crowd)
+		_view.dynamic_root.add_child(h)
 	else:
-		parent.add_child(crowd)
-	var al := String(look.get("airline", "SKF"))
-	crowd.setup(1, 0, al)
-	var uc := Crowd.uniform_colors(al)
-	crowd.set_instance_shader_parameter("uniform_color", uc[0])
-	crowd.set_instance_shader_parameter("uniform_trim", uc[1])
-	crowd.set_instance_shader_parameter("skin_override", (float(look.get("skin", 2)) + 0.5) / 7.0)
-	crowd.set_instance_shader_parameter("hair_override", (float(look.get("hair_color", 1)) + 0.5) / 7.0)
-	crowd.set_person(0, xf, pose, phase, 0.0, Color(0.95, 0.95, 0.97), Crowd.Outfit.FLIGHT, float(look.get("hair", 1)) + 0.37,
-		Crowd.FLAG_HAT | Crowd.FLAG_TIE, float(look.get("build", 0.5)))
-	crowd.flush()
-	_props.append(crowd)
-	return crowd
+		parent.add_child(h)
+	h.setup(_skinned_look(look, String(look.get("airline", "SKF"))))
+	h.transform = xf
+	var clip := "walk" if pose == int(HumanMesh.POSES["walk"]) else ("sit" if pose == int(HumanMesh.POSES["sit"]) else "idle")
+	h.play(clip, 0.0)
+	h.anim.seek(phase * float(SkinnedHuman.CLIPS[clip][0]), true)
+	h.anim.pause()
+	_props.append(h)
+	return h
+
+
+static func _skinned_look(look: Dictionary, al: String) -> Dictionary:
+	return {"top": Color(0.95, 0.95, 0.97), "outfit": Crowd.Outfit.FLIGHT, "seed": float(look.get("hair", 1)) + 0.37,
+		"flags": Crowd.FLAG_HAT | Crowd.FLAG_TIE, "build": float(look.get("build", 0.5)), "skin": int(look.get("skin", 2)),
+		"hair_color": int(look.get("hair_color", 1)), "airline": al}
 
 
 # ================================================================== studio sets (no world)
@@ -866,19 +868,13 @@ func _portrait_shot(rec: Dictionary) -> bool:
 	rim.light_energy = 1.3
 	rim.light_color = Color(0.55, 0.75, 1.0)
 	root.add_child(rim)
-	var crowd := Crowd.new()
-	root.add_child(crowd)
 	var al := String(look.get("airline", "SKF"))
-	crowd.setup(1, 0, al, false)
-	var uc := Crowd.uniform_colors(al)
-	crowd.set_instance_shader_parameter("uniform_color", uc[0])
-	crowd.set_instance_shader_parameter("uniform_trim", uc[1])
-	crowd.set_instance_shader_parameter("skin_override", (float(look.get("skin", 2)) + 0.5) / 7.0)
-	crowd.set_instance_shader_parameter("hair_override", (float(look.get("hair_color", 1)) + 0.5) / 7.0)
-	crowd.set_person(0, Transform3D(Basis(Vector3.UP, deg_to_rad(18.0)), Vector3.ZERO), HumanMesh.POSES["stand"], 0.0, 0.0,
-		Color(0.95, 0.95, 0.97), Crowd.Outfit.FLIGHT, float(look.get("hair", 1)) + 0.37, Crowd.FLAG_HAT | Crowd.FLAG_TIE,
-		float(look.get("build", 0.5)))
-	crowd.flush()
+	var h := SkinnedHuman.new()
+	root.add_child(h)
+	h.setup(_skinned_look(look, al))
+	h.rotation.y = deg_to_rad(18.0)
+	h.play("idle", 0.0)
+	h.anim.seek(1.8, true)
 	_cam.fov = 24.0
 	_cam.position = Vector3(0.0, 1.62, -1.85)
 	_aim(Vector3(0.0, 1.5, 0.0), Vector2.ZERO)

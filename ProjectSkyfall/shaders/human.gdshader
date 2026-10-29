@@ -14,6 +14,11 @@ instance uniform vec3 uniform_trim = vec3(0.75, 0.12, 0.14);
 // a crowd holding one specific person (the player's avatar) can pin skin and hair colour
 instance uniform float skin_override = -1.0;
 instance uniform float hair_override = -1.0;
+// skinned hero characters (SkinnedHuman): a Skeleton3D deforms the mesh, appearance comes from
+// these instead of the MultiMesh data, and CUSTOM0 holds the rest position
+uniform bool skinned = false;
+uniform vec4 s_custom = vec4(0.0);
+uniform vec4 s_color = vec4(0.0);
 
 varying flat vec3 v_albedo;
 varying flat vec3 v_top;
@@ -72,16 +77,19 @@ vec3 iris_tone(float s, float skin) {
 }
 
 void vertex() {
-	float cx = INSTANCE_CUSTOM.x;
+	bool sk = skinned;
+	vec4 icu = sk ? s_custom : INSTANCE_CUSTOM;
+	vec4 ico = sk ? s_color : COLOR;
+	float cx = icu.x;
 	int pose = int(floor(cx));
 	float ph0 = fract(cx);
-	float rate = INSTANCE_CUSTOM.y;
-	int style_sel = int(floor(INSTANCE_CUSTOM.z));
-	float seed = fract(INSTANCE_CUSTOM.z);
-	int flags = int(floor(INSTANCE_CUSTOM.w));
-	float build = fract(INSTANCE_CUSTOM.w);
-	int outfit = int(COLOR.a * 16.0 + 0.5);
-	vec3 top = COLOR.rgb;
+	float rate = icu.y;
+	int style_sel = int(floor(icu.z));
+	float seed = fract(icu.z);
+	int flags = int(floor(icu.w));
+	float build = fract(icu.w);
+	int outfit = int(ico.a * 16.0 + 0.5);
+	vec3 top = ico.rgb;
 	int part = int(UV2.x + 0.5);
 	int slot = int(UV2.y + 0.5);
 	int variant = int(UV.x + 0.5);
@@ -104,15 +112,17 @@ void vertex() {
 
 	vec3 P = VERTEX;
 	vec3 N = NORMAL;
-	vec3 R = P;
+	vec3 R = sk ? CUSTOM0.xyz : P;
 	v_rest = R;
 
 	// ---- body shape: feminine build narrows shoulders and waist, widens hips
 	if (part == 0) {
-		float hip = smoothstep(1.1, 0.92, P.y);
-		float waist = exp(-pow((P.y - 1.05) / 0.06, 2.0));
-		float shoulder = smoothstep(1.24, 1.42, P.y);
-		float bust = exp(-pow((P.y - 1.25) / 0.07, 2.0)) * step(P.z, 0.0);
+		float hip = smoothstep(1.1, 0.92, R.y);
+		float wq = (R.y - 1.05) / 0.06;
+		float waist = exp(-wq * wq);
+		float shoulder = smoothstep(1.24, 1.42, R.y);
+		float bq = (R.y - 1.25) / 0.07;
+		float bust = exp(-bq * bq) * step(R.z, 0.0);
 		float bulk = 1.0 + (sh3 - 0.5) * 0.2 + (elderly ? 0.05 : 0.0);
 		P.x *= mix(1.0, 1.12, hip * build) * mix(1.0, 0.92, waist * build) * mix(1.0, 0.9, shoulder * build) * bulk;
 		P.z *= bulk * (1.0 + bust * build * 0.16);
@@ -251,11 +261,12 @@ void vertex() {
 	if (part == 14) P.y -= 0.006 * mouth;
 	if (part == 21 && slot != 0) {
 		float ey = 1.677;
-		P.y = ey + (P.y - ey) * mix(1.0, 0.12, blink);
+		P.y += (ey + (R.y - ey) * mix(1.0, 0.12, blink)) - R.y;
 	}
 
-	// ---- skeleton with soft joints
+	// ---- skeleton with soft joints (MultiMesh crowds only; skinned characters use bones)
 	float y0 = R.y;
+	if (!sk) {
 	bool farmL = part == 4;
 	bool farmR = part == 6 || part == 12;
 	bool armL = part == 3 || farmL;
@@ -314,6 +325,7 @@ void vertex() {
 	if (rootX != 0.0) rot(P, N, vec3(0.0), vec3(rootX, 0.0, 0.0));
 	P.y += rootY;
 	P.z += rootZ;
+	}
 	VERTEX = P;
 	NORMAL = normalize(N);
 
@@ -426,7 +438,9 @@ void fragment() {
 	}
 	// skin: warmer cheeks, nose and lips region
 	if (v_slot < 0.5 && y > 1.58 && y < 1.75 && rp.z < -0.05) {
-		float blush = exp(-pow((abs(rp.x) - 0.045) / 0.02, 2.0) - pow((y - 1.64) / 0.025, 2.0));
+		float bx = (abs(rp.x) - 0.045) / 0.02;
+		float by = (y - 1.64) / 0.025;
+		float blush = exp(-bx * bx - by * by);
 		c = mix(c, c * vec3(1.06, 0.88, 0.86), blush * 0.6);
 	}
 	if (v_stripe > 0.5 && v_stripe < 1.5) {

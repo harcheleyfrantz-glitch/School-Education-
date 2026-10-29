@@ -30,6 +30,15 @@ var _flyby_pos := Vector3.ZERO
 var _flyby_t := 0.0
 var _t := 0.0
 var _rng := RandomNumberGenerator.new()
+## Walking in third person: the player's skinned avatar is shown and the camera follows it
+## over the shoulder (V toggles).
+var third_person := false
+var avatar: SkinnedHuman = null
+var avatar_look := {}
+var _tp_pos := Vector3.ZERO
+var _tp_valid := false
+var _av_last := Vector3.ZERO
+var _av_seated := false
 
 
 func setup(aircraft: Aircraft, world_view: WorldView, cockpit_eye: Vector3) -> void:
@@ -51,6 +60,11 @@ func set_mode(m: String) -> void:
 	if m == mode:
 		return
 	mode = m
+	if ac:
+		ac.input_enabled = m != "walk"
+	if avatar:
+		avatar.visible = m == "walk" and third_person
+	_tp_valid = false
 	match m:
 		"cockpit":
 			look_yaw = 0.0
@@ -115,9 +129,12 @@ func _process(delta: float) -> void:
 			_inside_cam(delta, body, head_local if mode == "cockpit" else seat_local)
 		"walk":
 			if walker:
-				var head: Transform3D = walker.get("head_transform") if walker.get("head_transform") != null else walker.global_transform
-				cam.global_transform = head
-				cam.fov = fov_base * zoom
+				if third_person:
+					_third_person_cam(delta)
+				else:
+					var head: Transform3D = walker.get("head_transform") if walker.get("head_transform") != null else walker.global_transform
+					cam.global_transform = head
+					cam.fov = fov_base * zoom
 		"chase":
 			var back := body.basis.z.normalized()
 			var flat_back := Vector3(back.x, 0, back.z).normalized()
@@ -180,6 +197,77 @@ func _inside_cam(delta: float, body: Transform3D, eye: Vector3) -> void:
 	var local := Transform3D(Basis.from_euler(Vector3(deg_to_rad(look_pitch), deg_to_rad(look_yaw), 0), EULER_ORDER_YXZ), eye + _head_off + buffet)
 	cam.global_transform = body * local
 	cam.fov = fov_base * zoom
+
+
+func _unhandled_key_input(event: InputEvent) -> void:
+	if mode == "walk" and event is InputEventKey and event.pressed and not event.echo and (event as InputEventKey).keycode == KEY_V:
+		toggle_third_person()
+		get_viewport().set_input_as_handled()
+
+
+func toggle_third_person() -> void:
+	third_person = not third_person
+	_tp_valid = false
+	if third_person and avatar == null:
+		avatar = SkinnedHuman.new()
+		avatar.name = "Avatar"
+		avatar.setup(avatar_look if not avatar_look.is_empty() else SkinnedHuman.player_look())
+	if avatar:
+		avatar.visible = third_person and mode == "walk"
+
+
+## Places the avatar where the walker is and follows it with a smooth over-the-shoulder camera
+## that stays inside the cabin walls (or above the apron).
+func _third_person_cam(delta: float) -> void:
+	var in_cabin := String(walker.get("where")) == "cabin"
+	var host: Node = ac if in_cabin else walker.get_parent()
+	if avatar.get_parent() != host:
+		if avatar.get_parent():
+			avatar.get_parent().remove_child(avatar)
+		host.add_child(avatar)
+		_tp_valid = false
+	var wpos: Vector3 = walker.get("pos")
+	var wyaw: float = walker.get("yaw")
+	var seated := bool(walker.get("seated"))
+	var lay: Dictionary = walker.get("lay") if in_cabin else {}
+	if seated and in_cabin:
+		var seat: Dictionary = walker.get("seat")
+		avatar.transform = Transform3D(Basis(), Vector3(float(seat.pos.x), float(lay.floor_y) + 0.02, float(seat.pos.z) + 0.12))
+		avatar.play("sit", 0.3)
+	else:
+		avatar.transform = Transform3D(Basis(Vector3.UP, wyaw), wpos)
+		var spd := (wpos - _av_last).length() / maxf(delta, 0.001) if _tp_valid else 0.0
+		if _av_seated:
+			avatar.play("idle", 0.3)
+		avatar.set_motion(spd, delta)
+	_av_seated = seated
+	_av_last = wpos
+	avatar.head_pitch = -float(walker.get("pitch")) * 0.4
+	# camera: behind and above the shoulder, shorter in the cabin
+	var pitch_r := clampf(float(walker.get("pitch")), deg_to_rad(-60.0), deg_to_rad(45.0))
+	var basis := Basis.from_euler(Vector3(pitch_r - 0.18, wyaw, 0.0), EULER_ORDER_YXZ)
+	var head_local := avatar.transform.origin + Vector3(0, 1.12 if seated else 1.58, 0)
+	var dist := 1.3 if in_cabin else 3.2
+	var side := basis.x * (0.32 if in_cabin else 0.55)
+	var want_local := head_local + basis.z * dist + side
+	if in_cabin:
+		var half_w := maxf(CabinLayout.half_width(ac.spec, want_local.z, float(lay.floor_y) + 1.3) - 0.28, 0.3)
+		want_local.x = clampf(want_local.x, -half_w, half_w)
+		want_local.y = clampf(want_local.y, float(lay.floor_y) + 0.6, float(lay.floor_y) + 2.0)
+	var host3 := host as Node3D
+	var want: Vector3 = host3.global_transform * want_local
+	var look_at_p: Vector3 = host3.global_transform * (head_local + basis.x * 0.12)
+	if not in_cabin:
+		var g := Geo.ground_height(view.wx(want), view.wz(want)) + 0.4
+		want.y = maxf(want.y, g)
+	if not _tp_valid:
+		_tp_pos = want
+		_tp_valid = true
+	else:
+		_tp_pos = _tp_pos.lerp(want, clampf(delta * 9.0, 0.0, 1.0))
+	cam.global_position = _tp_pos
+	cam.look_at(look_at_p, host3.global_transform.basis.y)
+	cam.fov = 68.0 * zoom
 
 
 func _tower_point() -> Vector3:

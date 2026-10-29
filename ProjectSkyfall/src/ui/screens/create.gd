@@ -4,7 +4,7 @@ extends ScreenBase
 
 var data := {"first": "", "last": "", "gender": "f", "age": 29, "home": "Port Calder", "skin": 2, "hair_color": 1,
 	"hair": 4, "build": 0.8, "path": "regional_fo"}
-var preview_crowd: Crowd
+var preview_crowd: SkinnedHuman
 var preview_vp: SubViewport
 var _paths_box: VBoxContainer
 var _yaw := 0.0
@@ -188,9 +188,8 @@ func _build_preview() -> void:
 	floor_mi.material_override = fm
 	floor_mi.position.y = -0.02
 	preview_vp.add_child(floor_mi)
-	preview_crowd = Crowd.new()
+	preview_crowd = SkinnedHuman.new()
 	preview_vp.add_child(preview_crowd)
-	preview_crowd.setup(1, 0, "SKF", true)
 	var cam := Camera3D.new()
 	cam.fov = 30.0
 	cam.position = Vector3(0, 1.15, 3.9)
@@ -208,11 +207,9 @@ func _refresh_preview() -> void:
 	if preview_crowd == null:
 		return
 	var path: Dictionary = CareerRules.START_PATHS[String(data.path)]
-	var uc := Crowd.uniform_colors(String(path.airline))
-	preview_crowd.set_instance_shader_parameter("uniform_color", uc[0])
-	preview_crowd.set_instance_shader_parameter("uniform_trim", uc[1])
-	preview_crowd.set_instance_shader_parameter("skin_override", (float(data.skin) + 0.5) / 7.0)
-	preview_crowd.set_instance_shader_parameter("hair_override", (float(data.hair_color) + 0.5) / 7.0)
+	preview_crowd.setup({"top": Color(0.95, 0.95, 0.97), "outfit": Crowd.Outfit.FLIGHT, "seed": float(data.hair) + 0.37,
+		"flags": Crowd.FLAG_HAT | Crowd.FLAG_TIE, "build": float(data.build), "skin": int(data.skin), "hair_color": int(data.hair_color),
+		"airline": String(path.airline)})
 
 
 func _process(delta: float) -> void:
@@ -220,11 +217,7 @@ func _process(delta: float) -> void:
 		return
 	if not _drag:
 		_yaw += delta * 0.25
-	var flags := Crowd.FLAG_HAT | Crowd.FLAG_TIE
-	var xf := Transform3D(Basis(Vector3.UP, _yaw + PI), Vector3.ZERO)
-	preview_crowd.set_person(0, xf, HumanMesh.POSES["stand"], 0.0, 1.0, Color(0.95, 0.95, 0.97), Crowd.Outfit.FLIGHT,
-		float(data.hair) + 0.37, flags, float(data.build))
-	preview_crowd.flush()
+	preview_crowd.rotation.y = _yaw + PI
 
 
 func _create() -> void:

@@ -24,6 +24,7 @@ var checklists: Checklists
 var recorder := FlightRecorder.new()
 var hud: Node = null
 var walker: CabinWalker = null
+var _walk_hint := false
 var ground_ops: GroundOps = null
 var ai: AIPilot = null
 var ai_taxi: AITaxi = null
@@ -412,6 +413,7 @@ func _setup_camera_and_hud() -> void:
 	add_child(rig)
 	rig.setup(ac, view, cockpit.E if cockpit else Vector3(0, 1, -5))
 	rig.walker = walker
+	rig.avatar_look = SkinnedHuman.player_look(mode == "passenger")
 	if mode == "passenger" and people:
 		var pp := people.person_at_seat(pax_seat)
 		if not pp.is_empty():
@@ -711,6 +713,9 @@ func toggle_walk() -> void:
 	if rig.mode == "walk":
 		end_walk(_view_before_walk)
 		return
+	if not _walk_hint:
+		_walk_hint = true
+		toast.emit("Walking: V switches between first and third person.", "info")
 	if cabin == null and not ac.fdm.on_ground:
 		toast.emit("There is nowhere to walk on this aircraft.", "info")
 		return
