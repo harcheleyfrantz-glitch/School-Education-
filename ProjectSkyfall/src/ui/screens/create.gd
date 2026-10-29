@@ -148,8 +148,8 @@ func _build_preview() -> void:
 	holder.stretch = true
 	holder.anchor_left = 0.6
 	holder.anchor_right = 0.98
-	holder.anchor_top = 0.08
-	holder.anchor_bottom = 0.95
+	holder.anchor_top = 0.1
+	holder.anchor_bottom = 0.93
 	add_child(holder)
 	preview_vp = SubViewport.new()
 	preview_vp.own_world_3d = true

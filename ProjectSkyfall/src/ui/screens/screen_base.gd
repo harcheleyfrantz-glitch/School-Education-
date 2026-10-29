@@ -155,7 +155,7 @@ func frame(title: String, subtitle: String = "", back_to: String = "menu", width
 	page(back_to, "left")
 	var col := Control.new()
 	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	col.anchor_right = clampf(width + 0.04, 0.4, 1.0)
+	col.anchor_right = clampf(width, 0.4, 1.0)
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	body.add_child(col)
 	var v := UIStyle.vbox(14)
