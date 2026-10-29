@@ -25,6 +25,8 @@ var recorder := FlightRecorder.new()
 var hud: Node = null
 var walker: CabinWalker = null
 var _walk_hint := false
+var terminal_start := false
+var on_foot := false              # walking from the terminal; departure waits until seated
 var ground_ops: GroundOps = null
 var ai: AIPilot = null
 var ai_taxi: AITaxi = null
@@ -78,6 +80,13 @@ var pax_seat := ""
 
 func start(p: Dictionary) -> void:
 	params = p
+	# a trip that starts at the kerb: the aircraft waits at its gate while the player walks
+	# through the terminal, down the jet bridge and to their seat
+	if String(p.get("start", "")) == "terminal":
+		terminal_start = true
+		params = p.duplicate()
+		params.start = "gate"
+		p = params
 	mode = String(p.get("mode", "pilot"))
 	flight_id = String(p.get("flight_id", "FREE-%d" % int(WorldSim.clock)))
 	callsign = String(p.get("callsign", "Skyfall 123"))
@@ -100,6 +109,66 @@ func start(p: Dictionary) -> void:
 	recorder.mark("start", "Flight %s %s-%s" % [callsign, dep_icao, arr_icao])
 	if mode == "passenger":
 		_setup_passenger_mode()
+	if terminal_start:
+		_begin_terminal_walk()
+
+
+func _begin_terminal_walk() -> void:
+	var av := view.airports.get_view(dep_icao)
+	var ti := av.build_terminal_interior() if av else null
+	if ti == null or walker == null:
+		terminal_start = false
+		return
+	var g := ti.gate(stand)
+	if g.is_empty() and not ti.gates.is_empty():
+		g = ti.gates[0]
+	var gname := String(g.get("name", stand))
+	var tc := TerminalCrowd.new()
+	ti.add_child(tc)
+	tc.setup(ti, 70 if String(Game.settings.get("quality", "high")) in ["low", "medium"] else 140, U.hash_str(flight_id))
+	var into := Vector3(-ti.entrance.x, 0, -ti.entrance.z).normalized()
+	walker.enter_terminal(ti, av, ti.entrance, atan2(-into.x, -into.z), gname, stand)
+	on_foot = true
+	_view_before_walk = "cabin" if mode == "passenger" else "cockpit"
+	if not rig.third_person:
+		rig.toggle_third_person()
+	rig.set_mode("walk")
+	var dep_t := float(params.get("sched_dep", WorldSim.clock + 1800.0))
+	toast.emit("Welcome to %s. Check in, clear security and head for gate %s - flight %s departs at %s." % [
+		Airports.get_ap(dep_icao).get("name", dep_icao), gname, callsign, U.fmt_clock(dep_t)], "info")
+
+
+## Stands without a jet bridge: from the gate door down the stairs and across the apron.
+func walk_out_to_stand() -> void:
+	var lay := CabinLayout.get_layout(ac.type_id)
+	var dl := ac.model.door_world_local() if ac.model else Vector3.ZERO
+	var side := -1.0 if dl.x <= 0.0 else 1.0
+	var p := ac.global_transform * Vector3(dl.x + side * 4.5, -float(ac.spec.gear_height), dl.z + 2.0)
+	walker.exit_to_apron(p, (ac.global_transform * Vector3(dl.x, 0, dl.z)) - p)
+	toast.emit("Out of the gate and across the apron to the aircraft steps.", "info")
+
+
+func _on_walker_interacted(kind: String, _data: Dictionary) -> void:
+	if kind == "own_seat" and on_foot:
+		on_foot = false
+		toast.emit("You stow your bag and fasten your seatbelt.", "info")
+		if mode == "passenger":
+			end_walk.call_deferred("cabin")
+
+
+## Called by the walker at the end of the jet bridge: steps aboard through door L1.
+func board_from_bridge() -> void:
+	if cabin == null:
+		return
+	var lay := CabinLayout.get_layout(ac.type_id)
+	var door := {}
+	for d in lay.doors:
+		if String(d.name) == _boarding_door_name():
+			door = d
+	var at: Vector3 = door.get("inside", Vector3(0, float(lay.floor_y), float(lay.cockpit.back_z) + 1.5))
+	walker.enter_cabin(Vector3(at.x * 0.4, float(lay.floor_y), at.z + 0.4), PI)
+	var seat_txt := ("Your seat is %s." % pax_seat) if pax_seat != "" else "The flight deck is just forward."
+	toast.emit("Cabin crew: \"Welcome aboard! %s\"" % seat_txt, "info")
 
 
 # ================================================================== world and aircraft
@@ -225,7 +294,7 @@ func _dock_bridge(icao: String = "") -> void:
 		return
 	var door := ac.model.door_world_local()
 	var ap: Dictionary = Airports.get_ap(airport)
-	var gp := ac.global_transform * door
+	var gp := ac.global_transform * Vector3(door.x, float(CabinLayout.get_layout(ac.type_id).floor_y), door.z)
 	var local := Vector3(view.wx(gp) - float(ap.x), gp.y - float(ap.elev), view.wz(gp) - float(ap.z))
 	bridge_docked = av.dock_bridge(stand_name, local)
 
@@ -350,6 +419,7 @@ func _setup_ops() -> void:
 	walker = CabinWalker.new()
 	walker.name = "Walker"
 	walker.setup(self, ac, view)
+	walker.interacted.connect(_on_walker_interacted)
 	ac.add_child(walker)
 	if mode == "pilot":
 		ac.ap.plan = _plan_for_fms()
@@ -740,6 +810,7 @@ func toggle_walk() -> void:
 func end_walk(to_mode: String) -> void:
 	if walker.where == "apron" and not ac.fdm.on_ground:
 		return
+	on_foot = false
 	if walker.get_parent() != ac:
 		walker.enter_cabin(Vector3.ZERO)
 	if mode == "passenger":
@@ -1177,7 +1248,7 @@ func _update_ai(delta: float) -> void:
 	ai.cleared_alt = atc.clearance.alt_m if atc and phase in ["cruise", "descent", "approach"] else -1.0
 	if phase == "preflight":
 		var boarded := people == null or people.state == "seated"
-		if boarded and _phase_t > 6.0 and not _tug_requested:
+		if boarded and not on_foot and _phase_t > 6.0 and not _tug_requested:
 			ac.sys.lights.beacon = true
 			ac.sys.lights.seatbelt = true
 			ac.sys.lights.nav = true

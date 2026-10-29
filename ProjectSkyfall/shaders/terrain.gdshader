@@ -10,6 +10,10 @@ uniform float wetness = 0.0;
 uniform float snow_cover = 0.0;
 uniform float detail = 1.0;
 uniform sampler2D noise_tex : filter_linear_mipmap, repeat_enable;
+// motorways: pairs of vec4 per road (ax, az, bx, bz), (meander seed, -, -, -); airports (x, z, r)
+uniform vec4 roads[64];
+uniform int road_count = 0;
+uniform vec4 airports[16];
 
 varying vec3 wpos;
 varying vec2 landuse;
@@ -83,6 +87,50 @@ void fragment() {
 
 	// urban fabric: block grid, roofs, streets (anti-aliased with screen-space derivatives)
 	float lights = 0.0;
+	vec3 car_lights = vec3(0.0);
+	// motorways: dual carriageways that meander between cities (same curve as Geo.highway_offset)
+	float hw_d = 1e9;
+	float hw_s = 0.0;
+	float hw_side = 1.0;
+	for (int i = 0; i < road_count; i++) {
+		vec4 sg = roads[i * 2];
+		vec2 a = sg.xy;
+		vec2 ab = sg.zw - a;
+		float L = length(ab);
+		vec2 dirv = ab / max(L, 1.0);
+		vec2 rel = wpos.xz - a;
+		float along = dot(rel, dirv);
+		if (along < -200.0 || along > L + 200.0) continue;
+		float sa = clamp(along, 0.0, L);
+		float perp = dirv.x * rel.y - dirv.y * rel.x;
+		float off = 140.0 * sin(sa / 2200.0 + roads[i * 2 + 1].x) * sin(3.14159 * clamp(sa / max(L, 1.0), 0.0, 1.0));
+		float d = abs(perp - off);
+		if (d < hw_d) { hw_d = d; hw_s = sa; hw_side = sign(perp - off); }
+	}
+	for (int k = 0; k < 16; k++) {
+		if (airports[k].z > 0.0 && length(wpos.xz - airports[k].xy) < airports[k].z) hw_d = 1e9;
+	}
+	if (hw_d < 60.0) {
+		float px_hw = max(fwidth(wpos.x), fwidth(wpos.z));
+		float road = 1.0 - smoothstep(11.5 - px_hw, 11.5 + px_hw, hw_d);
+		float verge = 1.0 - smoothstep(11.5, 20.0, hw_d);
+		vec3 asphalt = vec3(0.075, 0.075, 0.08) * (0.88 + 0.24 * n4 * close + 0.1 * n3);
+		float median = 1.0 - smoothstep(1.4 - px_hw, 1.4 + px_hw, hw_d);
+		float mk_w = max(0.14, px_hw * 0.6);
+		float dash = step(0.55, fract(hw_s / 12.0)) * (1.0 - smoothstep(mk_w, mk_w * 2.0, abs(hw_d - 6.1)));
+		float edge = (1.0 - smoothstep(mk_w, mk_w * 2.0, abs(hw_d - 10.7))) + (1.0 - smoothstep(mk_w, mk_w * 2.0, abs(hw_d - 1.9)));
+		float mk_fade = 1.0 - smoothstep(0.6, 2.5, px_hw);
+		vec3 rc = mix(asphalt, vec3(0.78, 0.78, 0.74), clamp(dash + edge, 0.0, 1.0) * mk_fade);
+		rc = mix(rc, vec3(0.11, 0.15, 0.07) * (0.8 + 0.4 * n3), median);
+		base = mix(base, base * 0.75 + vec3(0.035, 0.04, 0.02), verge * (1.0 - road));
+		base = mix(base, rc, road);
+		// traffic: headlights on one carriageway, tail lights on the other, streaming along
+		float lane = 1.0 - smoothstep(0.0, 1.5, abs(abs(hw_d - 6.0) - 2.2));
+		float flow = fract(hw_s / 38.0 - TIME * 0.65 * hw_side + floor(hw_d / 4.0) * 0.37);
+		float car = (1.0 - smoothstep(0.0, 0.06, flow)) * lane * road * (1.0 - median);
+		car_lights = mix(vec3(1.0, 0.12, 0.05), vec3(1.0, 0.95, 0.85), step(0.0, hw_side)) * car * 2.2;
+		lights += (1.0 - smoothstep(0.0, 1.2, abs(hw_d - 11.0))) * step(0.85, fract(hw_s / 45.0)) * 0.6;
+	}
 	if (landuse.y > 0.02) {
 		vec2 b = wpos.xz / 95.0;
 		float px = max(fwidth(b.x), fwidth(b.y));
@@ -143,5 +191,5 @@ void fragment() {
 	ALBEDO = base;
 	ROUGHNESS = mix(0.93, 0.35, wetness * (1.0 - forest));
 	SPECULAR = 0.25;
-	EMISSION = vec3(1.0, 0.6, 0.28) * lights * night * 1.25;
+	EMISSION = vec3(1.0, 0.6, 0.28) * lights * night * 1.25 + car_lights * night;
 }

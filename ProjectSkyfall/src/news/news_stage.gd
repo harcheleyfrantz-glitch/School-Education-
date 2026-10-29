@@ -10,6 +10,7 @@ var cam: Camera3D
 var attrs: CameraAttributesPractical
 var people: Crowd
 var heroes: Array = []
+var hero_slots := {}
 var env: Environment
 
 
@@ -147,6 +148,9 @@ func _person(i: int, pos: Vector3, yaw: float, pose: String, outfit: int, id: in
 		h.play("talk" if pose == "talk" else "sit_talk", 0.0)
 		h.anim.seek(float(U.hash_ints(id, 5) % 1000) / 1000.0 * 4.0, true)
 		heroes.append(h)
+		hero_slots[i] = h
+		# the crowd slot keeps the position (cameras frame people by slot) but draws nothing
+		people.set_person(i, Transform3D(Basis().scaled(Vector3.ONE * 0.0001), pos), 0, 0.0, 0.0, ap.top, int(ap.outfit), float(ap.seed), int(ap.flags), float(ap.build))
 		return
 	var xf := Transform3D(Basis(Vector3.UP, yaw).scaled(Vector3.ONE * sc), pos)
 	people.set_person(i, xf, int(HumanMesh.POSES.get(pose, 0)), float(U.hash_ints(id, 5) % 1000) / 1000.0, rate, ap.top, int(ap.outfit),

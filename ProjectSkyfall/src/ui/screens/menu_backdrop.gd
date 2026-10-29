@@ -53,7 +53,8 @@ func _ready() -> void:
 		ac.model.animate(ac, 0.1)
 	var av := view.airports.get_view(icao)
 	if av:
-		var door := ac.global_transform * ac.model.door_world_local()
+		var dl := ac.model.door_world_local()
+		var door := ac.global_transform * Vector3(dl.x, float(CabinLayout.get_layout(ac.type_id).floor_y), dl.z)
 		av.dock_bridge(String(sd.name), Vector3(view.wx(door) - float(ap.x), door.y - float(ap.elev), view.wz(door) - float(ap.z)))
 	ops = GroundOps.new()
 	ops.name = "Ops"

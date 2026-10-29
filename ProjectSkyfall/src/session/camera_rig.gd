@@ -247,9 +247,17 @@ func _third_person_cam(delta: float) -> void:
 	var pitch_r := clampf(float(walker.get("pitch")), deg_to_rad(-60.0), deg_to_rad(45.0))
 	var basis := Basis.from_euler(Vector3(pitch_r - 0.18, wyaw, 0.0), EULER_ORDER_YXZ)
 	var head_local := avatar.transform.origin + Vector3(0, 1.12 if seated else 1.58, 0)
-	var dist := 1.3 if in_cabin else 3.2
-	var side := basis.x * (0.32 if in_cabin else 0.55)
+	var where := String(walker.get("where"))
+	var dist := 1.3 if in_cabin else (1.7 if where == "bridge" else (2.7 if where == "terminal" else 3.2))
+	var side := basis.x * (0.32 if in_cabin else (0.12 if where == "bridge" else 0.55))
 	var want_local := head_local + basis.z * dist + side
+	if where == "terminal":
+		var ti: TerminalInterior = walker.get("ti")
+		want_local.x = clampf(want_local.x, -ti.depth * 0.5 + 0.6, ti.depth * 0.5 - 0.6)
+		want_local.z = clampf(want_local.z, -ti.length * 0.5 + 0.6, ti.length * 0.5 - 0.6)
+		want_local.y = clampf(want_local.y, TerminalInterior.FLOOR + 0.6, ti.ceil_h - 0.6)
+	elif where == "bridge":
+		want_local.y = minf(want_local.y, avatar.transform.origin.y + 2.15)
 	if in_cabin:
 		var half_w := maxf(CabinLayout.half_width(ac.spec, want_local.z, float(lay.floor_y) + 1.3) - 0.28, 0.3)
 		want_local.x = clampf(want_local.x, -half_w, half_w)

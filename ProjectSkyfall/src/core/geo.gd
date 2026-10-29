@@ -346,6 +346,59 @@ static func surface_at(x: float, z: float) -> String:
 	return "grass"
 
 
+## Motorways between neighbouring cities: [ax, az, bx, bz, seed], each city joined to its two
+## nearest neighbours. The terrain shader draws them; scatter keeps trees and buildings off them.
+static var _highways: Array = []
+
+static func highways() -> Array:
+	if not _highways.is_empty() or cities.size() < 2:
+		return _highways
+	var seen := {}
+	for i in cities.size():
+		var a: Dictionary = cities[i]
+		var order := []
+		for j in cities.size():
+			if j != i:
+				order.append([U.dist2d(a.x, a.z, cities[j].x, cities[j].z), j])
+		order.sort_custom(func(p, q): return float(p[0]) < float(q[0]))
+		for k in mini(2, order.size()):
+			var j2: int = order[k][1]
+			var key := "%d-%d" % [mini(i, j2), maxi(i, j2)]
+			if seen.has(key) or float(order[k][0]) > 260000.0:
+				continue
+			seen[key] = true
+			var b: Dictionary = cities[j2]
+			_highways.append([float(a.x), float(a.z), float(b.x), float(b.z), float(U.hash_str(key) % 1000) / 1000.0 * 6.28])
+	return _highways
+
+
+## Sideways meander of a motorway (m) at distance s along a segment of length len (same
+## formula as shaders/terrain.gdshader).
+static func highway_offset(s: float, len: float, seed_v: float) -> float:
+	return 140.0 * sin(s / 2200.0 + seed_v) * sin(PI * clampf(s / maxf(len, 1.0), 0.0, 1.0))
+
+
+## Distance (m) from a point to the nearest motorway centreline.
+static func highway_distance(x: float, z: float, list: Array = []) -> float:
+	var best := INF
+	for h in (list if not list.is_empty() else highways()):
+		var a := Vector2(h[0], h[1])
+		var b := Vector2(h[2], h[3])
+		var ab := b - a
+		var L := ab.length()
+		if L < 1.0:
+			continue
+		var dirv := ab / L
+		var rel := Vector2(x, z) - a
+		var sa := clampf(rel.dot(dirv), 0.0, L)
+		var perp := dirv.x * rel.y - dirv.y * rel.x
+		var d := absf(perp - highway_offset(sa, L, float(h[4])))
+		if rel.dot(dirv) < -200.0 or rel.dot(dirv) > L + 200.0:
+			d = maxf(d, minf(rel.length(), (Vector2(x, z) - b).length()))
+		best = minf(best, d)
+	return best
+
+
 static func nearest_city(x: float, z: float) -> Dictionary:
 	var best := {}
 	var bd := INF

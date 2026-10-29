@@ -844,6 +844,8 @@ func _set_phase(phase: String) -> void:
 				show = phase in ["pre", "impact", "none"]
 		if not show:
 			people.hide_person(int(i))
+		if hero_slots.has(i):
+			(hero_slots[i] as Node3D).visible = show
 	people.flush()
 
 
