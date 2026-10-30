@@ -97,6 +97,35 @@ func on_flight_result(res: Dictionary, cons: Dictionary) -> void:
 		_accident(res, cons)
 	elif outcome in ["landed", "diverted"]:
 		_flight_story(res, cons)
+		_milestones(res)
+
+
+const HOUR_MILESTONES := [50, 100, 250, 500, 1000, 2500, 5000, 10000]
+
+
+func _milestones(res: Dictionary) -> void:
+	## The player's career landmarks make the aviation press (and their followers' feeds).
+	if not Game.has_character() or String(res.get("mode", "pilot")) != "pilot":
+		return
+	var pl: Dictionary = Game.player
+	var done: Array = pl.get("news_milestones", [])
+	var hrs := float(pl.get("hours", 0.0))
+	var name := String(pl.get("name", "A pilot"))
+	var al := Airlines.get_al(String(res.get("airline", pl.get("airline", "SKF"))))
+	for h: int in HOUR_MILESTONES:
+		var key := "h%d" % h
+		if hrs >= h and not key in done:
+			done.append(key)
+			var big := h >= 1000
+			publish("aeroweek", "people", "%s logs %s flying hours" % [name, U.fmt_int(h)],
+				"%s pilot %s passed %s hours in the logbook today, landing at %s." % [String(al.get("name", "")), name, U.fmt_int(h), Airports.get_ap(String(res.get("arr", ""))).get("short", "")],
+				["Colleagues marked the occasion with cake in the crew room." if not big else "Only a small fraction of pilots ever reach %s hours." % U.fmt_int(h),
+				"\"It still feels like the first flight,\" %s said." % name.split(" ")[0]], {"importance": 2 if big else 1, "tags": ["people", "milestone"]})
+			var r := U.rng(U.hash_str(name + key))
+			for k in 2 + (2 if big else 0):
+				post(_citizen(r), _pick(r, ["Congrats Captain %s on %s hours!" % [name.split(" ")[-1], U.fmt_int(h)], "%s hours! Legend." % U.fmt_int(h),
+					"Flew with %s last month. Smoothest landing of my life. Well deserved." % name.split(" ")[0], "Goals. Absolute goals."]), {"importance": 1, "spread": 1.0})
+	pl["news_milestones"] = done
 
 
 func _flight_desc(res: Dictionary) -> Dictionary:
@@ -543,6 +572,15 @@ func _daily(day: int) -> void:
 			WorldSim.close_airport(icao, r.randf_range(1.0, 3.0), "thunderstorms")
 			publish("skyline", "news", "Thunderstorms halt flights at %s" % ap.short, "Departures and arrivals were suspended as storms passed over %s." % ap.short,
 				[], {"t": float(day) * 86400.0 + 15.0 * 3600.0, "importance": 1, "tags": ["weather"]})
+			break
+	if r.randf() < 0.65:
+		_daily_story(day, r)
+	if day % 7 == 0:
+		var week := latest(40).filter(func(a): return float(a.t) > float(day - 7) * 86400.0 and String(a.get("kind", "")) != "roundup")
+		if week.size() >= 3:
+			publish("skyline", "roundup", "This Week in Aviation", "The week's biggest stories from the skies, in six minutes.",
+				week.slice(0, 6).map(func(a): return String(a.headline)), {"t": float(day) * 86400.0 + 18.0 * 3600.0, "importance": 2,
+					"video": {"type": "roundup", "ids": week.slice(0, 6).map(func(a): return String(a.id))}, "tags": ["roundup"]})
 	var odds: float = NPC_CRASH_ODDS.get(String(Game.settings.get("npc_crashes", "normal")), 0.04)
 	if r.randf() < odds:
 		npc_accident(r)
@@ -551,6 +589,97 @@ func _daily(day: int) -> void:
 		post(who, _pick(r, ["Window seat, sunset, %s coastline. Never gets old." % Airports.get_ap(Airports.ORDER[r.randi() % 5]).short,
 			"Spotted a %s on short final today, what a beauty." % AircraftTypes.get_type(AircraftTypes.ORDER[r.randi() % AircraftTypes.ORDER.size()]).name,
 			"Why is airport coffee always this expensive", "Delayed again. At least the gate has power sockets."]), {"t": float(day) * 86400.0 + r.randf() * 86400.0, "importance": 0})
+
+
+# ================================================================== everyday aviation stories
+func _daily_story(day: int, r: RandomNumberGenerator) -> void:
+	## One everyday story a day (most days): deliveries, liveries, strikes, drones, near-misses...
+	var topic: String = ["delivery", "livery", "strike", "drone", "near_miss", "baggage", "record", "spotters"][r.randi() % 8]
+	var code: String = Airlines.ORDER[r.randi() % Airlines.ORDER.size()]
+	var al := Airlines.get_al(code)
+	var types: Array = al.get("fleet", {"s320": 1}).keys()
+	var type_id := String(types[r.randi() % types.size()])
+	var tpl := AircraftTypes.get_type(type_id)
+	var hubs: Array = al.get("hubs", ["SKPC"])
+	var icao := String(hubs[r.randi() % hubs.size()])
+	var ap := Airports.get_ap(icao)
+	var apn := String(ap.get("short", icao))
+	var aln := String(al.get("name", ""))
+	var t := float(day) * 86400.0 + r.randf_range(8.0, 19.0) * 3600.0
+	var video := {"type": "report", "airport": icao, "airline": code, "type_id": type_id, "scene": "arrival"}
+	var head := ""
+	var lede := ""
+	var body := []
+	var posts_tx := []
+	var outlet := "gazette"
+	match topic:
+		"delivery":
+			head = "%s takes delivery of a brand-new %s" % [aln, tpl.name]
+			lede = "The aircraft, registered %s-%s, landed at %s after its delivery flight from the %s factory." % [String(al.get("iata", "XX")), str(r.randi_range(100, 999)), apn, tpl.maker]
+			body = ["%s said the %s would bring more seats and lower fuel burn to its network." % [aln, tpl.short], "It is the airline's %s %s." % [["first", "second", "fifth", "tenth"][r.randi() % 4], tpl.short]]
+			posts_tx = ["Brand new %s just landed at %s! Water cannon salute and everything." % [tpl.short, apn], "That new-plane smell. Welcome to the fleet!"]
+			outlet = "aeroweek"
+		"livery":
+			var specials: Array = Airlines.SPECIAL_FOR.get(code, [])
+			if specials.is_empty():
+				topic = "spotters"
+			else:
+				var sp: Array = specials[r.randi() % specials.size()]
+				video["livery"] = String(sp[0])
+				var sl: Array = sp[1]
+				type_id = String(sl[r.randi() % sl.size()])
+				video["type_id"] = type_id
+				tpl = AircraftTypes.get_type(type_id)
+				var title := String(Airlines.SPECIALS[sp[0]].get("title", aln))
+				head = "%s unveils a special \"%s\" livery" % [aln, title.capitalize()]
+				lede = "The %s was rolled out of the paint hangar at %s in front of staff and spotters." % [tpl.name, apn]
+				body = ["Painting the scheme took eleven days and around 300 litres of paint.", "%s says the aircraft will fly across its network for at least two years." % aln]
+				posts_tx = ["The new %s scheme is GORGEOUS. Already got it on my lockscreen." % aln, "Best livery in the sky right now. Fight me."]
+				outlet = "aeroweek"
+	match topic:
+		"spotters":
+			head = "Hundreds turn out for %s spotters' day" % apn
+			lede = "Aviation fans lined the perimeter fence at %s for the airport's annual open day." % apn
+			body = ["Visitors toured the fire station and watched a low pass by a %s %s." % [aln, tpl.short]]
+			posts_tx = ["Spotters' day at %s! Got the %s shot I've wanted for years." % [apn, tpl.short], "Sunburnt, tired, 600 photos. Perfect day."]
+		"strike":
+			head = "Strike grounds flights at %s" % apn
+			lede = "%s cabin crew walked out for 24 hours, cancelling %d departures." % [aln, r.randi_range(20, 90)]
+			body = ["The union says crews are being rostered for too many hours.", "%s said it was \"deeply disappointed\" and urged the union to return to talks." % aln]
+			posts_tx = ["Flight cancelled because of the %s strike. Sleeping at %s tonight." % [aln, apn], "Support the crews. Nobody should work 14-hour days."]
+		"drone":
+			head = "Drone sighting halts flights at %s" % apn
+			lede = "The runway at %s was closed for %d minutes after a pilot reported a drone on the approach." % [apn, r.randi_range(25, 90)]
+			body = ["Several arrivals diverted to other airports.", "Police are appealing for information."]
+			posts_tx = ["Circling over %s for an hour because someone flew a DRONE near the runway. Seriously." % apn, "Whoever flew that drone needs to be found."]
+			video["scene"] = "storm_landing"
+		"near_miss":
+			head = "Investigation into runway near-miss at %s" % apn
+			lede = "A %s %s abandoned its landing at %s seconds before touchdown after another aircraft was cleared onto the same runway." % [aln, tpl.short, apn]
+			body = ["The Transport Safety Board has classified it as a serious incident.", "The two aircraft came within an estimated %d metres of each other." % r.randi_range(40, 220)]
+			posts_tx = ["Our plane suddenly went full power and climbed just before landing at %s. Now I know why." % apn, "Near-miss at %s. Proper go-around by that crew." % apn]
+			outlet = "aeroweek"
+		"baggage":
+			head = "Baggage chaos at %s as system fails" % apn
+			lede = "Thousands of passengers flew without their luggage after the baggage system at %s broke down." % apn
+			body = ["The airport apologised and said bags would be couriered to their owners.", "Some passengers waited more than three hours at reclaim."]
+			posts_tx = ["Landed. No bag. Neither has anyone else on the flight. #%s" % apn.replace(" ", ""), "Day 2 in the same clothes. Thanks %s." % apn]
+		"record":
+			head = "%s breaks passenger record" % apn
+			lede = "More than %s passengers passed through %s yesterday, the busiest day in its history." % [U.fmt_int(r.randi_range(60, 140) * 1000), apn]
+			body = ["The airport credits new routes from %s." % aln, "It expects even busier days in the summer."]
+			posts_tx = ["%s is RAMMED today. Security queue out the door." % apn, "Busiest I've ever seen %s. Got through quicker than expected though." % apn]
+	if head == "":
+		return
+	var tags := ["aviation", topic]
+	var a := publish(outlet, "news", head, lede, body, {"t": t, "importance": 2 if topic in ["strike", "near_miss", "drone"] else 1, "video": video, "place": apn, "tags": tags})
+	for k in posts_tx.size():
+		post(_citizen(r), String(posts_tx[k]), {"t": t + 900.0 + k * 1300.0, "importance": 1, "video": r.randf() < 0.3})
+	if topic in ["strike", "near_miss", "delivery"]:
+		post(_airline_author(code), {"strike": "We are sorry to everyone affected by today's industrial action. Please check your flight status before travelling.",
+			"near_miss": "We are cooperating fully with the investigation. The safety of our passengers and crew is our first priority.",
+			"delivery": "Welcome home to our brand-new %s! See you on board soon." % tpl.short}[topic], {"t": t + 1500.0, "importance": 2})
+	a["daily"] = true
 
 
 # ================================================================== other airlines' accidents

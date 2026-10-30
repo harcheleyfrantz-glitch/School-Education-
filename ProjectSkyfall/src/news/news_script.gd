@@ -98,6 +98,8 @@ func _build(video: Dictionary, art: Dictionary) -> Dictionary:
 			return _inv_report(inc1, false) if not inc1.is_empty() else {}
 		"report":
 			return _benign(video, art)
+		"roundup":
+			return _roundup(video, art)
 	# accident coverage ("reconstruction" from older saves, or a package)
 	var inc := News.incident(String(video.get("incident", "")))
 	if inc.is_empty():
@@ -1004,6 +1006,59 @@ func _replay(rp: Dictionary) -> Dictionary:
 
 
 # ================================================================== everyday stories
+# ================================================================== weekly roundup
+func _roundup(video: Dictionary, art: Dictionary) -> Dictionary:
+	## "This Week in Aviation": both anchors take turns through the week's top stories.
+	outlet = "skyline"
+	_begin("roundup", "This Week in Aviation")
+	var air := float(art.get("t", WorldSim.clock))
+	prog.air_clock = air
+	prog.tag = "WEEKLY"
+	prog.headline = "THIS WEEK IN AVIATION"
+	prog.sub = "THE WEEK OF %s" % U.fmt_date(air - 6.0 * 86400.0).to_upper()
+	var items := []
+	for id in video.get("ids", []):
+		for a in News.articles:
+			if String(a.id) == String(id):
+				items.append(a)
+	prog.ticker = items.map(func(a): return String(a.headline).to_upper())
+	var a0 := NewsStyle.anchor(outlet, 0)
+	var a1 := NewsStyle.anchor(outlet, 1)
+	var st := NewsStyle.get_style(outlet)
+	var b := _seg("bumper", "studio", 3.8, {"graphic": "bumper", "music": "sting", "lead": 3.8})
+	_shots(b, [["wide", 0.0]])
+	_cue(0.05, "whoosh")
+	_end(0.0)
+	var s1 := _seg("studio", "studio", 5.0, {"music": "bed", "graphic": "story"})
+	_line("anchor", String(a0[0]), "%s and welcome to This Week in Aviation. Here's what happened in the skies over the last seven days." % _hello(air), {"voice": "anchor"})
+	var e1 := _end()
+	_shots(e1, [["wide", 0.0], ["single_a", 0.4]])
+	_third("name", String(a0[0]).to_upper(), String(st.show), e1.t0 + 1.0, e1.t1)
+	_third("strap", String(prog.headline), String(prog.sub), e1.t0 + 1.8, 1e9, "WEEKLY")
+	var leads := ["First,", "Also this week,", "Meanwhile,", "And", "Elsewhere,", "Finally,"]
+	for i in items.size():
+		var a: Dictionary = items[i]
+		var who := a1 if i % 2 == 0 else a0
+		var sg := _seg("studio", "studio", 5.0, {"music": "bed", "graphic": "story"})
+		var lede := String(a.get("lede", ""))
+		_line("anchor", String(who[0]), "%s %s" % [leads[mini(i, leads.size() - 1)] if i < items.size() - 1 else "Finally,", String(a.headline).trim_suffix(".") + "."], {"voice": "anchor"})
+		if lede != "":
+			_line("anchor", String(who[0]), lede, {"voice": "anchor"})
+		var e := _end()
+		_shots(e, [["single_b" if i % 2 == 0 else "single_a", 0.0], ["wall", 0.6]])
+		_third("label", String(a.headline).to_upper().left(60), String(News.OUTLETS.get(String(a.outlet), {"name": ""}).get("name", "")).to_upper(), e.t0 + 0.5, e.t1 - 0.3)
+	var ou := _seg("outro", "studio", 4.0, {"music": "bed_out", "graphic": "story"})
+	_line("anchor", String(a0[0]), "That's the week. Fly safe, and we'll see you next time.", {"voice": "anchor"})
+	var e5 := _end(1.2)
+	_shots(e5, [["two", 0.0], ["wide_out", 0.5]])
+	_cue(e5.t1 - 2.2, "outro", -6.0)
+	return _finish()
+
+
+## Everyday aviation stories with their own report treatment (a tag on the article picks one).
+const EXTRA_TOPICS := ["delivery", "livery", "strike", "drone", "near_miss", "baggage", "record", "spotters"]
+
+
 func _benign(video: Dictionary, art: Dictionary) -> Dictionary:
 	var icao := String(video.get("airport", "SKPC"))
 	var ap := Airports.get_ap(icao)
@@ -1015,7 +1070,12 @@ func _benign(video: Dictionary, art: Dictionary) -> Dictionary:
 	if not art.has("outlet"):
 		outlet = "gazette"
 	var topic := "arrival"
-	if "diversion" in tags:
+	for tp in EXTRA_TOPICS:
+		if tp in tags:
+			topic = tp
+	if topic != "arrival":
+		pass
+	elif "diversion" in tags:
 		topic = "medical"
 	elif "turbulence" in tags:
 		topic = "turbulence"
@@ -1031,9 +1091,9 @@ func _benign(video: Dictionary, art: Dictionary) -> Dictionary:
 		topic = "emergency"
 	_begin("report_" + topic, String(art.get("headline", "News report")))
 	prog.air_clock = air
-	var emergency := topic in ["emergency", "medical", "turbulence"]
+	var emergency := topic in ["emergency", "medical", "turbulence", "near_miss"]
 	prog.world = {"mode": "airport", "icao": icao, "type": String(tpl.get("id", video.get("type_id", "s320"))) if tpl.has("id") else String(video.get("type_id", "s320")),
-		"airline": String(video.get("airline", "SKF")), "clock": air - 1800.0, "air_clock": air, "emergency": emergency, "storm": topic in ["weather", "storm"],
+		"airline": String(video.get("livery", video.get("airline", "SKF"))), "clock": air - 1800.0, "air_clock": air, "emergency": emergency, "storm": topic in ["weather", "storm"],
 		"seed": U.hash_str(String(art.get("id", "x")) + icao), "ending": "landed"}
 	var anchor := NewsStyle.anchor(outlet, U.hash_str(String(art.get("id", ""))) % 2)
 	var rep := NewsStyle.reporter(outlet, U.hash_str(String(art.get("id", "")) + "rep"))
@@ -1049,7 +1109,8 @@ func _benign(video: Dictionary, art: Dictionary) -> Dictionary:
 	if num == "":
 		num = "%s%d" % [al.get("iata", ""), 100 + r.randi() % 800]
 	prog.tag = {"emergency": "TRAVEL NEWS", "medical": "TRAVEL NEWS", "turbulence": "BREAKING", "weather": "WEATHER WATCH", "unruly": "TRAVEL NEWS",
-		"business": "BUSINESS", "storm": "WATCH", "arrival": "TRAVEL NEWS"}.get(topic, "NEWS")
+		"business": "BUSINESS", "storm": "WATCH", "arrival": "TRAVEL NEWS", "delivery": "AVIATION", "livery": "AVIATION", "strike": "TRAVEL CHAOS",
+		"drone": "BREAKING", "near_miss": "SAFETY", "baggage": "TRAVEL CHAOS", "record": "TRAVEL NEWS", "spotters": "AVIATION"}.get(topic, "NEWS")
 	prog.headline = hl.to_upper() if hl.length() < 60 else hl.substr(0, 57).to_upper() + "..."
 	prog.sub = "%s · %s" % [String(ap.get("name", "")).to_upper(), U.fmt_date(air).to_upper()]
 	prog.ticker = ["%s: DEPARTURES AND ARRIVALS %s" % [String(ap.get("short", "")).to_upper(), "DELAYED" if topic == "weather" else "OPERATING NORMALLY"],
@@ -1073,6 +1134,27 @@ func _benign(video: Dictionary, art: Dictionary) -> Dictionary:
 			intro.append(lede)
 		"unruly":
 			intro.append("Police met a %s flight on arrival today after trouble on board." % al.get("name", ""))
+			intro.append(lede)
+		"delivery":
+			intro.append("%s There's a new arrival at %s tonight." % [_hello(air), ap.get("short", "")])
+			intro.append(lede)
+		"livery":
+			intro.append("It's not often an aeroplane draws a crowd, but this one did.")
+			intro.append(lede)
+		"strike":
+			intro.append("Thousands of travellers are facing cancellations tonight as a strike hits %s." % ap.get("short", ""))
+			intro.append(lede)
+		"drone":
+			intro.append("Flights were halted at %s today after a drone was spotted near the runway." % ap.get("short", ""))
+			intro.append(lede)
+		"near_miss":
+			intro.append("Investigators are looking into a serious near-miss on the runway at %s." % ap.get("short", ""))
+			intro.append(lede)
+		"baggage":
+			intro.append("If you flew from %s today, there's a chance your suitcase didn't." % ap.get("short", ""))
+			intro.append(lede)
+		"record", "spotters":
+			intro.append(hl + ".")
 			intro.append(lede)
 		"business":
 			intro.append(hl + ".")
@@ -1105,6 +1187,30 @@ func _benign(video: Dictionary, art: Dictionary) -> Dictionary:
 		"weather", "storm":
 			fl.append("Video shared online shows aircraft battling gusts of more than thirty knots on the approach.")
 			fl.append("Some crews abandoned their landings and tried again; others diverted to other airports.")
+		"delivery":
+			fl.append("The brand-new %s touched down after its delivery flight from the %s factory, with a water-cannon salute waiting on the taxiway." % [tpl.get("name", ""), tpl.get("maker", "")])
+			fl.append("%s says it will enter service within weeks." % al.get("name", ""))
+		"livery":
+			fl.append("Spotters lined the fence to see the %s's new colours for the first time." % tpl.get("short", ""))
+			fl.append("The airline says the scheme will fly on routes across the network.")
+		"strike":
+			fl.append("Departure boards were a sea of red. Only a handful of flights left on time.")
+			fl.append("Unions say talks with management have broken down over pay and rosters.")
+		"drone":
+			fl.append("Arriving aircraft were sent into holding patterns, and some diverted to other airports.")
+			fl.append("Flying a drone near an airport is a criminal offence. Police are searching the area.")
+		"near_miss":
+			fl.append("Preliminary data suggests one aircraft was cleared to land while another was still on the runway.")
+			fl.append("The landing crew went around at the last moment. Nobody was hurt.")
+		"baggage":
+			fl.append("A fault in the baggage system left hundreds of bags behind. Some flights left with no luggage at all.")
+			fl.append("The airport says engineers worked through the night.")
+		"record":
+			fl.append("More than a hundred thousand passengers passed through the terminal, the busiest day in its history.")
+			fl.append("Airlines added extra flights to cope with demand.")
+		"spotters":
+			fl.append("Hundreds of aviation fans gathered at the perimeter fence for the airport's annual spotters' day.")
+			fl.append("The highlight: a low pass by the airline's newest aircraft.")
 		_:
 			fl.append("The %s will operate the route, the airline says, with daily flights from next month." % tpl.get("name", ""))
 	for tx2 in fl:
@@ -1122,25 +1228,40 @@ func _benign(video: Dictionary, art: Dictionary) -> Dictionary:
 		"storm": ["It was the bumpiest landing I've ever had, but it was so smooth at the end.", "Whoever was flying that, thank you."],
 		"unruly": ["He was shouting and trying to get to the door. A few of us helped the crew.", "It was frightening, but the crew were incredible."],
 		"business": ["It'll make visiting family so much easier.", "Finally. We've been waiting years for this route."],
+		"delivery": ["It's beautiful. You can still smell the new carpet, apparently.", "I've been waiting all day to see it land. Worth it."],
+		"livery": ["I drove three hours to photograph it. Best colours in the sky.", "My kids made me come. Now I'm the one who doesn't want to leave."],
+		"strike": ["We've been here since five this morning. Nobody tells us anything.", "I understand why they're striking, I just wish it wasn't today."],
+		"drone": ["We circled for an hour. The pilot said it was a drone. Unbelievable.", "Someone's toy nearly ruined my holiday. It's not funny."],
+		"near_miss": ["We were nearly on the ground when the engines roared and we climbed again.", "The pilot said there was an aircraft on the runway. I'm still shaking."],
+		"baggage": ["I've got the clothes I'm wearing and a toothbrush from the shop.", "They said it'll be on tomorrow's flight. Which tomorrow?"],
+		"record": ["It's busy, but it's moving. I got through security in twenty minutes.", "Everyone's going somewhere. It's quite a buzz."],
+		"spotters": ["I've been spotting since I was eight. This is the best day of the year.", "Got the shot. Look at that. Perfect light."],
 		"arrival": ["Good flight, nice crew, on time. Can't complain.", "It was a lovely flight."]}.get(topic, ["It was a lovely flight."])
 	for tx3 in q:
 		_line("interview", String(pax.get("name", "")), String(tx3), {"voice": "witness", "style": "sot"})
 	var e3 := _end(0.6)
 	_shots(e3, [["interview", 0.0]])
-	_third("name", String(pax.get("name", "")).to_upper(), "PASSENGER" if topic != "business" else "LOCAL RESIDENT", e3.t0 + 0.5, e3.t1 - 0.3)
-	if topic in ["emergency", "weather", "turbulence", "unruly"]:
+	_third("name", String(pax.get("name", "")).to_upper(), {"business": "LOCAL RESIDENT", "delivery": "AVIATION ENTHUSIAST", "livery": "PLANE SPOTTER",
+		"spotters": "PLANE SPOTTER", "strike": "STRANDED PASSENGER", "baggage": "PASSENGER", "record": "TRAVELLER"}.get(topic, "PASSENGER"), e3.t0 + 0.5, e3.t1 - 0.3)
+	if topic in ["emergency", "weather", "turbulence", "unruly", "strike", "drone", "near_miss"]:
 		var su := _seg("standup", "world", 6.0, {"amb": "airport", "where": "terminal"})
 		_line("reporter", r_name, {"emergency": "%s says the aircraft will stay on the ground until engineers are satisfied it is safe." % al.get("name", ""),
 			"weather": "The airport says it hopes to clear the backlog by tomorrow morning, but warns there may be more cancellations.",
 			"turbulence": "Investigators will look at whether the crew had any warning of the turbulence.",
-			"unruly": "Police say a man has been arrested and will appear in court on Monday."}.get(topic, "") + " %s, %s News, %s." % [r_name, String(st.name).split(" ")[0], ap.get("short", "")], {"voice": "reporter"})
+			"unruly": "Police say a man has been arrested and will appear in court on Monday.",
+			"strike": "Another walkout is planned for next week unless an agreement is reached. Passengers are advised to check before travelling.",
+			"drone": "The runway has now reopened, but the knock-on delays are expected to last well into the evening.",
+			"near_miss": "The Transport Safety Board has opened an investigation, and the controller involved has been stood down while it takes place."}.get(topic, "") + " %s, %s News, %s." % [r_name, String(st.name).split(" ")[0], ap.get("short", "")], {"voice": "reporter"})
 		var e4 := _end(0.8)
 		_shots(e4, [["standup", 0.0]])
 		_third("name", r_name.to_upper(), String(ap.get("name", "")).to_upper(), e4.t0 + 0.6, e4.t1 - 0.3)
 	var ou := _seg("outro", "studio", 4.0, {"music": "bed_out", "graphic": "story"})
 	var lighter := {"emergency": "Glad to hear everyone was safe.", "medical": "We hope the passenger makes a full recovery.", "turbulence": "Keep those belts fastened.",
 		"weather": "If you're flying tonight, check with your airline before you travel.", "storm": "Not a bad bit of flying.", "unruly": "Behave yourselves up there.",
-		"business": "One for the travel plans.", "arrival": "And that's the travel news."}.get(topic, "That's the travel news.")
+		"business": "One for the travel plans.", "arrival": "And that's the travel news.", "delivery": "Welcome to the fleet.",
+		"livery": "Rather smart, isn't it?", "strike": "We'll keep you updated on the talks.", "drone": "Please, keep your drones away from airports.",
+		"near_miss": "A reminder of how fine the margins can be.", "baggage": "Pack a spare pair of socks in your hand luggage.",
+		"record": "Busy skies.", "spotters": "Lovely pictures."}.get(topic, "That's the travel news.")
 	_line("anchor", a_name, lighter, {"voice": "anchor"})
 	var e5 := _end(1.0)
 	_shots(e5, [["single_a", 0.0], ["wide_out", 0.5]])
