@@ -223,6 +223,25 @@ func _phone_footage(inc: Dictionary, r: RandomNumberGenerator, d: Dictionary, pl
 		clips.append(clip)
 		var tx := _pick(r, CLIP_TEXT[v]) % [noun, d.num]
 		post(who, tx, {"story": sid, "importance": 3 if k == 0 else 2, "clip": clip, "t": WorldSim.clock + 300.0 + k * 420.0})
+	# a security camera on a nearby building caught it too; in town, buildings were hit
+	var urban := float(Geo.main_sampler.landuse(float(inc.x), float(inc.z)).urban) if Geo.main_sampler else 0.0
+	inc["urban"] = urban >= 0.3
+	if urban >= 0.3 or r.randf() < 0.5:
+		var biz := _pick(r, ["%s Retail Park", "%s Logistics", "%s Self Storage", "Hotel %s", "%s Community School", "%s Motors", "%s Medical Centre"]) % noun
+		var cam := _pick(r, ["Car park east", "Loading bay", "Main entrance", "Roof north", "Forecourt", "Gate 2"])
+		var clip2 := {"type": "phone", "incident": inc.id, "author": "@" + biz.to_lower().replace(" ", ""), "name": biz, "person": -1, "gender": "",
+			"seed": r.randi() % 1000000 + 1, "variant": "cctv", "cam_name": cam, "views": int(1500000 * r.randf_range(0.4, 2.0))}
+		clips.append(clip2)
+		post({"name": biz, "handle": clip2.author, "verified": true}, "Our security camera recorded the moment flight %s came down. We have passed the footage to the police and the Transport Safety Board. Our thoughts are with everyone affected." % d.num,
+			{"story": sid, "importance": 3, "clip": clip2, "t": WorldSim.clock + 5400.0})
+	if urban >= 0.3:
+		post({"name": "%s Fire & Rescue" % noun, "handle": "@%sfire" % noun.to_lower().replace(" ", ""), "verified": true},
+			"Crews are fighting fires in several buildings struck by the aircraft. Aerial ladders in use. Please avoid the area and keep the roads clear for emergency vehicles.",
+			{"story": sid, "importance": 3, "t": WorldSim.clock + 1500.0})
+		for k in 2:
+			post(_citizen(r), _pick(r, ["It went straight through the flats on our street. The whole side of the building is gone.",
+				"Firefighters are on ladders spraying into the top floors. Smoke everywhere. #%s" % d.num, "My office is two streets away. The building next to it is torn open. I can't believe this."]),
+				{"story": sid, "importance": 2, "spread": 1.0})
 	inc["clips"] = clips
 	# the person behind the most-watched clip speaks to the press later that day
 	stories.append({"id": _id("S"), "kind": "witness", "incident": inc.id, "stage": 0, "next_t": WorldSim.clock + 7.0 * 3600.0})
@@ -524,11 +543,119 @@ func _daily(day: int) -> void:
 			WorldSim.close_airport(icao, r.randf_range(1.0, 3.0), "thunderstorms")
 			publish("skyline", "news", "Thunderstorms halt flights at %s" % ap.short, "Departures and arrivals were suspended as storms passed over %s." % ap.short,
 				[], {"t": float(day) * 86400.0 + 15.0 * 3600.0, "importance": 1, "tags": ["weather"]})
+	var odds: float = NPC_CRASH_ODDS.get(String(Game.settings.get("npc_crashes", "normal")), 0.04)
+	if r.randf() < odds:
+		npc_accident(r)
 	if r.randf() < 0.5:
 		var who := _citizen(r)
 		post(who, _pick(r, ["Window seat, sunset, %s coastline. Never gets old." % Airports.get_ap(Airports.ORDER[r.randi() % 5]).short,
 			"Spotted a %s on short final today, what a beauty." % AircraftTypes.get_type(AircraftTypes.ORDER[r.randi() % AircraftTypes.ORDER.size()]).name,
 			"Why is airport coffee always this expensive", "Delayed again. At least the gate has power sockets."]), {"t": float(day) * 86400.0 + r.randf() * 86400.0, "importance": 0})
+
+
+# ================================================================== other airlines' accidents
+## Daily chance of another airline's aircraft crashing somewhere in the world, and the chance
+## that a new crash comes down at (or right beside) the site of an earlier one.
+const NPC_CRASH_ODDS := {"off": 0.0, "low": 0.01, "normal": 0.04, "high": 0.15, "extreme": 0.4}
+const REPEAT_SITE_ODDS := {"off": 0.0, "low": 0.05, "normal": 0.15, "high": 0.4, "extreme": 0.75}
+const NPC_CAUSES := ["a loss of control after an engine failure on approach", "the crew continuing an unstable approach in poor weather",
+	"a stall after the flaps were retracted too early", "controlled flight into terrain in low cloud", "fuel exhaustion after a long hold",
+	"a bird strike that took out both engines", "spatial disorientation at night", "a jammed elevator trim"]
+
+
+func npc_accident(r: RandomNumberGenerator, force_repeat: bool = false) -> Dictionary:
+	## Another airline's flight is lost: a synthetic track, casualties and the full news cycle
+	## (coverage, bystander videos, the filmer's briefing) exactly as for the player's own.
+	var code: String = Airlines.ORDER[r.randi() % Airlines.ORDER.size()]
+	var al := Airlines.get_al(code)
+	var fleet: Dictionary = al.get("fleet", {"s320": 1})
+	var types: Array = fleet.keys()
+	var type_id := String(types[r.randi() % types.size()])
+	var spec := AircraftTypes.get_type(type_id)
+	var arr: String = Airports.ORDER[r.randi() % Airports.ORDER.size()]
+	var dep: String = arr
+	while dep == arr:
+		dep = Airports.ORDER[r.randi() % Airports.ORDER.size()]
+	var ap := Airports.get_ap(arr)
+	# where it comes down: on the approach, in the city beside the airport, or at an old site
+	var site := Vector2(float(ap.x), float(ap.z)) + Vector2.from_angle(r.randf() * TAU) * r.randf_range(4000.0, 14000.0)
+	var repeat_of := {}
+	var rep: float = REPEAT_SITE_ODDS.get(String(Game.settings.get("repeat_crashes", "normal")), 0.15)
+	if not incidents.is_empty() and (force_repeat or r.randf() < rep):
+		repeat_of = incidents[r.randi() % incidents.size()]
+		site = Vector2(float(repeat_of.get("x", site.x)), float(repeat_of.get("z", site.y))) + Vector2.from_angle(r.randf() * TAU) * r.randf_range(60.0, 450.0)
+	elif r.randf() < 0.4:
+		for ci in Geo.cities:
+			if String(ci.get("icao", "")) == arr or Vector2(float(ci.x), float(ci.z)).distance_to(Vector2(float(ap.x), float(ap.z))) < 30000.0:
+				site = Vector2(float(ci.x), float(ci.z)) + Vector2.from_angle(r.randf() * TAU) * r.randf_range(0.0, float(ci.r) * 0.6)
+				break
+	if Geo.is_water(site.x, site.y):
+		site += (Vector2(float(ap.x), float(ap.z)) - site).normalized() * 3000.0
+	# the last two and a half minutes of the flight, ending in the ground
+	var hdg_v := Vector2.from_angle(r.randf() * TAU)
+	var start := site - hdg_v * 13000.0
+	var hdg := fposmod(rad_to_deg(atan2(hdg_v.x, -hdg_v.y)), 360.0)
+	var samples := []
+	var n := 160
+	var g_end := Geo.ground_height(site.x, site.y)
+	var alt := Geo.ground_height(start.x, start.y) + 950.0
+	var bank := 0.0
+	for i in n:
+		var f := float(i) / float(n - 1)
+		var pos := start.lerp(site, f)
+		var agl_target := lerpf(950.0, 260.0, minf(f / 0.8, 1.0)) if f < 0.8 else lerpf(260.0, 0.0, (f - 0.8) / 0.2)
+		var new_alt := g_end + agl_target
+		var vs := (new_alt - alt)
+		alt = new_alt
+		if f > 0.78:
+			bank = lerpf(bank, r.randf_range(35.0, 75.0) * (1.0 if hdg_v.x > 0.0 else -1.0), 0.12)
+		var ias := 165.0 + (f - 0.8) * 120.0 if f > 0.8 else 165.0
+		samples.append([float(i), pos.x, pos.y, alt, ias, vs, -2.0 - (18.0 * (f - 0.8) / 0.2 if f > 0.8 else 0.0), bank, hdg, 0.6, 2, 1, 0, 0, 1.0, ias * 0.514])
+	var seats := 0
+	for c in spec.get("cabin", []):
+		var rows := int(c.get("rows", 10))
+		var per := 0
+		for d in String(c.get("layout", "3-3")).split("-"):
+			per += int(d)
+		seats += rows * per
+	var aboard := maxi(int(seats * r.randf_range(0.55, 0.95)), 3) + int(spec.get("pilots", 2)) + int(spec.get("fa", 2))
+	var severity := r.randf_range(0.45, 1.0)
+	var fatal := clampi(int(aboard * clampf((severity - 0.45) * 1.9, 0.0, 1.0)), 0, aboard)
+	var crit := int((aboard - fatal) * r.randf_range(0.05, 0.2))
+	var serious := int((aboard - fatal - crit) * r.randf_range(0.1, 0.3))
+	var victims := []
+	for k in mini(fatal, 10):
+		var p := WorldSim.person(r.randi_range(WorldSim.FREQUENT_FLYERS * 5, WorldSim.POPULATION - 1))
+		victims.append({"id": -1, "name": p.name, "age": p.age, "home": p.home, "job": p.get("job", "")})
+	var place := Geo.place_name(site.x, site.y)
+	var cap := WorldSim.person(r.randi_range(0, WorldSim.FREQUENT_FLYERS * 5))
+	var res := {"outcome": "crashed", "mode": "npc", "airline": code, "type": type_id, "reg": "%s-%s" % [String(al.get("iata", "XX")), str(r.randi_range(100, 999))],
+		"dep": dep, "arr": arr, "planned_arr": arr, "callsign": "%s %d" % [String(al.get("name", "Flight")), r.randi_range(100, 999)], "captain": "Capt. " + String(cap.name),
+		"weather": WeatherModel.sample(site.x, site.y, WorldSim.clock),
+		"aftermath": {"counts": {"aboard": aboard, "fatal": fatal, "critical": crit, "serious": serious, "minor": 0, "uninjured": aboard - fatal - crit - serious},
+			"severity": severity, "ditching": false, "fire": r.randf() < 0.8, "place": place, "victims": victims, "survivors": aboard - fatal},
+		"investigation": {"probable_cause": NPC_CAUSES[r.randi() % NPC_CAUSES.size()], "pilot_share": r.randf_range(0.0, 0.7), "report_days": r.randi_range(90, 240)},
+		"crash": {"x": site.x, "z": site.y, "heading": hdg, "severity": severity, "place": place, "speed_kt": 190.0, "vs_fpm": 3500.0},
+		"recorder": {"samples": samples}}
+	_accident(res, {})
+	var inc: Dictionary = incidents[incidents.size() - 1]
+	inc["npc"] = true
+	if not repeat_of.is_empty():
+		inc["repeat_of"] = String(repeat_of.id)
+		var days := maxi(int((WorldSim.clock - float(repeat_of.get("clock", WorldSim.clock))) / 86400.0), 0)
+		var when := "the same day" if days == 0 else ("%d days" % days if days < 60 else "%d months" % maxi(days / 30, 2))
+		publish("gazette", "news", "Second crash at the same site: %s jet comes down where flight %s crashed" % [String(al.get("name", "")), String(repeat_of.get("num", ""))],
+			"For the second time%s, a passenger aircraft has crashed %s. Residents are demanding answers." % ["" if days == 0 else " in %s" % when, place],
+			["The wreckage lies a few hundred metres from where flight %s came down." % String(repeat_of.get("num", "")),
+			"Investigators said it was \"far too early\" to say whether the two accidents are linked, but would look at the approach procedure, terrain and local weather.",
+			"Locals say they have stopped letting their children play outside."],
+			{"importance": 3, "incident": inc.id, "place": place, "video": {"type": "reconstruction", "incident": inc.id, "pkg": "confirmed"}, "tags": ["accident", "repeat"]})
+		var r2 := U.rng(U.hash_str(String(inc.id) + "rep"))
+		for k in 4:
+			post(_citizen(r2), _pick(r2, ["AGAIN?? Same place as %s. Something is very wrong with that approach." % String(repeat_of.get("num", "")),
+				"I live near %s. Two crashes. I'm moving." % _place_noun(place), "Is that site cursed or is the approach just badly designed?",
+				"Shut that approach down until it's investigated. Two in a row is not a coincidence."]), {"importance": 2, "spread": 1.0})
+	return inc
 
 
 # ================================================================== queries and persistence

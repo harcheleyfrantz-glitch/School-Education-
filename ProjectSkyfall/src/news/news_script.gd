@@ -866,6 +866,7 @@ const PHONE_LINES := {
 		["It's banking hard. That's not normal.", "Hold on, let me zoom more...", "It's going lower and lower."],
 		["Oh no. That's a fireball.", "...oh. Oh my God.", "Was that it? Did it just crash?"],
 		["You can see the smoke from here.", "That must be ten kilometres away.", "I hope someone's already called it in."]],
+	"cctv": [],
 	"runner": [["Mum! Mum, look at the plane!", "That plane's on fire, look!", "Why's it so low? Come and look!"],
 		["It's going to crash! It's going to crash!", "Oh God, it's coming this way!", "No no no no no!"],
 		["Oh my God! Run, run!", "Come on! People need help!", "Go, go, go!"],
@@ -877,8 +878,8 @@ func _phone_segment(video: Dictionary, min_dur: float, raw: bool) -> Dictionary:
 	var variant := String(video.get("variant", "ground"))
 	var handle := String(video.get("author", "@witness"))
 	var seed := int(video.get("seed", 1))
-	var p := _seg("phone", "world", min_dur, {"label": "" if raw else "VIEWER VIDEO", "amb": "outdoor", "site": "impact", "handle": handle,
-		"phone_seed": seed, "variant": variant, "landscape": variant == "car", "raw": raw, "lead": 1.2 if raw else 0.6})
+	var p := _seg("phone", "world", min_dur, {"label": "" if raw else ("SECURITY CAMERA" if variant == "cctv" else "VIEWER VIDEO"), "amb": "" if variant == "cctv" else "outdoor", "site": "impact", "handle": handle,
+		"phone_seed": seed, "variant": variant, "landscape": variant in ["car", "cctv"], "cam_name": String(video.get("cam_name", "")), "raw": raw, "lead": 1.2 if raw else 0.6})
 	var pool: Array = PHONE_LINES.get(variant, PHONE_LINES.ground)
 	var rr := U.rng(seed)
 	for i in pool.size():

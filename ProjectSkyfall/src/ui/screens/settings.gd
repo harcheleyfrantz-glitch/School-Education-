@@ -112,6 +112,12 @@ func _show(key: String) -> void:
 			var rates := ["off", "realistic", "frequent"]
 			_row("Unexpected events", "Failures, weather and people during a flight", option(["Off", "Realistic", "Frequent"],
 				rates.find(String(Game.settings.event_rate)), func(i): Game.set_setting("event_rate", rates[i])))
+			var lv := ["off", "low", "normal", "high", "extreme"]
+			var lv_names := ["Off", "Low", "Normal", "High", "Extreme"]
+			_row("Other airlines' crashes", "How often NPC airliners crash somewhere in the world", option(lv_names,
+				lv.find(String(Game.settings.get("npc_crashes", "normal"))), func(i): Game.set_setting("npc_crashes", lv[i])))
+			_row("Crashes at the same site", "Chance a new crash comes down where an earlier one did", option(lv_names,
+				lv.find(String(Game.settings.get("repeat_crashes", "normal"))), func(i): Game.set_setting("repeat_crashes", lv[i])))
 			_check("Realistic crash consequences", "A fatal accident ends the character's story for good", "crash_realism")
 			_check("Metric units", "", "units_metric")
 		"controls":

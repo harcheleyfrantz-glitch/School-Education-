@@ -34,6 +34,9 @@ var standup_w := Vector3.ZERO
 var standup_face := Vector3.ZERO
 var witness_w := Vector3.ZERO
 var phone_variant := ""
+var city_torn: Node3D       # damaged buildings, shown from the moment of impact
+var city_intact: Node3D     # the same buildings before the aircraft hit them
+var torn_spots: Array = []  # world positions of the holes (for close-ups)
 var terminal_w := Vector3.ZERO
 var terminal_look := Vector3.ZERO
 var _cars: Array = []
@@ -531,6 +534,160 @@ func _build_site() -> void:
 	mmi.set_meta("phase", "investigation")
 	site_root.add_child(mmi)
 	_cordon_and_people(night)
+	_city_damage(burning)
+
+
+## A crash in town: the buildings it went through are torn open, floors hanging and burning,
+## with fire crews on the ground and on an aerial ladder fighting the building fires.
+func _city_damage(burning: bool) -> void:
+	var urban := float(Geo.main_sampler.landuse(site_w.x, site_w.z).urban) if Geo.main_sampler else 0.0
+	if urban < 0.3 and not bool(world.get("force_urban", false)):
+		return
+	var r := U.rng(int(world.get("seed", 1)) + 4242)
+	var fwd := Vector3(dir2.x, 0, dir2.y)
+	var side := Vector3(side2.x, 0, side2.y)
+	var idx := int(people.get_meta("count", 0))
+	var mat := NewsStage.vcolor_mat(0.85, 0.0)
+	city_torn = Node3D.new()
+	view.dynamic_root.add_child(city_torn)
+	city_intact = Node3D.new()
+	city_intact.visible = false
+	view.dynamic_root.add_child(city_intact)
+	for b in 9:
+		# torn ones straddle the path the aircraft took through the block; intact ones further out
+		var torn := b < 4
+		var along := r.randf_range(-70.0, 30.0) if torn else r.randf_range(-160.0, 120.0)
+		var across := (r.randf_range(18.0, 34.0) if torn else r.randf_range(55.0, 120.0)) * (1.0 if b % 2 == 0 else -1.0)
+		var bw := site_w + fwd * along + side * across
+		var base := _local(_wv(bw.x, bw.z))
+		var w := r.randf_range(14.0, 24.0)
+		var d := r.randf_range(14.0, 22.0)
+		var floors := r.randi_range(3, 9)
+		var fh := 3.3
+		var wall := Color.from_hsv(r.randf_range(0.05, 0.12), r.randf_range(0.08, 0.25), r.randf_range(0.55, 0.8))
+		var mb := MeshBuilder.new()
+		# the bite: where the wing or fuselage went through, on the face toward the wreck path
+		var to_path := -side * signf(across)
+		var bite := to_path * (w * 0.5) + fwd * r.randf_range(-w * 0.3, w * 0.3) + Vector3(0, r.randf_range(1.0, floors * fh * 0.6), 0)
+		var bite_r := r.randf_range(6.0, 11.0) if torn else 0.0
+		var ax := Basis.looking_at(fwd, Vector3.UP)
+		for fl in floors:
+			var y0 := fl * fh
+			# slab
+			var slab_c := Vector3(0, y0 + fh - 0.15, 0)
+			if torn and (slab_c - bite).length() < bite_r * 0.8:
+				# broken slab hanging down into the hole
+				var hang := Transform3D(Basis(fwd.normalized(), deg_to_rad(r.randf_range(14.0, 32.0)) * signf(across)), slab_c + to_path * 2.0 + Vector3(0, -1.2, 0))
+				mb.add_box_xf(hang, Vector3(w * 0.55, 0.3, d * 0.5), Color(0.38, 0.36, 0.34))
+			else:
+				mb.add_box(slab_c, Vector3(w, 0.3, d), wall.darkened(0.25))
+			# walls as a grid of panels, leaving out the ones inside the bite
+			for face in 4:
+				var n := [Vector3(1, 0, 0), Vector3(-1, 0, 0), Vector3(0, 0, 1), Vector3(0, 0, -1)][face] as Vector3
+				var span := d if face < 2 else w
+				var cols := 5
+				for k in cols:
+					var u := (float(k) + 0.5) / cols - 0.5
+					var off := n * ((w if face < 2 else d) * 0.5)
+					var t := Vector3(n.z, 0, n.x) * u * span
+					var pc := off + t + Vector3(0, y0 + fh * 0.5, 0)
+					var hole := torn and (pc - bite).length() < bite_r
+					var near := torn and (pc - bite).length() < bite_r + 3.0
+					if hole:
+						continue
+					var col := wall.darkened(0.55) if near else wall
+					var sz := Vector3(0.35, fh, span / cols) if face < 2 else Vector3(span / cols, fh, 0.35)
+					mb.add_box(pc, sz, col)
+					# a window band, lit inside, blown out and black near the hole
+					var wc := Color(0.08, 0.08, 0.08) if near else (Color(0.95, 0.82, 0.5) if r.randf() < 0.25 else Color(0.2, 0.26, 0.32))
+					mb.add_box(pc + n * 0.2 + Vector3(0, 0.2, 0), Vector3(0.05, 1.3, span / cols * 0.6) if face < 2 else Vector3(span / cols * 0.6, 1.3, 0.05), wc)
+		# roof
+		mb.add_box(Vector3(0, floors * fh + 0.4, 0), Vector3(w, 0.8, d), wall.darkened(0.35))
+		if torn:
+			# rubble spilling out of the hole into the street, scorched interior
+			for k2 in 26:
+				var rp := Vector3(bite.x, 0, bite.z) + to_path * r.randf_range(0.0, 14.0) + fwd * r.randf_range(-7.0, 7.0)
+				var rs := r.randf_range(0.6, 2.6)
+				mb.add_box_xf(Transform3D(Basis(Vector3(r.randf(), 1, r.randf()).normalized(), r.randf() * TAU), rp + Vector3(0, rs * 0.3, 0)),
+					Vector3(rs, rs * 0.6, rs * r.randf_range(0.6, 1.4)), [Color(0.4, 0.38, 0.35), wall.darkened(0.4), Color(0.12, 0.11, 0.1)][k2 % 3])
+			mb.add_box(bite - to_path * 3.0, Vector3(w * 0.4, bite_r, d * 0.4), Color(0.05, 0.045, 0.04))
+		var mi := MeshInstance3D.new()
+		mi.mesh = mb.commit()
+		mi.material_override = mat
+		mi.position = base
+		(city_torn if torn else view.dynamic_root).add_child(mi)
+		if not torn:
+			continue
+		var whole := MeshBuilder.new()
+		whole.add_box(Vector3(0, floors * fh * 0.5, 0), Vector3(w, floors * fh, d), wall)
+		for fl3 in floors:
+			whole.add_box(Vector3(0, fl3 * fh + 1.8, 0), Vector3(w + 0.1, 1.3, d + 0.1), Color(0.2, 0.26, 0.32))
+		whole.add_box(Vector3(0, floors * fh + 0.4, 0), Vector3(w, 0.8, d), wall.darkened(0.35))
+		var wi := MeshInstance3D.new()
+		wi.mesh = whole.commit()
+		wi.material_override = mat
+		wi.position = base
+		city_intact.add_child(wi)
+		var hole_l := base + bite
+		torn_spots.append(_world_of(hole_l))
+		if burning:
+			var fl2 := NewsFX.flames(1.6 + r.randf() * 0.8)
+			fl2.position = hole_l
+			fires.add_child(fl2)
+			var lt := OmniLight3D.new()
+			lt.light_color = Color(1.0, 0.55, 0.2)
+			lt.light_energy = 4.0
+			lt.omni_range = 30.0
+			lt.position = hole_l + to_path * 3.0
+			fires.add_child(lt)
+			_fire_lights.append(lt)
+			var col2 := NewsFX.smoke_column(1.1, wind, 0.9, 90)
+			col2.position = hole_l + Vector3(0, 3, 0)
+			smoke.add_child(col2)
+		# an engine in the street and firefighters with hoses on the hole, an aerial ladder on the tall ones
+		var truck_p := base + to_path * (w * 0.5 + 9.0) + fwd * r.randf_range(-6.0, 6.0)
+		var v := VehicleBuilder.build("arff", {"main": Color(0.78, 0.08, 0.06)})
+		v.position = Vector3(truck_p.x, _local(_wv(bw.x, bw.z)).y, truck_p.z)
+		v.rotation.y = atan2(-fwd.x, -fwd.z)
+		v.set_meta("phase", "response")
+		site_root.add_child(v)
+		if floors >= 5:
+			var boom := MeshBuilder.new()
+			var top := hole_l + to_path * 6.0 + Vector3(0, 2.0, 0)
+			var foot := v.position + Vector3(0, 3.2, 0)
+			var mid := (top + foot) * 0.5
+			var bx := Basis.looking_at((top - foot).normalized(), Vector3.UP)
+			boom.add_box_xf(Transform3D(bx, mid), Vector3(0.8, 0.6, foot.distance_to(top)), Color(0.85, 0.85, 0.82))
+			boom.add_box(top + Vector3(0, -0.6, 0), Vector3(1.8, 1.1, 1.4), Color(0.8, 0.1, 0.06))
+			var bm := MeshInstance3D.new()
+			bm.mesh = boom.commit()
+			bm.material_override = mat
+			bm.set_meta("phase", "response")
+			site_root.add_child(bm)
+			if burning:
+				var jt0 := NewsFX.jet(((hole_l - top).normalized() + Vector3(0, 0.15, 0)).normalized(), 22.0, false)
+				jt0.position = top
+				jt0.set_meta("phase", "response")
+				site_root.add_child(jt0)
+		for k3 in 3:
+			if idx >= 148:
+				break
+			var fp := base + to_path * (w * 0.5 + r.randf_range(5.0, 9.0)) + fwd * (float(k3) - 1.0) * 3.5
+			var fw := _world_of(fp)
+			_person(idx, _local(_wv(fw.x, fw.z)), atan2(hole_l.x - fp.x, hole_l.z - fp.z) + PI, "push", Crowd.Outfit.FIRE, 76000 + b * 7 + k3, Crowd.FLAG_HELMET)
+			_site_people[idx] = "response"
+			idx += 1
+			if burning and k3 != 1:
+				var aim := (hole_l - (fp + Vector3(0, 1.2, 0))).normalized()
+				var jt := NewsFX.jet((aim + Vector3(0, 0.25, 0)).normalized(), 17.0, false)
+				jt.position = fp + Vector3(0, 1.2, 0) + aim * 0.6
+				jt.set_meta("phase", "response")
+				site_root.add_child(jt)
+	people.set_meta("count", idx)
+
+
+func _world_of(l: Vector3) -> Vector3:
+	return Vector3(view.wx(l), l.y, view.wz(l))
 
 
 func _spots() -> void:
@@ -560,10 +717,10 @@ func _spots() -> void:
 			phone_variant = String(sg.variant)
 			break
 	var vr := U.rng(vseed)
-	var vdist: float = {"balcony": 950.0, "car": 520.0, "zoom": 2100.0, "runner": 480.0}.get(phone_variant, 750.0) * vr.randf_range(0.85, 1.15)
+	var vdist: float = {"balcony": 950.0, "car": 520.0, "zoom": 2100.0, "runner": 480.0, "cctv": 110.0}.get(phone_variant, 750.0) * vr.randf_range(0.85, 1.15)
 	var vang := vr.randf() * TAU
 	if samples.size() > 4:
-		var tgt := BroadcastPlayer.sample_at(samples, t_end - 6.0)
+		var tgt := BroadcastPlayer.sample_at(samples, t_end - (1.0 if phone_variant == "cctv" else 6.0))
 		var mid := Vector2(float(tgt[1]), float(tgt[2]))
 		var best2 := -1e9
 		for j in 16:
@@ -890,6 +1047,9 @@ func apply(seg: Dictionary, shot: Dictionary, lt: float, st: float, delta: float
 		model.visible = false
 	if wreck:
 		wreck.visible = after or not recon_kind
+	if city_torn:
+		city_torn.visible = after or not recon_kind
+		city_intact.visible = not city_torn.visible
 	if mode == "incident" and recon_kind:
 		_set_phase("impact" if after else "pre")
 		if site_root:
@@ -917,6 +1077,10 @@ func apply(seg: Dictionary, shot: Dictionary, lt: float, st: float, delta: float
 		(tw as Node3D).visible = night > 0.35 and _phase in ["response", "aftermath", "investigation"]
 	_update_walkers(lt)
 	_camera(seg, shot, lt, st, sample_t, delta)
+	if has_meta("closeup") and not torn_spots.is_empty():
+		# test hook: frame the first torn building
+		var h := _local(torn_spots[0])
+		_look(h + (get_meta("closeup") as Vector3), h + Vector3(0, -3, 0), 50.0)
 
 
 func _update_walkers(lt: float) -> void:
@@ -1018,7 +1182,12 @@ func _camera(seg: Dictionary, shot: Dictionary, lt: float, st: float, sample_t: 
 			var zoom := clampf(rad_to_deg(2.0 * atan(float(spec.span) * fill / maxf(hold.distance_to(aim2), 1.0))), 2.5 if pv == "zoom" else 5.0, 62.0)
 			if not model.visible:
 				zoom = {"zoom": 12.0, "car": 58.0}.get(pv, 34.0)
-			if pv == "car":
+			if pv == "cctv":
+				# a security camera bolted to a building: fixed, wide, aimed across the street
+				var mount := _local(witness_w) + Vector3(0, 9.0, 0)
+				_look(mount, impact_l + Vector3(0, 14.0, 0), 62.0)
+				shake = Vector2.ZERO
+			elif pv == "car":
 				# dashcam: fixed wide lens looking down the road, the crash happens off to one side
 				var fwd := (aim2 - hold)
 				fwd.y = 0.0

@@ -252,7 +252,7 @@ func _videos() -> void:
 				head = head.substr(0, 72) + "…"
 			var c3 := ImageCard.make(head, "%s · %s views · %s" % [String(p.name), NewsComments.short(int(clip.get("views", 0))), U.fmt_ago(WorldSim.clock, float(p.t))],
 				"type:%s:%s" % [String(inc.get("type", "s320")), String(inc.get("airline", "SKF"))], func(): _play_clip(pp),
-				{"ribbon": "DASHCAM" if String(clip.get("variant", "")) == "car" else "PHONE VIDEO", "ribbon_color": UIStyle.AMBER, "icon_name": "news", "title_size": 15})
+				{"ribbon": {"car": "DASHCAM", "cctv": "SECURITY CAM"}.get(String(clip.get("variant", "")), "PHONE VIDEO"), "ribbon_color": UIStyle.AMBER, "icon_name": "news", "title_size": 15})
 			c3.custom_minimum_size = Vector2(0, 200)
 			g3.add_child(c3)
 	_body.add_child(ScreenBase.section("Your flights"))
@@ -339,7 +339,7 @@ func _post_card(p: Dictionary) -> Control:
 	v.add_child(t)
 	var clip: Dictionary = p.get("clip", {})
 	if not clip.is_empty():
-		var vb := UIStyle.button("▶  Watch %s" % ("dashcam video" if String(clip.get("variant", "")) == "car" else "phone video"), func(): _play_clip(p), 220, UIStyle.ACCENT)
+		var vb := UIStyle.button("▶  Watch %s" % {"car": "dashcam video", "cctv": "security footage"}.get(String(clip.get("variant", "")), "phone video"), func(): _play_clip(p), 220, UIStyle.ACCENT)
 		vb.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 		v.add_child(vb)
 		v.add_child(UIStyle.label("%s views" % NewsComments.short(int(clip.get("views", 0))), 12, UIStyle.DIM))

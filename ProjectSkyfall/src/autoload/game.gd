@@ -35,6 +35,8 @@ var settings := {
 	"assist": "assisted",          # assisted | realistic
 	"auto_rudder": true,
 	"event_rate": "realistic",     # off | realistic | frequent
+	"npc_crashes": "normal",       # other airlines' accidents: off | low | normal | high | extreme
+	"repeat_crashes": "normal",    # odds a crash comes down at an earlier crash site
 	"auto_atc": false,
 	"units_metric": false,
 	"mouse_sens": 1.0, "invert_pitch": false,

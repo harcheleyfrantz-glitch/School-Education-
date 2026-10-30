@@ -205,6 +205,16 @@ func _build_stages() -> void:
 	_frame_root.add_child(gfx)
 
 
+var _cctv_mat: ShaderMaterial
+
+
+func _cctv_material() -> ShaderMaterial:
+	if _cctv_mat == null:
+		_cctv_mat = ShaderMaterial.new()
+		_cctv_mat.shader = load("res://src/news/cctv_video.gdshader")
+	return _cctv_mat
+
+
 func _has_phone() -> bool:
 	for s in program.get("segments", []):
 		if String(s.kind) == "phone":
@@ -327,6 +337,8 @@ func _render(delta: float) -> void:
 	gfx.queue_redraw()
 	if _phone_mat and String(seg.kind) == "phone":
 		_phone_mat.set_shader_parameter("time", t)
+	if _cctv_mat and String(seg.get("variant", "")) == "cctv":
+		_cctv_mat.set_shader_parameter("time", t)
 	Game.crowd_clock_override = t + 100.0
 
 
@@ -343,6 +355,8 @@ func _enter_segment(seg: Dictionary) -> void:
 		_phone_bg.visible = phone
 		if _stage_rects.has("world"):
 			(_stage_rects["world"] as TextureRect).visible = name == "world" and not phone
+	if _stage_rects.has("world"):
+		(_stage_rects["world"] as TextureRect).material = _cctv_material() if String(seg.get("variant", "")) == "cctv" and String(seg.kind) == "phone" else null
 	var st: NewsStage = stages.get(name, null)
 	if st:
 		st.enter(seg)

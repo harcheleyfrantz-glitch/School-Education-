@@ -127,7 +127,9 @@ func _draw() -> void:
 	var raw := bool(program.get("raw", false))
 	var card := String(seg.get("card", ""))
 	if kind == "phone":
-		if bool(seg.get("landscape", false)):
+		if String(seg.get("variant", "")) == "cctv":
+			_cctv_ui()
+		elif bool(seg.get("landscape", false)):
 			_dashcam_ui()
 		else:
 			_phone_ui()
@@ -472,11 +474,31 @@ func _phone_ui() -> void:
 		_bug()
 
 
+static func _date(clk: float) -> Dictionary:
+	## Game clock to the calendar fields a camera burns in.
+	var dt := U.clock_to_date(clk)
+	var sec := int(fposmod(clk, 86400.0))
+	return {"year": int(dt.get("year", 2027)), "month": int(dt.get("month", 1)), "day": int(dt.get("day", 1)), "hour": sec / 3600, "minute": (sec / 60) % 60, "second": sec % 60}
+
+
+func _cctv_ui() -> void:
+	## Security camera burn-in: camera number and site, date and time, no sound, no frills.
+	var lt := _lt()
+	var clk := float(program.get("world", {}).get("clock", WorldSim.clock)) - 9.0 + lt
+	var d := _date(clk)
+	var col := Color(1, 1, 1, 0.9)
+	_txt(Vector2(22, 40), "CAM %02d  %s" % [1 + int(seg.get("phone_seed", 1)) % 16, String(seg.get("cam_name", "EXT")).to_upper()], f_mono_b, 22, col)
+	_txt(Vector2(W - 330, 40), "%02d-%02d-%04d %02d:%02d:%02d" % [int(d.day), int(d.month), int(d.year), int(d.hour), int(d.minute), int(d.second)], f_mono_b, 22, col)
+	_txt(Vector2(22, H - 24), "REC  %s" % ("●" if fmod(lt, 1.0) < 0.5 else " "), f_mono_b, 18, col)
+	if bool(program.get("raw", false)):
+		_txt(Vector2(W - 300, H - 24), String(seg.get("handle", "")), f_mono, 16, Color(1, 1, 1, 0.7))
+
+
 func _dashcam_ui() -> void:
 	## A car's dashcam: date and time burned in, speed and GPS, a REC dot and the camera's name.
 	var lt := _lt()
 	var clk := float(program.get("world", {}).get("clock", WorldSim.clock)) - 9.0 + lt
-	var d := Time.get_datetime_dict_from_unix_time(int(clk))
+	var d := _date(clk)
 	var stamp := "%04d/%02d/%02d  %02d:%02d:%02d" % [int(d.year), int(d.month), int(d.day), int(d.hour), int(d.minute), int(d.second)]
 	draw_rect(Rect2(0, H - 46, W, 46), Color(0, 0, 0, 0.45))
 	_txt(Vector2(18, H - 16), stamp, f_mono_b, 20, Color(1, 1, 1, 0.92))
