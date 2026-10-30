@@ -33,6 +33,7 @@ var ribbon: MeshInstance3D
 var standup_w := Vector3.ZERO
 var standup_face := Vector3.ZERO
 var witness_w := Vector3.ZERO
+var phone_variant := ""
 var terminal_w := Vector3.ZERO
 var terminal_look := Vector3.ZERO
 var _cars: Array = []
@@ -551,17 +552,29 @@ func _spots() -> void:
 			best = score
 			standup_w = Vector3(p.x, g, p.y)
 	# the witness stood beside the final part of the flight path
+	# (a bystander's own clip picks its own spot: how far away, and from which side)
+	var vseed := 0
+	for sg in program.get("segments", []):
+		if String(sg.kind) == "phone" and sg.has("variant"):
+			vseed = int(sg.get("phone_seed", 1))
+			phone_variant = String(sg.variant)
+			break
+	var vr := U.rng(vseed)
+	var vdist: float = {"balcony": 950.0, "car": 520.0, "zoom": 2100.0, "runner": 480.0}.get(phone_variant, 750.0) * vr.randf_range(0.85, 1.15)
+	var vang := vr.randf() * TAU
 	if samples.size() > 4:
 		var tgt := BroadcastPlayer.sample_at(samples, t_end - 6.0)
 		var mid := Vector2(float(tgt[1]), float(tgt[2]))
 		var best2 := -1e9
 		for j in 16:
 			var a2 := float(j) / 16.0 * TAU
-			var p2 := mid + Vector2(cos(a2), sin(a2)) * 750.0
+			var p2 := mid + Vector2(cos(a2), sin(a2)) * vdist
 			if Geo.is_water(p2.x, p2.y):
 				continue
 			var g2 := Geo.ground_height(p2.x, p2.y)
 			var sc := _visibility(Vector3(p2.x, g2 + 1.6, p2.y), site_w + Vector3(0, 30, 0)) + _visibility(Vector3(p2.x, g2 + 1.6, p2.y), Vector3(mid.x, float(tgt[3]), mid.y))
+			if vseed != 0:
+				sc += cos(a2 - vang) * 0.7
 			if sc > best2:
 				best2 = sc
 				witness_w = Vector3(p2.x, g2, p2.y)
@@ -673,7 +686,7 @@ func _cordon_and_people(night: bool) -> void:
 		_site_people[idx] = "investigation"
 		idx += 1
 	# the witness who filmed the crash, and the people with them
-	if witness_w != Vector3.ZERO:
+	if witness_w != Vector3.ZERO and phone_variant != "car":
 		for k7 in 3:
 			var wp := Vector2(witness_w.x, witness_w.z) + Vector2(r.randf_range(-4, 4), r.randf_range(-4, 4))
 			var target: Array = BroadcastPlayer.sample_at(samples, t_end - 3.0) if samples.size() > 2 else []
@@ -984,13 +997,35 @@ func _camera(seg: Dictionary, shot: Dictionary, lt: float, st: float, sample_t: 
 			var yaw2 := atan2(side2.x, side2.y) + lt * 0.02
 			_look(mid + Vector3(sin(yaw2) * span * 0.9, span * 0.55, cos(yaw2) * span * 0.9), mid + Vector3(0, -150, 0), 42.0)
 		"phone":
-			var hold := _local(witness_w) + Vector3(0, 1.55, 0)
-			shake = handheld(lt, 1.1, 3.0) + Vector2(sin(lt * 23.0) * 0.12, cos(lt * 19.0) * 0.12)
-			var aim2 := target if model.visible else _local(impact_w) + Vector3(0, 25.0 + clampf(sample_t - t_end, 0.0, 6.0) * 12.0, 0)
-			var zoom := clampf(rad_to_deg(2.0 * atan(float(spec.span) * 3.5 / maxf(hold.distance_to(aim2), 1.0))), 5.0, 52.0)
+			var pv := String(seg.get("variant", phone_variant))
+			var hold := _local(witness_w) + Vector3(0, {"balcony": 13.5, "car": 1.25}.get(pv, 1.55), 0)
+			var after := maxf(sample_t - t_end, 0.0)
+			var impact_l := _local(impact_w)
+			if pv == "runner" and after > 1.5:
+				# the filmer starts running toward the smoke, phone still up
+				var run := impact_l - hold
+				run.y = 0.0
+				hold += run.normalized() * minf((after - 1.5) * 4.2, run.length() * 0.4)
+				hold.y += absf(sin(lt * 9.0)) * 0.09
+				shake = handheld(lt, 2.4, 5.0) + Vector2(sin(lt * 9.0) * 0.8, cos(lt * 18.0) * 0.5)
+			elif pv == "car":
+				shake = handheld(lt, 0.12, 6.0) + Vector2(0, sin(lt * 31.0) * 0.05)
+			else:
+				var k := {"zoom": 1.6, "balcony": 0.7}.get(pv, 1.1) as float
+				shake = handheld(lt, k, 3.0) + Vector2(sin(lt * 23.0) * 0.12, cos(lt * 19.0) * 0.12) * k
+			var aim2 := target if model.visible else impact_l + Vector3(0, 25.0 + clampf(after, 0.0, 6.0) * 12.0, 0)
+			var fill := {"zoom": 1.6, "car": 9.0, "balcony": 4.5}.get(pv, 3.5) as float
+			var zoom := clampf(rad_to_deg(2.0 * atan(float(spec.span) * fill / maxf(hold.distance_to(aim2), 1.0))), 2.5 if pv == "zoom" else 5.0, 62.0)
 			if not model.visible:
-				zoom = 34.0
-			_look(hold, aim2, lerpf(cam.fov, zoom, 0.15) if delta > 0.0 else zoom)
+				zoom = {"zoom": 12.0, "car": 58.0}.get(pv, 34.0)
+			if pv == "car":
+				# dashcam: fixed wide lens looking down the road, the crash happens off to one side
+				var fwd := (aim2 - hold)
+				fwd.y = 0.0
+				var side := Vector3(fwd.z, 0, -fwd.x).normalized() * fwd.length() * 0.35
+				_look(hold, hold + fwd + side + Vector3(0, fwd.length() * 0.06, 0), 64.0)
+			else:
+				_look(hold, aim2, lerpf(cam.fov, zoom, 0.15) if delta > 0.0 else zoom)
 		"heli_wide", "heli_close", "heli_orbit", "site_orbit", "site_high", "impact_site":
 			var yaw3 := deg_to_rad(40.0 + (lt + float(seg.t0) * 3.0) * (2.2 if c == "heli_orbit" else 1.0))
 			var rad2: float = {"heli_wide": 950.0, "heli_close": 820.0, "heli_orbit": 760.0, "site_orbit": 420.0, "site_high": 650.0, "impact_site": 260.0}[c]

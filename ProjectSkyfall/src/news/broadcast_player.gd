@@ -337,7 +337,7 @@ func _enter_segment(seg: Dictionary) -> void:
 			(stage_vps[k] as SubViewport).render_target_update_mode = SubViewport.UPDATE_ALWAYS if k == name else SubViewport.UPDATE_DISABLED
 			(_stage_rects[k] as TextureRect).visible = k == name
 		_active = name
-	var phone := String(seg.kind) == "phone"
+	var phone := String(seg.kind) == "phone" and not bool(seg.get("landscape", false))
 	if _phone_center:
 		_phone_center.visible = phone
 		_phone_bg.visible = phone

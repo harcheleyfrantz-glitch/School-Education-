@@ -90,6 +90,9 @@ func _build(video: Dictionary, art: Dictionary) -> Dictionary:
 		"phone":
 			var inc0 := News.incident(String(video.get("incident", "")))
 			return _phone_clip(inc0, video) if not inc0.is_empty() else {}
+		"witness_presser":
+			var incw := News.incident(String(video.get("incident", "")))
+			return _witness_presser(incw, video, art) if not incw.is_empty() else {}
 		"investigation":
 			var inc1 := News.incident(String(video.get("incident", "")))
 			return _inv_report(inc1, false) if not inc1.is_empty() else {}
@@ -827,25 +830,149 @@ static func _cvr_who(w: String) -> String:
 
 # ================================================================== short witness phone clip
 func _phone_clip(inc: Dictionary, video: Dictionary) -> Dictionary:
+	## A bystander's own recording, as they posted it: no anchor, no graphics, just their camera.
 	ctx = _context(inc)
 	outlet = "skyline"
-	_begin("phone", "Phone video · %s" % String(inc.get("place", "")))
+	var variant := String(video.get("variant", "ground"))
+	_begin("phone", "%s · %s" % [String(video.get("name", "Phone video")), String(inc.get("place", ""))])
 	prog.world = _world_spec(inc, float(inc.get("clock", WorldSim.clock)))
 	prog.incident = String(inc.get("id", ""))
 	prog.raw = true
 	prog.no_ticker = true
-	var handle := String(video.get("author", "@witness"))
-	var p := _seg("phone", "world", 12.0, {"label": "", "amb": "outdoor", "site": "impact", "handle": handle, "phone_seed": int(video.get("seed", 1)), "raw": true, "lead": 1.2})
-	_line("witness", handle, _pick(["What is that plane doing?", "Look how low that plane is!", "Is that plane okay?"]), {"speak": false, "style": "nat"})
-	_line("witness", handle, _pick(["Oh no. Oh no no no...", "It's going down!", "Oh my God!"]), {"speak": false, "style": "nat"})
-	_hold(2.5)
-	_line("witness", handle, _pick(["Oh my God. Oh my God.", "Call emergency! Call emergency now!", "There's smoke everywhere..."]), {"speak": false, "style": "nat"})
-	_line("witness", handle, _pick(["Those poor people...", "I can't... I can't watch this.", "Everyone's running over there."]), {"speak": false, "style": "nat"})
+	_phone_segment(video, 12.0, true)
 	var e := _end(1.0)
 	var dur := float(e.t1) - float(e.t0)
 	e.recon = {"span": minf(9.0, dur - 3.0), "post": maxf(dur - 9.0, 3.0)}
 	_shots(e, [["phone", 0.0]])
-	_cue(float(e.t0) + minf(9.0, dur - 3.0), "impact", -2.0)
+	_cue(float(e.t0) + minf(9.0, dur - 3.0), "impact", -2.0 if variant != "zoom" else -9.0)
+	return _finish()
+
+
+## The filmer's own voices over their footage, by where they were standing.
+const PHONE_LINES := {
+	"ground": [["What is that plane doing?", "Look how low that plane is!", "Is that plane okay?"],
+		["Oh no. Oh no no no...", "It's going down!", "Oh my God!"],
+		["Oh my God. Oh my God.", "Call emergency! Call emergency now!", "There's smoke everywhere..."],
+		["Those poor people...", "I can't... I can't watch this.", "Everyone's running over there."]],
+	"balcony": [["Babe, come out here, look at this plane.", "Why is it so loud? Look at it!", "That plane's turning really weird..."],
+		["It's way too low. Way too low.", "Something's wrong with it, look at the engine!", "Oh it's dropping. It's dropping!"],
+		["NO! Oh my God!", "Jesus Christ...", "It hit. It hit the ground."],
+		["You could feel that in the windows.", "That's right by the school... oh God.", "Get your shoes, we have to go help."]],
+	"car": [["...so I said I'd pick him up after six.", "Is that a plane? Over there, look.", "Why is that plane so low over the road?"],
+		["Whoa whoa whoa - look - LOOK!", "It's coming down! It's coming down!", "Oh my God, pull over, pull over!"],
+		["Holy...!", "Oh my God! Did you see that?!", "No way. No way!"],
+		["Everyone's stopping. Call 1-1-2!", "I'm stopping the car. Stay here.", "There's people getting out of their cars..."]],
+	"zoom": [["Okay I'm zooming in... it's really far.", "Is that smoke coming out of it?", "Can you see it? There, over the hills."],
+		["It's banking hard. That's not normal.", "Hold on, let me zoom more...", "It's going lower and lower."],
+		["Oh no. That's a fireball.", "...oh. Oh my God.", "Was that it? Did it just crash?"],
+		["You can see the smoke from here.", "That must be ten kilometres away.", "I hope someone's already called it in."]],
+	"runner": [["Mum! Mum, look at the plane!", "That plane's on fire, look!", "Why's it so low? Come and look!"],
+		["It's going to crash! It's going to crash!", "Oh God, it's coming this way!", "No no no no no!"],
+		["Oh my God! Run, run!", "Come on! People need help!", "Go, go, go!"],
+		["Is anyone there?! Hello?!", "There's people! There's people walking out!", "Somebody help them!"]],
+}
+
+
+func _phone_segment(video: Dictionary, min_dur: float, raw: bool) -> Dictionary:
+	var variant := String(video.get("variant", "ground"))
+	var handle := String(video.get("author", "@witness"))
+	var seed := int(video.get("seed", 1))
+	var p := _seg("phone", "world", min_dur, {"label": "" if raw else "VIEWER VIDEO", "amb": "outdoor", "site": "impact", "handle": handle,
+		"phone_seed": seed, "variant": variant, "landscape": variant == "car", "raw": raw, "lead": 1.2 if raw else 0.6})
+	var pool: Array = PHONE_LINES.get(variant, PHONE_LINES.ground)
+	var rr := U.rng(seed)
+	for i in pool.size():
+		if not raw and i == 0:
+			continue
+		var opts: Array = pool[i]
+		_line("witness", String(video.get("name", handle)), String(opts[rr.randi() % opts.size()]), {"speak": false, "style": "nat"})
+		if i == 1:
+			_hold(2.2)
+	return p
+
+
+# ================================================================== the filmer speaks
+func _witness_presser(inc: Dictionary, video: Dictionary, art: Dictionary) -> Dictionary:
+	## The person whose phone video went round the world faces the cameras: the anchor sets it up,
+	## their footage runs again, then they take questions at a media briefing.
+	ctx = _context(inc)
+	var c := ctx
+	var clip: Dictionary = video.get("clip", {})
+	var wname := String(clip.get("name", "A witness"))
+	var first := wname.split(" ")[0]
+	var gender := String(clip.get("gender", ""))
+	var variant := String(clip.get("variant", "ground"))
+	var views := int(clip.get("views", 4200000))
+	var air := float(art.get("t", float(inc.get("clock", WorldSim.clock)) + 8.0 * 3600.0))
+	if not art.has("outlet"):
+		outlet = "herald"
+	_begin("witness_presser", String(art.get("headline", "%s speaks" % wname)))
+	prog.air_clock = air
+	prog.world = _world_spec(inc, float(inc.get("clock", WorldSim.clock)))
+	prog.incident = String(inc.get("id", ""))
+	var noun := String(c.noun) if String(c.noun) != "" else String(c.to)
+	prog.tag = "THE WITNESS"
+	prog.headline = "\"I COULDN'T STOP FILMING\""
+	prog.sub = "%s FILMED THE FINAL SECONDS OF FLIGHT %s" % [wname.to_upper(), String(c.num)]
+	prog.ticker = ["%s: VIDEO VIEWED MORE THAN %s TIMES" % [wname.to_upper(), ("%.1f MILLION" % (views / 1000000.0)) if views >= 1000000 else _n(views)], "FLIGHT %s · %s" % [c.num, String(c.place).to_upper()],
+		"INVESTIGATORS ASK ANYONE WITH FOOTAGE TO COME FORWARD"]
+	var anchor := NewsStyle.anchor(outlet, U.hash_str(String(inc.get("id", ""))) % 2)
+	var a_name := String(anchor[0])
+	var st := NewsStyle.get_style(outlet)
+	var views_tx := ("%.1f million" % (views / 1000000.0)) if views >= 1000000 else U.fmt_int(views)
+	var where: String = {"balcony": "on the balcony of %s flat" % {"f": "her", "m": "his"}.get(gender, "their"), "car": "driving home",
+		"zoom": "several kilometres away", "runner": "in a field nearby"}.get(variant, "standing outside")
+	var s1 := _seg("studio", "studio", 6.0, {"music": "bed", "graphic": "story"})
+	_line("anchor", a_name, "%s It is the video that has been seen around the world." % _hello(air), {"voice": "anchor"})
+	_line("anchor", a_name, "%s was %s near %s when flight %s came down, and kept recording." % [wname, where, noun, c.num], {"voice": "anchor"})
+	_line("anchor", a_name, "The footage has now been viewed more than %s times, and investigators have asked for the original file." % views_tx, {"voice": "anchor"})
+	_line("anchor", a_name, "Today, %s spoke to reporters for the first time." % first, {"voice": "anchor"})
+	var e1 := _end()
+	_shots(e1, [["single_a", 0.0], ["wall", 0.55]])
+	_third("name", a_name.to_upper(), String(st.show), e1.t0 + 1.2, minf(e1.t0 + 7.0, e1.t1))
+	_third("strap", String(prog.headline), String(prog.sub), e1.t0 + 2.0, 1e9, String(prog.tag))
+	# their footage, once more
+	var samples: Array = inc.get("samples", [])
+	if samples.size() >= 8:
+		_phone_segment(clip, 10.0, false)
+		var e2 := _end(0.8)
+		e2.recon = {"span": 9.0, "post": maxf(float(e2.t1) - float(e2.t0) - 9.0, 3.0)}
+		_shots(e2, [["phone", 0.0]])
+		_third("credit", "VIEWER VIDEO", "Credit: %s" % String(clip.get("author", "")), e2.t0 + 0.6, e2.t1 - 0.4)
+		_cue(e2.t0 + 9.0, "impact", -5.0)
+	# the briefing
+	var role := "Filmed the crash of flight %s" % c.num
+	var pr := _seg("presser", "press", 12.0, {"amb": "room", "speaker": [wname, gender, role], "board": false, "witness": true, "person": int(clip.get("person", -1)), "airline": c.code})
+	var fatal := int(c.fatal)
+	var qa := [
+		["What did you see?", _pick(["I heard the engines first. It was a sound I've never heard a plane make. I just got my phone out without thinking.",
+			"I saw it come over the trees, much too low, and something told me to start filming. I don't really know why."])],
+		["Why did you keep filming?", _pick(["Honestly, my hands were shaking. I think part of me thought if I stopped, it would be real.",
+			"I didn't decide to. My hand just kept holding the phone up. I've watched it back once. I can't watch it again."])],
+		["What happened after the impact?", _pick(["I ran toward it. There were people coming out of the smoke. I gave my jacket to a woman who was bleeding.",
+			"Everyone was running. Some people toward it, some away. I called emergency and I stayed on the line until the fire engines came."])],
+		["Have you spoken to the investigators?", "Yes. I gave them the original video, the full thing, with the sound. If it helps them find out what happened, that's all I want."],
+	]
+	if fatal > 0:
+		qa.append(["What would you say to the families?", _pick(["I'm so sorry. I think about them every night. I'm sorry that my video is how some people found out.",
+			"Please don't share the video to be dramatic. Those were real people. Somebody's mum, somebody's son."])])
+	else:
+		qa.append(["Everyone survived. How does that feel?", "When I heard that everyone got out, I just sat in my car and cried. The crew did something incredible."])
+	qa.append(["Will you be okay?", _pick(["I don't know yet. I'm talking to someone. I think I will be.", "I'm not the story. The people on that plane are the story. Thank you."])])
+	for pair in qa:
+		_line("reporter", "Reporter", String(pair[0]), {"voice": "reporter", "style": "q", "gap": 0.35})
+		_line("interview", wname, String(pair[1]), {"voice": "witness", "style": "sot"})
+	var e3 := _end(0.8)
+	_shots(e3, [["presser_wide", 0.0], ["presser_close", 0.12], ["presser_press", 0.36], ["presser_close", 0.44], ["presser_wide", 0.66], ["presser_close", 0.74]])
+	_third("name", wname.to_upper(), role.to_upper(), e3.t0 + 0.8, minf(e3.t0 + 8.0, e3.t1))
+	_cue(e3.t0 + 0.2, "shutter", -8.0)
+	_cue(e3.t0 + 6.5, "shutter", -10.0)
+	var ou := _seg("outro", "studio", 5.0, {"music": "bed_out", "graphic": "story"})
+	_line("anchor", a_name, _pick(["%s, speaking earlier. The investigation into flight %s continues." % [wname, c.num],
+		"A remarkable account. Investigators say footage like %s's can be vital. We'll stay with this story." % first]), {"voice": "anchor"})
+	var e4 := _end(1.2)
+	_shots(e4, [["single_a", 0.0], ["wide_out", 0.55]])
+	_cue(e4.t1 - 2.4, "outro", -6.0)
 	return _finish()
 
 

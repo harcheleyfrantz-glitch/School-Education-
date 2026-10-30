@@ -57,7 +57,7 @@ func post(author: Dictionary, text: String, extra: Dictionary = {}) -> Dictionar
 		"name": String(author.get("name", "")), "handle": String(author.get("handle", "@someone")), "verified": bool(author.get("verified", false)),
 		"text": text, "likes": int(base * r.randf_range(0.2, 2.5)), "reposts": int(base * r.randf_range(0.02, 0.4)),
 		"replies": int(base * r.randf_range(0.01, 0.15)), "story": String(extra.get("story", "")), "person": int(author.get("id", -1)),
-		"video": bool(extra.get("video", false))}
+		"video": bool(extra.get("video", false)) or not (extra.get("clip", {}) as Dictionary).is_empty(), "clip": extra.get("clip", {})}
 	posts.append(p)
 	if posts.size() > MAX_POSTS:
 		posts = posts.slice(posts.size() - MAX_POSTS)
@@ -180,8 +180,85 @@ func _accident(res: Dictionary, cons: Dictionary) -> void:
 			txt = _pick(r, ["People standing on the wings in the water!! Boats everywhere #%s" % d.num, "The pilot put it down in the water. Unbelievable.",
 				"Everyone seems to be getting off. Please let them all be okay."])
 		post(who, txt, {"story": sid, "importance": 2, "video": r.randf() < 0.25, "spread": 1.0})
+	_phone_footage(inc, r, d, place, ditch, sid)
 	post(_airline_author(d.code), "We can confirm that flight %s from %s to %s has been involved in an accident. A family assistance line is open. More information will follow." % [d.num, d.from, d.to],
 		{"story": sid, "importance": 3})
+
+
+## Bystanders post what their phones (and one dashcam) caught: each clip is a real, playable
+## recording from where that person was standing. The most viral one's filmer later faces the
+## press.
+const CLIP_TEXT := {
+	"ground": ["I just filmed this from outside my house near %s. I'm shaking. #%s", "This just happened in front of me. Plane went down near %s. #%s",
+		"Filmed this a few minutes ago near %s. Please pray for them. #%s"],
+	"balcony": ["From our balcony in %s. We heard it before we saw it. #%s", "Filmed from my flat near %s. The whole building shook. #%s"],
+	"car": ["My dashcam caught the plane coming down by the road near %s. #%s", "Was driving past %s when this happened. Dashcam footage. #%s"],
+	"zoom": ["Caught it from kilometres away, zoomed all the way in. Near %s. #%s", "Watched it go down over %s from the hills. Zoomed footage. #%s"],
+	"runner": ["I ran toward it. People were walking out of the smoke near %s. #%s", "We filmed it then ran to help. Near %s. Please be okay. #%s"],
+}
+
+
+func _phone_footage(inc: Dictionary, r: RandomNumberGenerator, d: Dictionary, place: String, ditch: bool, sid: String) -> void:
+	if (inc.get("samples", []) as Array).size() < 8:
+		return
+	var variants := ["ground", "balcony", "car", "zoom", "runner"]
+	if ditch:
+		variants = ["ground", "balcony", "zoom", "runner"]
+	for i in range(variants.size() - 1, 0, -1):
+		var j := r.randi_range(0, i)
+		var tmp = variants[i]
+		variants[i] = variants[j]
+		variants[j] = tmp
+	var n := 3 + (1 if int(inc.counts.get("aboard", 0)) > 80 else 0)
+	var noun := _place_noun(place)
+	var clips := []
+	for k in mini(n, variants.size()):
+		var who := _citizen(r)
+		var v := String(variants[k])
+		var pid := int(who.get("id", -1))
+		var g := String(WorldSim.person(pid).get("gender", "")) if pid >= 0 else ""
+		var views := int([2400000, 640000, 210000, 88000][k] * r.randf_range(0.6, 1.9))
+		var clip := {"type": "phone", "incident": inc.id, "author": who.handle, "name": who.name, "person": pid, "gender": g,
+			"seed": r.randi() % 1000000 + 1, "variant": v, "views": views}
+		clips.append(clip)
+		var tx := _pick(r, CLIP_TEXT[v]) % [noun, d.num]
+		post(who, tx, {"story": sid, "importance": 3 if k == 0 else 2, "clip": clip, "t": WorldSim.clock + 300.0 + k * 420.0})
+	inc["clips"] = clips
+	# the person behind the most-watched clip speaks to the press later that day
+	stories.append({"id": _id("S"), "kind": "witness", "incident": inc.id, "stage": 0, "next_t": WorldSim.clock + 7.0 * 3600.0})
+
+
+func _witness_story(s: Dictionary) -> void:
+	stories.erase(s)
+	var inc := _find_incident(String(s.incident))
+	var clips: Array = inc.get("clips", [])
+	if inc.is_empty() or clips.is_empty():
+		return
+	var clip: Dictionary = clips[0]
+	var at := float(s.next_t)
+	var wname := String(clip.name)
+	var first := wname.split(" ")[0]
+	var g := String(clip.get("gender", ""))
+	var pro := "she" if g == "f" else ("he" if g == "m" else "they")
+	var num := String(inc.get("num", ""))
+	var place := String(inc.get("place", ""))
+	var a := publish("herald", "news", "\"I couldn't stop filming\": %s, who recorded the final seconds of flight %s, speaks" % [wname, num],
+		"%s's phone video of the crash %s has been watched more than %s times. Today %s faced the cameras for the first time." % [wname, place, U.fmt_int(int(clip.get("views", 0))), pro],
+		["Speaking at a media briefing, %s described hearing the engines before seeing the aircraft." % first,
+		"%s said %s had handed the original, unedited file to investigators from the Transport Safety Board." % [first, pro],
+		"Investigators have appealed to anyone else who filmed the aircraft to come forward."],
+		{"t": at, "story": String(s.id), "importance": 3, "incident": inc.id, "place": place,
+			"video": {"type": "witness_presser", "incident": inc.id, "clip": clip}, "tags": ["accident", "witness"]})
+	var me := {"name": wname, "handle": String(clip.author), "id": int(clip.get("person", -1))}
+	post(me, "Thank you to everyone for the messages. Please remember the people on that plane, not my video. I gave everything to the investigators.",
+		{"t": at + 1800.0, "story": String(s.id), "importance": 2})
+	var r := U.rng(U.hash_str(String(s.id)))
+	for k in 3:
+		post(_citizen(r), _pick(r, ["Watched %s's press conference. Brave of %s to speak. #%s" % [first, "her" if g == "f" else ("him" if g == "m" else "them"), num],
+			"%s ran TOWARD the crash. Real hero stuff." % first, "Can we stop harassing the person who filmed the crash? %s did nothing wrong." % first,
+			"That press conference broke me. \"Those were real people.\"", "Investigators asking for more footage. If you were near %s, send it in." % _place_noun(place)]),
+			{"t": at + 2400.0 + k * 900.0, "story": String(s.id), "importance": 1})
+	a.story = String(s.id)
 
 
 func _flight_story(res: Dictionary, cons: Dictionary) -> void:
@@ -262,6 +339,9 @@ func _find_incident(id: String) -> Dictionary:
 
 
 func _advance_story(s: Dictionary) -> void:
+	if String(s.kind) == "witness":
+		_witness_story(s)
+		return
 	if String(s.kind) != "accident":
 		stories.erase(s)
 		return

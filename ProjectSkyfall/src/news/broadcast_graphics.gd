@@ -127,7 +127,10 @@ func _draw() -> void:
 	var raw := bool(program.get("raw", false))
 	var card := String(seg.get("card", ""))
 	if kind == "phone":
-		_phone_ui()
+		if bool(seg.get("landscape", false)):
+			_dashcam_ui()
+		else:
+			_phone_ui()
 	if bool(seg.get("fdr", false)):
 		_fdr_panel()
 	elif kind == "recon":
@@ -339,6 +342,9 @@ func _captions() -> void:
 		f = f_mono_b
 		fs = 22
 		col = Color(1.0, 0.86, 0.35) if String(l0.name) in ["GPWS", "AURAL"] else Color(0.92, 0.96, 1.0)
+	elif style == "q":
+		text = "REPORTER: %s" % text
+		col = Color(1.0, 0.86, 0.45)
 	elif style == "nat":
 		text = "[%s]" % text
 		col = Color(1, 1, 1, 0.92)
@@ -349,7 +355,7 @@ func _captions() -> void:
 	if bool(program.get("raw", false)) or String(seg.get("card", "")) != "" or bool(seg.get("fdr", false)):
 		bottom = H - 70.0
 	if _seg_kind() == "phone":
-		bottom = H - 120.0
+		bottom = H - (70.0 if bool(seg.get("landscape", false)) else 120.0)
 	if bool(seg.get("fdr", false)) and style != "cvr":
 		bottom = H - 210.0
 	var y := bottom - rows.size() * lh
@@ -464,6 +470,25 @@ func _phone_ui() -> void:
 		_txt(Vector2(r.position.x + 14, r.end.y - 104), handle, f_bold, 15, Color(1, 1, 1, 0.9))
 	else:
 		_bug()
+
+
+func _dashcam_ui() -> void:
+	## A car's dashcam: date and time burned in, speed and GPS, a REC dot and the camera's name.
+	var lt := _lt()
+	var clk := float(program.get("world", {}).get("clock", WorldSim.clock)) - 9.0 + lt
+	var d := Time.get_datetime_dict_from_unix_time(int(clk))
+	var stamp := "%04d/%02d/%02d  %02d:%02d:%02d" % [int(d.year), int(d.month), int(d.day), int(d.hour), int(d.minute), int(d.second)]
+	draw_rect(Rect2(0, H - 46, W, 46), Color(0, 0, 0, 0.45))
+	_txt(Vector2(18, H - 16), stamp, f_mono_b, 20, Color(1, 1, 1, 0.92))
+	var kmh := maxi(0, 64 - int(maxf(lt - 9.5, 0.0) * 14.0))
+	_txt(Vector2(W * 0.5 - 60, H - 16), "%d KM/H" % kmh, f_mono_b, 20, Color(1, 1, 1, 0.92))
+	_txt(Vector2(W - 330, H - 16), "GPS  N%.4f  E%.4f" % [41.0 + fmod(float(seg.get("phone_seed", 1)) * 0.0007, 0.9), 12.0 + fmod(float(seg.get("phone_seed", 1)) * 0.0013, 0.9)], f_mono, 16, Color(1, 1, 1, 0.8))
+	if fmod(lt, 1.0) < 0.6:
+		draw_circle(Vector2(30, 34), 8.0, Color(1, 0.15, 0.1))
+	_txt(Vector2(46, 42), "REC", f_bold, 18, Color.WHITE)
+	_txt(Vector2(W - 190, 42), "DRIVECAM HD", f_bold, 16, Color(1, 1, 1, 0.7))
+	if bool(program.get("raw", false)):
+		_txt(Vector2(18, H - 62), String(seg.get("handle", "")), f_bold, 15, Color(1, 1, 1, 0.85))
 
 
 func _tracker() -> void:

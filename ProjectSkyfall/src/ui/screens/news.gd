@@ -231,6 +231,30 @@ func _videos() -> void:
 	_body.add_child(grid)
 	for a in arts.slice(0, 24):
 		grid.add_child(_video_card(a, 200.0, 15))
+	var clips := []
+	for p in News.feed(200):
+		if not (p.get("clip", {}) as Dictionary).is_empty():
+			clips.append(p)
+	if not clips.is_empty():
+		_body.add_child(ScreenBase.section("Viewer videos"))
+		var g3 := GridContainer.new()
+		g3.columns = grid.columns
+		g3.add_theme_constant_override("h_separation", 14)
+		g3.add_theme_constant_override("v_separation", 14)
+		g3.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_body.add_child(g3)
+		for p in clips.slice(0, 18):
+			var clip: Dictionary = p.clip
+			var inc := News.incident(String(clip.get("incident", "")))
+			var pp: Dictionary = p
+			var head := String(p.text)
+			if head.length() > 74:
+				head = head.substr(0, 72) + "…"
+			var c3 := ImageCard.make(head, "%s · %s views · %s" % [String(p.name), NewsComments.short(int(clip.get("views", 0))), U.fmt_ago(WorldSim.clock, float(p.t))],
+				"type:%s:%s" % [String(inc.get("type", "s320")), String(inc.get("airline", "SKF"))], func(): _play_clip(pp),
+				{"ribbon": "DASHCAM" if String(clip.get("variant", "")) == "car" else "PHONE VIDEO", "ribbon_color": UIStyle.AMBER, "icon_name": "news", "title_size": 15})
+			c3.custom_minimum_size = Vector2(0, 200)
+			g3.add_child(c3)
 	_body.add_child(ScreenBase.section("Your flights"))
 	if News.replays.is_empty():
 		_body.add_child(UIStyle.label("Fly a trip and its approach and landing will be kept here to watch again.", 14, UIStyle.DIM))
@@ -254,6 +278,23 @@ func _videos() -> void:
 			{"icon_name": "plane", "title_size": 15, "ribbon": "REPLAY", "ribbon_color": UIStyle.ACCENT})
 		c.custom_minimum_size = Vector2(0, 200)
 		g2.add_child(c)
+
+
+func _play_clip(p: Dictionary) -> void:
+	## A bystander's own upload: their raw footage, then the comments under it.
+	var clip: Dictionary = p.clip
+	var prog := NewsScript.build(clip, {"id": String(p.id)})
+	if prog.is_empty():
+		return
+	var back := _tab
+	_play_view(prog, String(p.text), "%s  %s · %s views · %s" % [String(p.name), String(p.handle), NewsComments.short(int(clip.get("views", 0))), U.fmt_ago(WorldSim.clock, float(p.t))], back)
+	if not p.has("art"):
+		p["art"] = {"id": String(p.id), "headline": String(p.text), "kind": "phone", "outlet": "social", "incident": String(clip.get("incident", "")),
+			"story": String(p.get("story", "")), "importance": 3, "t": float(p.t), "tags": ["accident", "witness"]}
+	_body.add_child(UIStyle.rule())
+	var cs := CommentSection.new()
+	_body.add_child(cs)
+	cs.setup(p.art)
 
 
 # ================================================================== social
@@ -296,7 +337,13 @@ func _post_card(p: Dictionary) -> Control:
 	var t := UIStyle.label(String(p.text), 15, UIStyle.TEXT)
 	t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(t)
-	if bool(p.get("video", false)):
+	var clip: Dictionary = p.get("clip", {})
+	if not clip.is_empty():
+		var vb := UIStyle.button("▶  Watch %s" % ("dashcam video" if String(clip.get("variant", "")) == "car" else "phone video"), func(): _play_clip(p), 220, UIStyle.ACCENT)
+		vb.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+		v.add_child(vb)
+		v.add_child(UIStyle.label("%s views" % NewsComments.short(int(clip.get("views", 0))), 12, UIStyle.DIM))
+	elif bool(p.get("video", false)):
 		v.add_child(UIStyle.label("▶ phone video", 12, UIStyle.ACCENT))
 	v.add_child(UIStyle.label("♥ %s   ⟳ %s   %s replies" % [U.fmt_int(int(p.likes)), U.fmt_int(int(p.reposts)), U.fmt_int(int(p.replies))], 12, UIStyle.DIM))
 	return pc

@@ -6,6 +6,8 @@ extends NewsStage
 
 var speaker := ["Ingrid Solberg", "f", "Investigator-in-charge"]
 var board := true
+var witness := false     # a member of the public at a media briefing, not an official
+var witness_id := -1
 var _flashes: Array = []
 var _flash_meshes: Array = []
 var screen_vp: SubViewport
@@ -18,9 +20,14 @@ func build(prog: Dictionary) -> void:
 		if String(s.kind) == "presser":
 			speaker = s.get("speaker", speaker)
 			board = bool(s.get("board", true))
+			witness = bool(s.get("witness", false))
+			witness_id = int(s.get("person", -1))
 	var airline := String(prog.get("world", {}).get("airline", "SKF"))
 	var main_col := Color(0.11, 0.26, 0.48) if board else Color.html(String(Airlines.get_al(airline).livery.tail))
 	var text_col := Color(1.0, 0.75, 0.15) if board else Color.html(String(Airlines.get_al(airline).livery.logo))
+	if witness:
+		main_col = Color(0.17, 0.19, 0.23)
+		text_col = Color(0.82, 0.85, 0.9)
 	_environment()
 	_room(main_col)
 	_backdrop(main_col, text_col, airline)
@@ -28,7 +35,7 @@ func build(prog: Dictionary) -> void:
 	pod.position = PODIUM
 	pod.rotation.y = PI
 	add_child(pod)
-	var emb := label3d("CTSB" if board else String(Airlines.get_al(airline).name).to_upper(), 64, 0.0024, text_col, NewsStyle.font("sans", 900))
+	var emb := label3d("MEDIA CENTRE" if witness else ("CTSB" if board else String(Airlines.get_al(airline).name).to_upper()), 64, 0.0024, text_col, NewsStyle.font("sans", 900))
 	emb.position = PODIUM + Vector3(0, 0.72, -0.29)
 	emb.rotation.y = PI
 	add_child(emb)
@@ -50,9 +57,15 @@ func build(prog: Dictionary) -> void:
 	add_child(people)
 	people.setup(48, 0, "", true)
 	var sid := 2000 + U.hash_str(String(speaker[0])) % 9000
-	_person(0, PODIUM + Vector3(0, 0, 0.42), 0.0, "talk", Crowd.Outfit.SUIT, sid, 0, Color(-1, 0, 0), 0.55, String(speaker[1]))
-	_person(1, PODIUM + Vector3(1.0, 0, 0.75), 0.15, "stand", Crowd.Outfit.SUIT, sid + 13, 0)
-	_person(2, PODIUM + Vector3(-1.05, 0, 0.8), -0.2, "stand", Crowd.Outfit.OFFICIAL if board else Crowd.Outfit.SUIT, sid + 29, 0)
+	if witness:
+		# the filmer in their own clothes, a police liaison officer and a family member beside them
+		_person(0, PODIUM + Vector3(0, 0, 0.42), 0.0, "talk", Crowd.Outfit.CIVIL, witness_id if witness_id >= 0 else sid, 0, Color(-1, 0, 0), 0.5, String(speaker[1]))
+		_person(1, PODIUM + Vector3(1.0, 0, 0.75), 0.15, "stand", Crowd.Outfit.OFFICIAL, sid + 13, 0)
+		_person(2, PODIUM + Vector3(-1.05, 0, 0.8), -0.2, "stand", Crowd.Outfit.CIVIL, sid + 29, 0)
+	else:
+		_person(0, PODIUM + Vector3(0, 0, 0.42), 0.0, "talk", Crowd.Outfit.SUIT, sid, 0, Color(-1, 0, 0), 0.55, String(speaker[1]))
+		_person(1, PODIUM + Vector3(1.0, 0, 0.75), 0.15, "stand", Crowd.Outfit.SUIT, sid + 13, 0)
+		_person(2, PODIUM + Vector3(-1.05, 0, 0.8), -0.2, "stand", Crowd.Outfit.OFFICIAL if board else Crowd.Outfit.SUIT, sid + 29, 0)
 	var r := U.rng(sid)
 	var idx := 3
 	for row in 4:
@@ -122,7 +135,7 @@ func _backdrop(col: Color, text_col: Color, airline: String) -> void:
 	var mb := MeshBuilder.new()
 	mb.add_box(Vector3(0, 1.75, 3.75), Vector3(6.6, 3.1, 0.06), col)
 	add_child(mesh_node(mb, vcolor_mat(0.7, 0.0)))
-	var word := "CTSB" if board else String(Airlines.get_al(airline).iata) + " " + String(Airlines.get_al(airline).name).to_upper()
+	var word := "MEDIA" if witness else ("CTSB" if board else String(Airlines.get_al(airline).iata) + " " + String(Airlines.get_al(airline).name).to_upper())
 	var f := NewsStyle.font("sans", 900)
 	for row in 4:
 		for k in 5:
