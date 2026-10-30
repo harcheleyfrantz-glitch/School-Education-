@@ -35,7 +35,7 @@ var _strip_timer := 0.0
 var _looking := false
 var _touch_look := {}
 var _last_click_feedback := ""
-var _sim_rates := [1.0, 2.0, 4.0, 8.0]
+var _sim_rates := [1.0, 2.0, 4.0, 8.0, 16.0]
 var _rate_i := 0
 var _log_lines: Array = []
 
@@ -380,7 +380,24 @@ func _build_pause_menu() -> void:
 	hudm.selected = ["full", "minimal", "off"].find(String(Game.settings.get("hud_mode", "full")))
 	hudm.item_selected.connect(func(i): Game.set_setting("hud_mode", ["full", "minimal", "off"][i]))
 	v.add_child(hudm)
-	v.add_child(UIStyle.rich("[color=#9fb1c2]Mouse: right-drag to look, wheel to zoom or turn knobs, click switches.\nKeys: 1-8 views, C cycle, Tab radio, K checklist, M map, J PA, Z autopilot, T autothrust, G gear, F/V flaps, B brakes, P parking brake, X spoilers, R reverse, = / - time.[/color]", 13))
+	if session.mode != "passenger":
+		var af := CheckButton.new()
+		af.text = "Auto-fly (the crew flies the route)"
+		af.button_pressed = session.autofly
+		af.toggled.connect(func(on): session.set_autofly(on))
+		pause_menu.visibility_changed.connect(func(): af.set_pressed_no_signal(session.autofly))
+		v.add_child(af)
+		var ct := OptionButton.new()
+		var keys: Array = session.CRASH_TARGETS.keys()
+		for k in keys:
+			ct.add_item("Destination: " + String(session.CRASH_TARGETS[k]))
+		ct.selected = keys.find(session.crash_target)
+		ct.item_selected.connect(func(i): session.set_crash_target(String(keys[i])))
+		v.add_child(ct)
+		v.add_child(UIStyle.button("Skip ahead to the approach  (N)", func():
+			_toggle_pause()
+			session.skip_ahead()))
+	v.add_child(UIStyle.rich("[color=#9fb1c2]Mouse: right-drag to look, wheel to zoom or turn knobs, click switches.\nKeys: 1-8 views, C cycle, Tab radio, K checklist, M map, J PA, Z autopilot, T autothrust, G gear, F/V flaps, B brakes, P parking brake, X spoilers, R reverse, = / - time (up to 16x), I auto-fly on/off, N skip ahead.[/color]", 13))
 	v.add_child(UIStyle.button("Abandon flight", func():
 		_toggle_pause()
 		session.finish_flight("abandoned"), 0.0, UIStyle.RED))
@@ -824,9 +841,14 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("cam_wing"):
 		session.set_view("wing")
 	elif event.is_action_pressed("simrate_up"):
-		if not ac.fdm.on_ground and ac.ra > 900.0 and session.emergency == "":
+		if not ac.fdm.on_ground and ac.ra > (300.0 if session.autofly else 900.0) and session.emergency == "":
 			_rate_i = mini(_rate_i + 1, _sim_rates.size() - 1)
 			Engine.time_scale = _sim_rates[_rate_i]
+			show_toast("Time x%d" % int(_sim_rates[_rate_i]), "info")
+	elif event.is_action_pressed("autofly"):
+		session.set_autofly(not session.autofly)
+	elif event.is_action_pressed("skip_ahead"):
+		session.skip_ahead()
 	elif event.is_action_pressed("simrate_down"):
 		_rate_i = maxi(_rate_i - 1, 0)
 		Engine.time_scale = _sim_rates[_rate_i]

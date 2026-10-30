@@ -30,6 +30,11 @@ var on_foot := false              # walking from the terminal; departure waits u
 var ground_ops: GroundOps = null
 var ai: AIPilot = null
 var ai_taxi: AITaxi = null
+var autofly := false              # pilot mode: the AI crew flies the route for you
+var crash_target := "route"       # route | city | terminal | sea | mountain | ahead
+var _crash_pt := Vector3.ZERO     # world position the aircraft is being flown into
+const CRASH_TARGETS := {"route": "Follow the route", "city": "Crash into the nearest city", "terminal": "Crash into the airport terminal",
+	"sea": "Crash into the sea", "mountain": "Crash into a mountain", "ahead": "Crash straight ahead"}
 var traffic: TrafficManager = null
 var phase := "preflight"
 var dep_icao := ""
@@ -541,7 +546,7 @@ func _process(delta: float) -> void:
 	_update_cabin(delta)
 	_update_interior_visibility()
 	recorder.record(ac, phase, delta)
-	if mode == "passenger" and not ac.crashed_state:
+	if (mode == "passenger" or autofly) and not ac.crashed_state:
 		_update_ai(delta)
 	if traffic and cockpit and cockpit.canvas:
 		cockpit.canvas.traffic = traffic.traffic_list(ac.world_x(), ac.world_z(), 60000.0)
@@ -1287,8 +1292,176 @@ func _update_ai(delta: float) -> void:
 		if ai_taxi.stage == "parked" and ac.sys.running_engines() > 0:
 			ac.sys.lights.beacon = false
 			ac.sys.lights.seatbelt = false
+	elif crash_target != "route" and not ac.fdm.on_ground and ac.ra > 150.0 and not ai.phase in ["takeoff", "rotate"]:
+		_update_crash_run(delta)
 	else:
 		ai.update(delta)
+
+
+# ================================================================== auto-fly, skip ahead, crash target
+func set_autofly(on: bool) -> void:
+	## Hands the aircraft to the AI crew (it flies the whole route: taxi, takeoff, cruise, approach,
+	## landing) or gives it back to the player.
+	if mode == "passenger" or ac == null or ac.crashed_state:
+		return
+	autofly = on
+	if on:
+		if ai == null:
+			ai = AIPilot.new()
+			ai.setup(ac, dep_end, arr_end, float(params.get("cruise_ft", _default_cruise_ft())) * U.FT, params.get("route", _default_route()))
+			ai.callout.connect(func(t): recorder.voice("FO", t))
+		if ai_taxi == null:
+			ai_taxi = AITaxi.new()
+			ai_taxi.setup(self, ac)
+		ac.player_controlled = false
+		if not ac.fdm.on_ground:
+			var d := Vector2(ac.world_x(), ac.world_z()).distance_to(Vector2(float(arr_end.thr_x), float(arr_end.thr_z)))
+			ai._set_phase("cruise" if d > 60000.0 else "descent")
+			ai.pattern_built = false
+		elif phase in ["taxi_out", "takeoff", "lineup"] or ac.fdm.ground_speed() > 3.0:
+			ai.start_takeoff()
+		toast.emit("Auto-fly ON - the crew is flying to %s. Press I to take control, N to skip ahead." % Airports.get_ap(arr_icao).get("short", arr_icao), "info")
+	else:
+		ac.player_controlled = true
+		ac.laws.reset_to_current(ac.fdm)
+		toast.emit("You have control.%s" % (" Autopilot is still engaged - press Z to fly by hand." if ac.ap.engaged else ""), "info")
+
+
+func set_crash_target(t: String) -> void:
+	crash_target = t if CRASH_TARGETS.has(t) else "route"
+	_crash_pt = Vector3.ZERO
+	if crash_target == "route":
+		if ai and not ac.fdm.on_ground:
+			ai._set_phase("descent")
+			ai.pattern_built = false
+		toast.emit("Auto-fly destination: follow the route to %s." % Airports.get_ap(arr_icao).get("short", arr_icao), "info")
+		return
+	var p := _crash_point()
+	toast.emit("Auto-fly destination: %s (%s, %.0f km away)." % [String(CRASH_TARGETS[crash_target]).to_lower(), Geo.place_name(p.x, p.z), Vector2(p.x, p.z).distance_to(Vector2(ac.world_x(), ac.world_z())) / 1000.0], "warning")
+	if not autofly:
+		set_autofly(true)
+
+
+func _crash_point() -> Vector3:
+	if _crash_pt != Vector3.ZERO:
+		return _crash_pt
+	var here := Vector2(ac.world_x(), ac.world_z())
+	var fwd := -ac.global_transform.basis.z
+	var f2 := Vector2(fwd.x, fwd.z).normalized()
+	var best := here + f2 * 4000.0
+	match crash_target:
+		"city":
+			var bd := INF
+			for c in Geo.cities:
+				var cp := Vector2(float(c.x), float(c.z))
+				if cp.distance_to(here) < bd:
+					bd = cp.distance_to(here)
+					best = cp
+		"terminal":
+			# the destination's terminal (airport layouts are north-up, centred on the airport)
+			var ap := Airports.get_ap(arr_icao)
+			best = Vector2(float(ap.x), float(ap.z))
+			for b in AirportLayout.get_layout(arr_icao).get("buildings", []):
+				if String(b.kind) == "terminal":
+					best += b.center as Vector2
+					break
+		"sea":
+			var bd2 := INF
+			for ring in range(1, 16):
+				for k in 24:
+					var q := here + Vector2.from_angle(float(k) / 24.0 * TAU) * float(ring) * 4000.0
+					if Geo.is_water(q.x, q.y) and q.distance_to(here) < bd2:
+						bd2 = q.distance_to(here)
+						best = q
+				if bd2 < INF:
+					break
+		"mountain":
+			var hi := -INF
+			for ring2 in range(1, 10):
+				for k2 in 24:
+					var q2 := here + Vector2.from_angle(float(k2) / 24.0 * TAU) * float(ring2) * 5000.0
+					var h := Geo.ground_height(q2.x, q2.y)
+					if h > hi:
+						hi = h
+						best = q2
+	_crash_pt = Vector3(best.x, Geo.ground_height(best.x, best.y), best.y)
+	return _crash_pt
+
+
+func _update_crash_run(_delta: float) -> void:
+	## Flies the aircraft to the chosen spot on the autopilot, then puts it into a dive.
+	var tp := _crash_point()
+	var here := Vector2(ac.world_x(), ac.world_z())
+	var to := Vector2(tp.x, tp.z) - here
+	var dist := to.length()
+	var ap := ac.ap
+	ap.engage(true)
+	ap.at_engaged = true
+	ap.set_lat("HDG")
+	var brg := rad_to_deg(atan2(to.x, -to.y))
+	var trk := rad_to_deg(atan2(ac.fdm.vel.x, -ac.fdm.vel.z))
+	# lead the turn by the remaining track error so the aircraft converges on the spot, not beside it
+	ap.hdg_sel = fposmod(brg + clampf(wrapf(brg - trk, -180.0, 180.0) * (1.5 if dist < 8000.0 else 0.0), -25.0, 25.0), 360.0)
+	ap.set_thr("SPD")
+	var agl := float(ac.fdm.pos.y) - tp.y
+	# hold a few thousand feet above the target until the dive point, then go down steeply
+	var dive_start := maxf(agl, 300.0) / tan(deg_to_rad(8.0))
+	if dist > dive_start + 1500.0:
+		ap.spd_sel = minf(float(ac.spec.cruise_ias), 300.0)
+		ap.set_vert("ALT")
+		ap.alt_sel = maxf(tp.y + 1100.0, Geo.ground_height(here.x, here.y) + 700.0)
+	else:
+		# steep but inside the structural limits, so it reaches the target in one piece
+		ap.spd_sel = minf(float(ac.spec.cruise_ias), float(ac.spec.vmo) - 60.0)
+		ap.set_vert("VS")
+		var gs := maxf(ac.fdm.ground_speed(), 60.0)
+		# aim the glide a little past the spot: the descent lags the command, so this lands on it
+		ap.vs_sel = -clampf(gs * (agl - 8.0) / maxf(dist + 60.0, 150.0), 4.0, gs * tan(deg_to_rad(13.0)))
+		ap.bank_limit = 30.0
+		ac.sys.spoiler_lever = 1.0 if ac.fdm.ias / U.KT > float(ac.spec.vmo) - 40.0 else 0.0
+
+
+func skip_ahead() -> void:
+	## Jumps the flight forward to the approach (or to the run-in toward the crash target),
+	## moving the clock on by the time the cruise would have taken.
+	if ac == null or ac.crashed_state or ac.fdm.on_ground:
+		toast.emit("Get airborne first - skipping works once you're in the air.", "caution")
+		return
+	if not autofly and mode != "passenger":
+		set_autofly(true)
+	var here := Vector2(ac.world_x(), ac.world_z())
+	var target := Vector2(float(arr_end.thr_x), float(arr_end.thr_z))
+	var out := 42000.0
+	var alt := float(arr_end.elev) + 2100.0
+	if crash_target != "route":
+		var cp := _crash_point()
+		target = Vector2(cp.x, cp.z)
+		out = 11000.0
+		alt = cp.y + 1100.0
+	var dist := here.distance_to(target)
+	if dist < out + 8000.0:
+		toast.emit("Already close - nothing to skip.", "info")
+		return
+	var dir := (target - here).normalized()
+	var p := target - dir * out
+	alt = maxf(alt, Geo.ground_height(p.x, p.y) + 900.0)
+	var hdg := fposmod(rad_to_deg(atan2(dir.x, -dir.y)), 360.0)
+	var spd := 250.0 * U.KT
+	var skipped := (dist - out) / 230.0
+	WorldSim.advance(skipped)
+	view.set_time(WorldSim.clock)
+	ac.place_at(view.world_to_local(p.x, alt, p.y), hdg, false, spd)
+	view.rebase(ac.position)
+	view.airports.ensure_loaded(arr_icao)
+	ac.throttle_lever = 0.5
+	ac.ap.spd_sel = 250.0
+	if ai and crash_target == "route":
+		# resume in level flight; the crew starts down at the right point on its own
+		ai.cruise_alt = alt
+		ai._set_phase("cruise")
+		ai.pattern_built = false
+	recorder.mark("skip", "Skipped %d minutes of cruise" % int(skipped / 60.0))
+	toast.emit("Skipped %d minutes ahead. %s" % [int(skipped / 60.0), "Approaching %s." % Airports.get_ap(arr_icao).get("short", "") if crash_target == "route" else "Target ahead."], "info")
 
 
 # ================================================================== end of flight

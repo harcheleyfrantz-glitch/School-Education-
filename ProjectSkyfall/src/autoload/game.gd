@@ -170,7 +170,7 @@ func _setup_input() -> void:
 		"pause": [KEY_ESCAPE], "simrate_up": [KEY_EQUAL], "simrate_down": [KEY_MINUS],
 		"interact": [KEY_SPACE], "help": [KEY_F12], "walk_run": [KEY_SHIFT],
 		"tiller_left": [KEY_COMMA, KEY_A], "tiller_right": [KEY_SEMICOLON, KEY_D], "pa": [KEY_J], "crew": [KEY_U],
-		"seatbelt": [KEY_O], "oxygen_mask": [KEY_Y], "look_back": [KEY_BACKSPACE],
+		"seatbelt": [KEY_O], "oxygen_mask": [KEY_Y], "look_back": [KEY_BACKSPACE], "autofly": [KEY_I], "skip_ahead": [KEY_N],
 	}
 	for action in keys.keys():
 		if not InputMap.has_action(action):
