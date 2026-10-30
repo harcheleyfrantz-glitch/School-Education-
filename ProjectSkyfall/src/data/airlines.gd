@@ -1,13 +1,13 @@
 class_name Airlines
 ## Fictional operators. Livery colours feed the aircraft paint shader.
 
-const ORDER := ["SKF", "CLK", "LMN", "NWC", "APX", "HFA", "WMA"]
+const ORDER := ["SKF", "CLK", "LMN", "NWC", "APX", "HFA", "WMA", "AUR", "PEL", "VTX"]
 
 const DATA := {
 	"SKF": {
 		"name": "Skyfall Air", "callsign": "SKYFALL", "iata": "SF", "kind": "mainline",
 		"hubs": ["SKPC"], "country": "Calderra", "reg_prefix": "CR-S",
-		"fleet": {"s320": 18, "w350": 6, "rj90": 8},
+		"fleet": {"s320": 18, "s321": 6, "w350": 6, "w380": 2, "rj90": 8},
 		"livery": {"body": "f4f6f9", "belly": "1c3f74", "stripe": "f28c28", "stripe2": "f6a03c", "tail": "1c3f74", "tail2": "f28c28", "logo": "f6a03c", "logo_shape": 0,
 			"art": "f28c28", "engine": "1c3f74", "engine2": "f28c28", "engine_style": 1, "tip": "1c3f74", "text": "1c3f74",
 			"belly_h": -0.62, "nose_dip": -0.12, "rise_t": 0.6, "rise_h": 0.9, "stripes": [0.07, 0.022, 0.125, 0.008], "stripe_t": [0.08, 0.97],
@@ -19,7 +19,7 @@ const DATA := {
 	"CLK": {
 		"name": "Coastal Link", "callsign": "COASTAL", "iata": "CL", "kind": "regional",
 		"hubs": ["SKPC", "SKSB"], "country": "Calderra", "reg_prefix": "CR-C",
-		"fleet": {"tp72": 10, "rj90": 6},
+		"fleet": {"tp72": 10, "tp50": 6, "rj90": 6, "rj70": 4},
 		"livery": {"body": "ffffff", "belly": "e8eef0", "stripe": "13a6a6", "tail": "0f8f94", "tail2": "13a6a6", "logo": "ffffff", "logo_shape": 1,
 			"art": "ffffff", "engine": "e6ebee", "engine_style": 3, "tip": "0f8f94", "text": "0f8f94",
 			"belly_h": -0.75, "stripes": [0.6, 0.012, 0.0, 0.0], "flow_t": 0.64, "flow_h": 1.2, "title": "COASTAL LINK", "title_style": "italic"},
@@ -30,7 +30,7 @@ const DATA := {
 	"LMN": {
 		"name": "Lumen Airways", "callsign": "LUMEN", "iata": "LU", "kind": "lowcost",
 		"hubs": ["SKNG", "SKPC"], "country": "Calderra", "reg_prefix": "CR-L",
-		"fleet": {"s320": 12},
+		"fleet": {"s320": 12, "s321": 6},
 		"livery": {"body": "ffffff", "belly": "ffd21f", "stripe": "5b2a86", "tail": "5b2a86", "tail2": "ffd21f", "logo": "ffd21f", "logo_shape": 2,
 			"art": "ffffff", "engine": "5b2a86", "engine2": "ffd21f", "engine_style": 1, "tip": "ffd21f", "text": "5b2a86",
 			"belly_h": -0.45, "nose_dip": 0.25, "rise_t": 0.5, "rise_h": 1.3, "stripes": [0.05, 0.035, 0.0, 0.0], "flow_t": 0.82, "flow_h": 0.8,
@@ -84,6 +84,42 @@ const DATA := {
 		"desc": "Westmark's proud national airline, flying the Western Sea crossing since the propeller age.",
 		"standards": 0.8,
 	},
+	"AUR": {
+		"name": "Aurelia International", "callsign": "AURELIA", "iata": "AU", "kind": "mainline",
+		"hubs": ["WMSK", "WMIA"], "country": "Westmark", "reg_prefix": "WM-A",
+		"fleet": {"w380": 4, "w350": 6, "s321": 4},
+		"livery": {"body": "f7f3ea", "belly": "6b1d2f", "stripe": "c9a24b", "stripe2": "6b1d2f", "tail": "6b1d2f", "tail2": "c9a24b", "logo": "c9a24b", "logo_shape": 4,
+			"art": "c9a24b", "engine": "6b1d2f", "engine2": "c9a24b", "engine_style": 1, "tip": "c9a24b", "text": "6b1d2f",
+			"belly_h": -0.55, "nose_dip": -0.05, "rise_t": 0.62, "rise_h": 1.0, "stripes": [0.04, 0.015, 0.09, 0.006], "stripe_t": [0.1, 0.96],
+			"title": "AURELIA", "title_style": "light", "title_size": 1.2},
+		"pay": 1.15, "reputation": 80, "ceo": "Octavia Laurent", "spokes": "Julien Moreau",
+		"desc": "Long-haul luxury from Westmark: double-deck Skyliners, champagne in first, and the most demanding captains in the business.",
+		"standards": 0.92,
+	},
+	"PEL": {
+		"name": "Pelican Island Air", "callsign": "PELICAN", "iata": "PI", "kind": "regional",
+		"hubs": ["SKIM", "SKSB"], "country": "Calderra", "reg_prefix": "CR-P",
+		"fleet": {"tp50": 8, "tp72": 4},
+		"livery": {"body": "ffffff", "belly": "35b6e8", "stripe": "ff7a3d", "stripe2": "ffd23f", "tail": "35b6e8", "tail2": "ff7a3d", "logo": "ffd23f", "logo_shape": 1,
+			"art": "ff7a3d", "engine": "35b6e8", "engine2": "ffffff", "engine_style": 2, "tip": "ff7a3d", "text": "1d6f9a",
+			"belly_h": -0.35, "nose_dip": 0.3, "rise_t": 0.45, "rise_h": 1.5, "stripes": [0.0, 0.0, 0.0, 0.0], "flow_t": 0.7, "flow_h": 1.1,
+			"title": "pelican", "title_style": "italic", "title_size": 1.6},
+		"pay": 0.7, "reputation": 58, "ceo": "Kofi Mensah", "spokes": "Lena Ostrova",
+		"desc": "Bright little turboprops hopping between beaches and islands. Short runways, crosswinds and lots of landings.",
+		"standards": 0.62,
+	},
+	"VTX": {
+		"name": "Vortex Air", "callsign": "VORTEX", "iata": "VX", "kind": "lowcost",
+		"hubs": ["SKOF", "SKHP"], "country": "Calderra", "reg_prefix": "CR-V",
+		"fleet": {"s321": 8, "s320": 6, "rj70": 4},
+		"livery": {"body": "16161a", "belly": "16161a", "stripe": "e6ff2e", "stripe2": "ff2e88", "tail": "e6ff2e", "tail2": "16161a", "logo": "16161a", "logo_shape": 2,
+			"art": "ff2e88", "engine": "e6ff2e", "engine2": "ff2e88", "engine_style": 1, "tip": "ff2e88", "text": "e6ff2e", "reg_col": "e6ff2e", "wing": "9aa0a6",
+			"belly_h": -0.95, "nose_dip": 0.0, "rise_t": 0.5, "rise_h": 0.0, "stripes": [0.12, 0.03, 0.0, 0.0], "flow_t": 0.78, "flow_h": 0.9,
+			"title": "VORTEX", "title_style": "wide", "title_size": 1.8, "title_pos": 0.06},
+		"pay": 0.78, "reputation": 47, "ceo": "Dex Calloway", "spokes": "Nina Park",
+		"desc": "Black and neon, cheap and fast. The newest airline in Calderra, growing quickly and always short of pilots.",
+		"standards": 0.55,
+	},
 }
 
 const COLOR_KEYS := ["body", "belly", "stripe", "stripe2", "stripe3", "tail", "tail2", "logo", "engine", "engine2", "wing", "tip", "gear", "art", "text", "reg_col"]
@@ -111,12 +147,27 @@ const SPECIALS := {
 	"WMA.100": {"body": "ffffff", "belly": "1f6d4a", "stripe": "c9a227", "stripe2": "c9a227", "tail": "1f6d4a", "tail2": "c9a227",
 		"logo": "c9a227", "logo_shape": 9, "art": "ffffff", "engine": "c9a227", "engine_style": 3, "tip": "c9a227", "text": "1f6d4a",
 		"belly_h": -0.62, "rise_t": 0.55, "rise_h": 1.1, "stripes": [0.05, 0.02, 0.1, 0.01], "title": "WESTMARK 100 YEARS"},
+	"SKF.flagship": {"body": "0f2547", "belly": "0a1a33", "stripe": "f28c28", "stripe2": "ffffff", "tail": "f28c28", "tail2": "0f2547", "logo": "ffffff",
+		"logo_shape": 0, "art": "f28c28", "engine": "f28c28", "engine2": "0f2547", "engine_style": 2, "tip": "f28c28", "text": "ffffff", "reg_col": "ffffff",
+		"belly_h": -0.9, "nose_dip": 0.0, "rise_h": 0.0, "stripes": [0.3, 0.02, 0.36, 0.006], "stripe_t": [0.05, 0.98], "title": "SKYFALL FLAGSHIP", "title_style": "wide", "title_size": 1.0},
+	"CLK.reef": {"body": "ffffff", "belly": "0f8f94", "stripe": "ff8a5c", "stripe2": "ffd166", "stripe3": "13a6a6", "tail": "13a6a6", "tail2": "ff8a5c",
+		"logo": "ffd166", "logo_shape": 1, "art": "ff8a5c", "engine": "0f8f94", "engine_style": 2, "tip": "ff8a5c", "text": "0f8f94",
+		"belly_h": -0.3, "nose_dip": 0.3, "rise_t": 0.4, "rise_h": 1.6, "event_art": 1.0, "title": "SAVE OUR REEFS", "title_style": "italic"},
+	"AUR.gold": {"body": "c9a24b", "belly": "6b1d2f", "stripe": "ffffff", "stripe2": "6b1d2f", "tail": "6b1d2f", "tail2": "ffffff", "logo": "ffffff",
+		"logo_shape": 4, "art": "ffffff", "engine": "6b1d2f", "engine_style": 1, "tip": "ffffff", "text": "6b1d2f",
+		"belly_h": -0.7, "stripes": [0.05, 0.01, 0.0, 0.0], "title": "AURELIA 25 GOLDEN YEARS", "title_style": "light"},
+	"VTX.inverse": {"body": "e6ff2e", "belly": "16161a", "stripe": "ff2e88", "stripe2": "16161a", "tail": "16161a", "tail2": "e6ff2e", "logo": "e6ff2e",
+		"logo_shape": 2, "art": "ff2e88", "engine": "16161a", "engine2": "ff2e88", "engine_style": 1, "tip": "ff2e88", "text": "16161a", "reg_col": "16161a",
+		"belly_h": -0.55, "stripes": [0.1, 0.03, 0.0, 0.0], "title": "VORTEX", "title_style": "wide", "title_size": 1.8, "title_pos": 0.06},
 }
 
 ## [special key, types it appears on, 1 in N airframes]
 const SPECIAL_FOR := {
 	"NWC": [["NWC.tanker", ["f4"], 3]],
-	"SKF": [["SKF.retro", ["s320", "w350"], 8]],
+	"SKF": [["SKF.retro", ["s320", "w350"], 8], ["SKF.flagship", ["w380"], 2]],
+	"CLK": [["CLK.reef", ["tp72", "tp50"], 5]],
+	"AUR": [["AUR.gold", ["w380", "w350"], 4]],
+	"VTX": [["VTX.inverse", ["s321", "s320"], 5]],
 	"LMN": [["LMN.aurora", ["s320"], 6]],
 	"WMA": [["WMA.100", ["w350", "s320"], 6]],
 }

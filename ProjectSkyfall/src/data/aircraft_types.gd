@@ -3,9 +3,12 @@ class_name AircraftTypes
 ## Aerodynamic derivatives are per radian. Elevator/aileron/rudder derivatives use the
 ## convention "positive input = nose up / roll right / nose right".
 
-const ORDER := ["t172", "tp72", "rj90", "s320", "w350", "bj6", "f4"]
+const ORDER := ["t172", "tp50", "tp72", "rj70", "rj90", "s320", "s321", "w350", "w380", "bj6", "f4"]
 
-const TYPES := {
+## Every type: the hand-written ones below plus the family variants built from them.
+static var TYPES: Dictionary = _build_types()
+
+const BASE_TYPES := {
 	"t172": {
 		"name": "Aerolite T-172", "short": "T172", "maker": "Aerolite", "category": "trainer",
 		"role": "Single-engine training aircraft",
@@ -245,6 +248,57 @@ const TYPES := {
 		"hourly_cost": 21000, "rating_hours": 2500.0, "range_nm": 4400, "tailstrike": 10.5,
 	},
 }
+
+
+## Family members and new designs derived from a base type: [base id, overrides].
+const VARIANTS := {
+	"tp50": ["tp72", {
+		"name": "Kestrel TP-50", "short": "TP50", "role": "Twin-engine commuter turboprop",
+		"blurb": "A 30-seat commuter for short island hops and the shortest strips on the network. Light, nimble and great for building hours.",
+		"length": 19.6, "span": 19.8, "height": 6.0, "fuse_w": 2.25, "fuse_h": 2.4, "wing_area": 39.0, "mac": 2.0,
+		"power_kw": 1300.0, "static_thrust": 22000.0, "prop_diam": 3.4,
+		"empty_mass": 7600.0, "mtow": 12200.0, "max_fuel": 2600.0, "max_payload": 3400.0,
+		"gear_height": 1.75, "nose_gear_x": -7.3, "main_gear_x": 0.7, "gear_track": 3.4,
+		"vs0": 82, "vs1": 95, "vr": 98, "v2": 105, "vref": 102, "vapp": 108, "vmo": 235,
+		"cruise_ias": 200, "cruise_tas": 255, "cruise_alt": 15000, "ceiling": 25000, "climb_fpm": 1700,
+		"fa": 1, "cabin": [{"cls": "economy", "rows": 10, "layout": "1-2", "pitch": 0.78, "seat_w": 0.46}],
+		"doors": [0.2, 0.84], "hourly_cost": 1500, "rating_hours": 40.0, "range_nm": 650, "tailstrike": 11.0}],
+	"rj70": ["rj90", {
+		"name": "Meridian RJ-70", "short": "RJ70", "role": "Rear-engine regional jet",
+		"blurb": "Meridian's T-tailed little sister: engines at the back, a quiet cabin and short-field performance for the regional hubs.",
+		"length": 27.1, "span": 24.2, "height": 8.4, "fuse_w": 2.75, "fuse_h": 3.0, "wing_area": 64.0, "mac": 3.0,
+		"tail": "t_tail", "engine_mount": "rear", "winglet": "none", "static_thrust": 55000.0, "fan_diam": 1.3,
+		"empty_mass": 19500.0, "mtow": 34000.0, "max_fuel": 8000.0, "max_payload": 8500.0,
+		"gear_height": 2.2, "nose_gear_x": -10.4, "main_gear_x": 1.0, "gear_track": 4.6,
+		"vr": 130, "v2": 137, "vref": 125, "vapp": 131,
+		"cabin": [{"cls": "economy", "rows": 18, "layout": "2-2", "pitch": 0.79, "seat_w": 0.46}],
+		"doors": [0.17, 0.84], "sound": "fan_small", "hourly_cost": 3600, "rating_hours": 200.0, "range_nm": 1700, "tailstrike": 12.0}],
+	"s321": ["s320", {
+		"name": "Stratos 321", "short": "S321", "role": "Stretched narrow-body airliner",
+		"blurb": "Seven metres longer than the 320 and 186 seats: the high-density workhorse of the low-cost carriers. Mind the tail on rotation.",
+		"length": 44.5, "static_thrust": 140000.0, "empty_mass": 48500.0, "mtow": 93500.0, "max_fuel": 23500.0, "max_payload": 24000.0,
+		"nose_gear_x": -15.0, "main_gear_x": 1.6, "vr": 145, "v2": 152, "vref": 140, "vapp": 146,
+		"cabin": [{"cls": "business", "rows": 3, "layout": "2-2", "pitch": 0.95, "seat_w": 0.55},
+			{"cls": "economy", "rows": 29, "layout": "3-3", "pitch": 0.76, "seat_w": 0.45}],
+		"doors": [0.13, 0.36, 0.62, 0.88], "fa": 5, "hourly_cost": 7400, "rating_hours": 1200.0, "range_nm": 3200, "tailstrike": 9.5}],
+	"w380": ["f4", {
+		"name": "Atlas W-380 Skyliner", "short": "W380", "category": "widebody", "role": "Four-engine double-deck airliner",
+		"blurb": "The biggest passenger aircraft in the world: four engines, an upper deck and over 400 seats. Flagship of the long-haul fleets.",
+		"pilots": 2, "fa": 14, "cargo_door": false, "sound": "fan_large",
+		"cabin": [{"cls": "business", "rows": 3, "layout": "1-2-1", "pitch": 1.6, "seat_w": 0.7},
+			{"cls": "business", "rows": 8, "layout": "2-2-2", "pitch": 1.25, "seat_w": 0.6},
+			{"cls": "economy", "rows": 35, "layout": "3-4-3", "pitch": 0.8, "seat_w": 0.45}],
+		"doors": [0.1, 0.3, 0.55, 0.82], "hourly_cost": 26000, "rating_hours": 4000.0, "range_nm": 7800}],
+}
+
+
+static func _build_types() -> Dictionary:
+	var out: Dictionary = BASE_TYPES.duplicate(true)
+	for id in VARIANTS:
+		var t: Dictionary = (BASE_TYPES[VARIANTS[id][0]] as Dictionary).duplicate(true)
+		t.merge((VARIANTS[id][1] as Dictionary).duplicate(true), true)
+		out[id] = t
+	return out
 
 
 static func get_type(id: String) -> Dictionary:

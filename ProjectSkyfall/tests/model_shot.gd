@@ -11,7 +11,7 @@ var out_dir := "/tmp"
 var view: WorldView
 var cam: Camera3D
 
-const DEFAULT_AIRLINE := {"t172": "HFA", "tp72": "CLK", "rj90": "SKF", "s320": "LMN", "w350": "WMA", "bj6": "APX", "f4": "NWC"}
+const DEFAULT_AIRLINE := {"tp50": "PEL", "rj70": "VTX", "s321": "VTX", "w380": "AUR", "t172": "HFA", "tp72": "CLK", "rj90": "SKF", "s320": "LMN", "w350": "WMA", "bj6": "APX", "f4": "NWC"}
 
 
 func _ready() -> void:

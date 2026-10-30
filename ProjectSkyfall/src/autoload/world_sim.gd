@@ -153,6 +153,9 @@ const ROUTES := {
 	"NWC": [["SKNG", "WMIA", "f4", 1], ["SKNG", "SKPC", "f4", 2], ["SKNG", "SKOF", "f4", 1]],
 	"APX": [["SKPC", "SKSB", "bj6", 2], ["SKSB", "WMIA", "bj6", 1], ["SKPC", "SKHP", "bj6", 1], ["SKPC", "SKIM", "bj6", 1]],
 	"HFA": [["SKWF", "SKWF", "t172", 6], ["SKWF", "SKPC", "t172", 2], ["SKWF", "SKOF", "t172", 1], ["SKWF", "SKSB", "t172", 1]],
+	"AUR": [["WMSK", "SKPC", "w380", 2], ["WMIA", "SKPC", "w380", 1], ["WMSK", "WMIA", "s321", 3], ["WMSK", "SKNG", "w350", 2], ["WMIA", "SKSB", "w350", 1]],
+	"PEL": [["SKIM", "SKSB", "tp50", 4], ["SKIM", "SKOF", "tp50", 2], ["SKSB", "SKHP", "tp50", 2], ["SKIM", "SKPC", "tp72", 2], ["SKSB", "SKIM", "tp72", 2]],
+	"VTX": [["SKOF", "SKPC", "s321", 4], ["SKOF", "SKNG", "s321", 2], ["SKHP", "SKPC", "s320", 3], ["SKOF", "WMIA", "s321", 1], ["SKHP", "SKRV", "rj70", 3]],
 	"WMA": [["WMIA", "SKPC", "w350", 2], ["WMIA", "SKPC", "s320", 2], ["WMIA", "WMSK", "tp72", 3], ["WMIA", "SKNG", "s320", 1],
 		["WMIA", "SKSB", "s320", 1]],
 }
