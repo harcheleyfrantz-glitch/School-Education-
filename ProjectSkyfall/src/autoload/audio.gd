@@ -806,3 +806,13 @@ static func _pad_music() -> AudioStreamWAV:
 		pad[i] = pad[i] * 0.55 + bell[i] * 0.35
 	_normalize(pad, 0.5)
 	return _to_wav(pad, true)
+
+
+func _exit_tree() -> void:
+	# never let the synthesis threads outlive the engine on quit
+	if _synth_task != -1:
+		WorkerThreadPool.wait_for_task_completion(_synth_task)
+		_synth_task = -1
+	if _music_task != -1:
+		WorkerThreadPool.wait_for_task_completion(_music_task)
+		_music_task = -1

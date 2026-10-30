@@ -77,8 +77,10 @@ func _set_sort(key: String) -> void:
 	shown = 0
 	for pc in art.get("player_comments", []):
 		var me := String(pc.get("name", "You"))
+		var pr := NewsComments.player_replies(art, pc)
 		_list.add_child(_card({"author": {"name": me, "handle": "@you", "badge": "", "title": "", "color": UIStyle.ACCENT}, "text": String(pc.get("text", "")),
-			"likes": 0, "t": float(pc.get("t", WorldSim.clock)), "replies": 0, "edited": false, "pinned": false, "depth": 0, "tone": "mine", "i": -1}))
+			"likes": int(pc.get("likes", pr.size() * 3)), "t": float(pc.get("t", WorldSim.clock)), "replies": pr.size(), "edited": false, "pinned": false,
+			"depth": 0, "tone": "mine", "i": -1, "pc": pc}))
 	_load_more()
 
 
@@ -175,7 +177,7 @@ func _card(c: Dictionary) -> Control:
 		more_btn.add_theme_font_size_override("font_size", 13)
 		more_btn.add_theme_color_override("font_color", UIStyle.ACCENT)
 		var fill := func():
-			var got := NewsComments.replies(art, c, int(state.shown), 6)
+			var got: Array = NewsComments.player_replies(art, c.pc).slice(int(state.shown), int(state.shown) + 6) if c.has("pc") else NewsComments.replies(art, c, int(state.shown), 6)
 			for rc in got:
 				var card := _card(rc)
 				if int(rc.depth) > 1:
@@ -197,6 +199,11 @@ func _card(c: Dictionary) -> Control:
 				fill.call())
 		v.add_child(tb)
 		outer.add_child(holder)
+		if c.has("pc"):
+			# your own comment opens with its replies showing
+			holder.visible = true
+			tb.text = "▴  Hide replies"
+			fill.call()
 	return outer
 
 

@@ -352,6 +352,14 @@ static func _join(r: RandomNumberGenerator, f: Dictionary, a: Array, b: Array, c
 
 
 static func _text(tone: String, r: RandomNumberGenerator, f: Dictionary, mood: String) -> String:
+	# about half the time, a line from the larger bank (where it suits the story)
+	var accident_only := tone in ["technical", "question", "eyewitness", "family", "misinfo", "condolence", "survived"]
+	if CommentBank.LINES.has(tone) and r.randf() < 0.5 and (not accident_only or mood in ["fatal", "survived"]):
+		return _say(r, CommentBank.LINES[tone], f)
+	return _text_base(tone, r, f, mood)
+
+
+static func _text_base(tone: String, r: RandomNumberGenerator, f: Dictionary, mood: String) -> String:
 	match tone:
 		"pinned":
 			if mood == "fatal":
@@ -576,3 +584,30 @@ static func views(art: Dictionary) -> int:
 	var ctx := context(art)
 	var r := U.rng(int(ctx.seed) + 5)
 	return int(float(count(art)) * r.randf_range(140.0, 420.0) + r.randf_range(200.0, 900.0))
+
+
+## Replies other people leave on the player's own comment: a handful straight away and more
+## as the story's clock moves on, answering what the player actually said.
+static func player_replies(art: Dictionary, pc: Dictionary) -> Array:
+	var ctx := context(art)
+	var f: Dictionary = ctx.f
+	var text := String(pc.get("text", ""))
+	var kind := CommentBank.classify(text)
+	var seed_v := U.hash_str(text + str(pc.get("t", 0.0)))
+	var r := U.rng(seed_v)
+	var total := 3 + r.randi() % 9
+	var out := []
+	var pool: Array = CommentBank.TO_PLAYER.get(kind, CommentBank.TO_PLAYER.other)
+	for j in total:
+		var delay := 20.0 + pow(float(j), 1.8) * 240.0
+		var t := float(pc.get("t", WorldSim.clock)) + delay
+		if j >= 3 and t > WorldSim.clock:
+			continue
+		var rr := U.rng(seed_v + j * 31)
+		var tone := "agree" if kind != "question" else "answer"
+		var line := _say(rr, pool, f, seed_v + j)
+		if rr.randf() < 0.3:
+			line = _reply_text(["agree", "amen", "lol", "reassure", "answer", "correction"][["other", "grief", "joke", "fear", "question", "blame"].find(kind) if kind in ["other", "grief", "joke", "fear", "question", "blame"] else 0], rr, f, {"i": j, "tone": tone}, seed_v + j)
+		out.append({"i": j, "tone": tone, "author": _author(rr, tone, ctx), "text": "@%s %s" % [String(pc.get("name", "you")).replace(" ", ""), line],
+			"likes": int(pow(rr.randf(), 2.0) * 40.0), "t": minf(t, WorldSim.clock), "replies": 0, "edited": false, "pinned": false, "depth": 1})
+	return out
