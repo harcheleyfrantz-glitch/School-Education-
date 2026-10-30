@@ -419,6 +419,10 @@ func _setup_ops() -> void:
 	traffic.name = "Traffic"
 	view.dynamic_root.add_child(traffic)
 	traffic.setup(self, view)
+	var col := Collisions.new()
+	col.name = "Collisions"
+	add_child(col)
+	col.setup(self, ac, view)
 	walker = CabinWalker.new()
 	walker.name = "Walker"
 	walker.setup(self, ac, view)

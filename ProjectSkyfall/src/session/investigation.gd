@@ -84,7 +84,12 @@ static func analyse(d: Dictionary) -> Dictionary:
 	var outcome := String(d.get("outcome", "crashed"))
 	# ---- probable cause, most specific first
 	var cause := ""
-	if breakup != "":
+	if String(crash.get("collision", "")) != "":
+		cause = "The aircraft collided with %s. The crew did not keep it clear of the obstacle." % String(crash.collision)
+		share.pilot += 0.85
+		negligent = true
+		findings.append("Impact at %d knots with %s." % [int(float(crash.get("speed_kt", 0.0))), String(crash.collision)])
+	elif breakup != "":
 		var glim := 3.8 if String(spec.category) == "trainer" else 2.5
 		if max_nz > glim + 0.4 or overspeed or breakup.contains("overload") or breakup.contains("dive speed"):
 			cause = "In-flight structural failure after the airframe was flown beyond its design load and speed limits."
