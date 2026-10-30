@@ -485,6 +485,10 @@ func _retail() -> void:
 			if not sec.is_empty() and String(sec.axis) == "x" and z + w > float(sec.gap0) - 6.0 and z < float(sec.gap1) + 6.0:
 				z = float(sec.gap1) + 8.0
 				continue
+			# end-on security: keep the lanes and the space either side of them clear
+			if not sec.is_empty() and String(sec.axis) == "z" and z + w > float(sec.at) - 9.0 and z < float(sec.at) + 9.0:
+				z = float(sec.at) + 11.0
+				continue
 			var brand: Array = BRANDS[bi % BRANDS.size()]
 			bi += 1
 			var kind := String(brand[1])

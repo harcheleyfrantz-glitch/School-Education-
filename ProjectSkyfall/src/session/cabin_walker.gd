@@ -327,7 +327,7 @@ func _update_head() -> void:
 # ================================================================== interactions
 func _find_target() -> void:
 	var best := {}
-	var bd := 1.6
+	var bd := 2.4
 	if where == "cabin" and not seated:
 		var own_id := String(session.get("pax_seat")) if session else ""
 		for s in lay.seats:
@@ -336,7 +336,7 @@ func _find_target() -> void:
 				bd = d
 				best = {"kind": "own_seat", "seat": s, "text": "Sit down (seat %s)" % s.id}
 		var people: CabinPeople = session.get("people") if session else null
-		if people:
+		if people and best.is_empty():
 			for p in people.pax:
 				if p.state == "player":
 					continue
@@ -360,7 +360,7 @@ func _find_target() -> void:
 			if d.kind == "door" and absf(pos.z - float(d.z)) < 1.0 and absf(pos.x - float(d.x)) < 1.4 and session and session.call("any_door_open"):
 				best = {"kind": "exit", "door": d, "text": "Leave the aircraft (door %s)" % d.name}
 	elif where == "terminal" and ti:
-		var sp := ti.nearest_spot(pos, 2.0)
+		var sp := ti.nearest_spot(pos, 3.2)
 		if not sp.is_empty():
 			var kind := String(sp.kind)
 			var txt := String(sp.text)

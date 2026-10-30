@@ -90,6 +90,23 @@ func _process(delta: float) -> void:
 	var w := s.walker
 	if _t > 1500.0 or _stage_t > 420.0:
 		print("GAVE UP at stage %s, walker %s at %s" % [stage, w.where, w.pos])
+		if w.ti:
+			for o in w.ti.obstacles:
+				var tq := Vector2(target.x, target.z)
+				if o.has("h") and not o.has("door"):
+					var dd: Vector2 = (tq - (o.c as Vector2)).abs() - (o.h as Vector2)
+					if dd.x < 0.3 and dd.y < 0.3:
+						print("   blocked by rect c=%s h=%s" % [o.c, o.h])
+				elif o.has("r") and tq.distance_to(o.c) < float(o.r) + 0.3:
+					print("   blocked by circle c=%s r=%s" % [o.c, o.r])
+			print("   depth %.1f length %.1f hub %s land_s %s sec %s" % [w.ti.depth, w.ti.length, w.ti.hub, w.ti.land_s, w.ti.sec])
+			var row := ""
+			for dz in range(-8, 9):
+				row = ""
+				for dx in range(-8, 9):
+					var q := Vector2(target.x + dx * 0.5, target.z + dz * 0.5)
+					row += ("T" if dx == 0 and dz == 0 else ("." if w.ti.walkable(q, 0.3) else "#"))
+				print("   ", row)
 		_finish()
 		return
 	if stage == "done":
@@ -101,7 +118,7 @@ func _process(delta: float) -> void:
 		return
 	var to := target - w.pos
 	to.y = 0.0
-	var reach := 1.4 if stage != "cabin" else 0.5
+	var reach := 3.0 if stage in ["checkin", "security", "gate"] else (1.2 if stage == "bridge" else 0.5)
 	if to.length() < reach:
 		w.move_input = Vector2.ZERO
 		_arrive()
