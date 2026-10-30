@@ -111,6 +111,8 @@ func start(p: Dictionary) -> void:
 		_setup_passenger_mode()
 	if terminal_start:
 		_begin_terminal_walk()
+	elif mode == "pilot":
+		toast.emit("Controls: W / S thrust, A / D steer and roll, arrow keys pitch and roll, Q / E rudder, B brakes, G gear, F / V flaps, Z autopilot.", "info")
 
 
 func _begin_terminal_walk() -> void:
@@ -125,7 +127,7 @@ func _begin_terminal_walk() -> void:
 	var gname := String(g.get("name", stand))
 	var tc := TerminalCrowd.new()
 	ti.add_child(tc)
-	tc.setup(ti, 70 if String(Game.settings.get("quality", "high")) in ["low", "medium"] else 140, U.hash_str(flight_id))
+	tc.setup(ti, 30 if String(Game.settings.get("quality", "high")) == "potato" else (70 if String(Game.settings.get("quality", "high")) in ["low", "medium"] else 140), U.hash_str(flight_id))
 	var into := Vector3(-ti.entrance.x, 0, -ti.entrance.z).normalized()
 	walker.enter_terminal(ti, av, ti.entrance, atan2(-into.x, -into.z), gname, stand)
 	on_foot = true
@@ -205,6 +207,7 @@ func _spawn_aircraft() -> void:
 	ac.setup(type_id, reg, airline, view, true)
 	ac.callsign = callsign
 	ac.player_controlled = mode == "pilot"
+	ac.notice.connect(func(t): toast.emit(t, "info"))
 	ac.laws.mode = String(Game.settings.get("assist", "assisted"))
 	var spec := ac.spec
 	var pax := int(params.get("pax", AircraftTypes.seat_count(type_id) * 8 / 10))

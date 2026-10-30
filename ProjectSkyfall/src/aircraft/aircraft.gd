@@ -3,6 +3,7 @@ extends Node3D
 ## A flyable aircraft: flight model, systems, control laws, autopilot, damage and visuals.
 
 signal touchdown(info: Dictionary)
+signal notice(text: String)
 signal liftoff
 signal crashed(info: Dictionary)
 signal incident(kind: String, info: Dictionary)
@@ -187,6 +188,8 @@ func _read_input(dt: float) -> void:
 	in_tiller = Input.get_axis("tiller_left", "tiller_right")
 	# throttle
 	var tdir := Input.get_axis("throttle_down", "throttle_up")
+	if tdir > 0.05 and fdm.on_ground:
+		_ready_to_move()
 	if absf(tdir) > 0.05:
 		throttle_lever = clampf(throttle_lever + tdir * dt * 0.45, 0.0, 1.0)
 		if ap.at_engaged:
@@ -197,6 +200,32 @@ func _read_input(dt: float) -> void:
 	sys.brake_input = brakes
 	sys.reverse_cmd = Input.is_action_pressed("reverse")
 	ap.pilot_override(maxf(absf(in_pitch), absf(in_roll)), dt)
+
+
+## Opening the throttle on the ground gets the aircraft moving: the parking brake comes off
+## and, with assisted flying, the engines start straight away (realistic: a normal start).
+func _ready_to_move() -> void:
+	if sys.parking_brake:
+		sys.parking_brake = false
+		notice.emit("Parking brake released.")
+	if sys.running_engines() == 0:
+		var any_starting := false
+		for e in sys.eng:
+			any_starting = any_starting or bool(e.starting)
+		if not any_starting:
+			var instant := String(laws.mode) != "realistic"
+			sys.apu_on = true
+			sys.ext_power = true
+			for e2 in sys.eng:
+				if instant:
+					e2.running = true
+					e2.starting = false
+					e2.cutoff = false
+				else:
+					e2.cutoff = false
+					e2.starting = true
+					e2.start_t = 0.0
+			notice.emit("Engines running." if instant else "Starting engines...")
 
 
 func _ramp(cur: float, target: float, dt: float) -> float:

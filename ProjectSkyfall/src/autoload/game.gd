@@ -10,18 +10,22 @@ const SAVE_PATH := "user://skyfall_world.json"
 const SAVE_VERSION := 1
 
 const QUALITY := {
+	"potato": {"label": "Very low (old PCs)", "render_scale": 0.6, "msaa": 0, "fxaa": false, "shadows": 0, "shadow_distance": 250.0,
+		"ssao": false, "glow": false, "lod": 0.9, "min_leaf": 4000.0, "view": 28000.0, "trees": 0.12,
+		"buildings": 0.3, "clouds": 0, "crowd": 0.25, "lights": false, "fps": 30, "sky_res": 32, "fog_vol": false,
+		"backdrop": false, "studio": false},
 	"low": {"label": "Low", "render_scale": 0.7, "msaa": 0, "fxaa": true, "shadows": 0, "shadow_distance": 400.0,
 		"ssao": false, "glow": true, "lod": 1.15, "min_leaf": 2000.0, "view": 45000.0, "trees": 0.25,
-		"buildings": 0.45, "clouds": 0, "crowd": 0.4, "lights": false, "fps": 30, "sky_res": 64, "fog_vol": false},
+		"buildings": 0.45, "clouds": 0, "crowd": 0.4, "lights": false, "fps": 30, "sky_res": 64, "fog_vol": false, "backdrop": true, "studio": true},
 	"medium": {"label": "Medium", "render_scale": 0.85, "msaa": 0, "fxaa": true, "shadows": 1, "shadow_distance": 700.0,
 		"ssao": false, "glow": true, "lod": 1.4, "min_leaf": 1000.0, "view": 70000.0, "trees": 0.55,
-		"buildings": 0.7, "clouds": 1, "crowd": 0.7, "lights": true, "fps": 60, "sky_res": 128, "fog_vol": false},
+		"buildings": 0.7, "clouds": 1, "crowd": 0.7, "lights": true, "fps": 60, "sky_res": 128, "fog_vol": false, "backdrop": true, "studio": true},
 	"high": {"label": "High", "render_scale": 1.0, "msaa": 1, "fxaa": false, "shadows": 2, "shadow_distance": 1200.0,
 		"ssao": true, "glow": true, "lod": 1.8, "min_leaf": 1000.0, "view": 110000.0, "trees": 1.0,
-		"buildings": 1.0, "clouds": 2, "crowd": 1.0, "lights": true, "fps": 0, "sky_res": 256, "fog_vol": false},
+		"buildings": 1.0, "clouds": 2, "crowd": 1.0, "lights": true, "fps": 0, "sky_res": 256, "fog_vol": false, "backdrop": true, "studio": true},
 	"ultra": {"label": "Ultra", "render_scale": 1.0, "msaa": 2, "fxaa": false, "shadows": 3, "shadow_distance": 2000.0,
 		"ssao": true, "glow": true, "lod": 2.3, "min_leaf": 500.0, "view": 160000.0, "trees": 1.4,
-		"buildings": 1.2, "clouds": 3, "crowd": 1.0, "lights": true, "fps": 0, "sky_res": 256, "fog_vol": true},
+		"buildings": 1.2, "clouds": 3, "crowd": 1.0, "lights": true, "fps": 0, "sky_res": 256, "fog_vol": true, "backdrop": true, "studio": true},
 }
 
 var settings := {
@@ -69,11 +73,21 @@ func _ready() -> void:
 
 
 func _detect_quality() -> String:
+	## First launch: pick a preset the machine can carry. Integrated graphics, the OpenGL
+	## fallback and machines with few CPU threads start low; only strong desktops start high.
+	var cores := OS.get_processor_count()
+	var adapter := RenderingServer.get_video_adapter_type()
+	var gpu := RenderingServer.get_video_adapter_name().to_lower()
+	var integrated := adapter == RenderingDevice.DEVICE_TYPE_INTEGRATED_GPU or gpu.contains("intel") or gpu.contains("uhd") or gpu.contains(" hd graphics") or gpu.contains("vega 8")
 	if is_mobile:
-		return "medium" if renderer != "gl_compatibility" else "low"
-	if renderer == "gl_compatibility":
-		return "medium"
-	return "high"
+		return "low" if renderer == "gl_compatibility" or cores < 6 else "medium"
+	if renderer == "gl_compatibility" or cores <= 2 or adapter == RenderingDevice.DEVICE_TYPE_CPU:
+		return "potato"
+	if integrated or cores <= 4:
+		return "low"
+	if cores >= 8 and adapter == RenderingDevice.DEVICE_TYPE_DISCRETE_GPU:
+		return "high"
+	return "medium"
 
 
 func q(key: String) -> Variant:
@@ -135,10 +149,13 @@ func notify(text: String, kind: String = "info") -> void:
 # ------------------------------------------------------------------ input map
 func _setup_input() -> void:
 	var keys := {
-		"pitch_down": [KEY_W, KEY_UP], "pitch_up": [KEY_S, KEY_DOWN],
+		# W/S drive the aircraft forward (thrust), A/D roll in the air and steer on the ground,
+		# the arrow keys fly pitch and roll
+		"pitch_down": [KEY_UP], "pitch_up": [KEY_DOWN],
 		"roll_left": [KEY_A, KEY_LEFT], "roll_right": [KEY_D, KEY_RIGHT],
 		"yaw_left": [KEY_Q, KEY_KP_0], "yaw_right": [KEY_E, KEY_KP_ENTER],
-		"throttle_up": [KEY_SHIFT, KEY_PAGEUP, KEY_KP_ADD], "throttle_down": [KEY_CTRL, KEY_PAGEDOWN, KEY_KP_SUBTRACT],
+		"throttle_up": [KEY_W, KEY_SHIFT, KEY_PAGEUP, KEY_KP_ADD], "throttle_down": [KEY_S, KEY_CTRL, KEY_PAGEDOWN, KEY_KP_SUBTRACT],
+		"move_forward": [KEY_W, KEY_UP], "move_back": [KEY_S, KEY_DOWN], "move_left": [KEY_A, KEY_LEFT], "move_right": [KEY_D, KEY_RIGHT],
 		"throttle_idle": [KEY_F1], "throttle_full": [KEY_F4],
 		"flaps_down": [KEY_F, KEY_F7], "flaps_up": [KEY_V, KEY_F6],
 		"gear": [KEY_G], "brakes": [KEY_B, KEY_PERIOD], "parking_brake": [KEY_P],
@@ -150,7 +167,7 @@ func _setup_input() -> void:
 		"atc": [KEY_TAB], "checklist": [KEY_K], "map": [KEY_M], "hud": [KEY_H], "lights_landing": [KEY_L],
 		"pause": [KEY_ESCAPE], "simrate_up": [KEY_EQUAL], "simrate_down": [KEY_MINUS],
 		"interact": [KEY_SPACE], "help": [KEY_F12], "walk_run": [KEY_SHIFT],
-		"tiller_left": [KEY_COMMA], "tiller_right": [KEY_SEMICOLON], "pa": [KEY_J], "crew": [KEY_U],
+		"tiller_left": [KEY_COMMA, KEY_A], "tiller_right": [KEY_SEMICOLON, KEY_D], "pa": [KEY_J], "crew": [KEY_U],
 		"seatbelt": [KEY_O], "oxygen_mask": [KEY_Y], "look_back": [KEY_BACKSPACE],
 	}
 	for action in keys.keys():

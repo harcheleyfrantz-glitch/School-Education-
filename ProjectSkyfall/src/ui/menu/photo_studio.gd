@@ -86,6 +86,8 @@ static func instance() -> PhotoStudio:
 static func get_shot(id: String, priority: bool = false) -> Texture2D:
 	if _mem.has(id):
 		return _mem[id]
+	if not bool(Game.q("studio")):
+		return null
 	var rec := recipe(id)
 	if rec.is_empty():
 		return null
@@ -361,7 +363,7 @@ func _world_shot(rec: Dictionary) -> bool:
 	_view.name = "World"
 	_vp.add_child(_view)
 	var old_q := String(Game.settings.quality)
-	Game.settings.quality = "medium" if Game.is_mobile else "high"
+	Game.settings.quality = "low" if old_q in ["low", "potato"] or Game.is_mobile else "medium"
 	var old_snow := Geo.snowline
 	_view.setup(focus.x, focus.y, clock, bool(rec.get("airports", kind in ["ground", "final", "aerial"])))
 	Geo.snowline = old_snow

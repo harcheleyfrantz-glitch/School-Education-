@@ -33,9 +33,11 @@ An aviation life simulator made in Godot 4.4.1. Everything — aircraft, airport
 
 | Action | Keys |
 |---|---|
-| Pitch / roll | W S A D or arrow keys |
+| Thrust (move forward) | W / S |
+| Steer on the ground, roll | A / D |
+| Pitch / roll | arrow keys |
 | Rudder | Q / E |
-| Throttle | Shift / Ctrl (F1 idle, F4 full) |
+| Throttle (also) | Shift / Ctrl (F1 idle, F4 full) |
 | Flaps | F down, V up |
 | Gear / brakes / parking brake | G / B / P |
 | Spoilers / reverse | X / R |

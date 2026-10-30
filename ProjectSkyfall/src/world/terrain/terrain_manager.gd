@@ -50,7 +50,7 @@ func setup(world_view: Node) -> void:
 	building_density = float(Game.q("buildings"))
 	if Game.is_mobile:
 		uploads_per_frame = 2
-	if String(Game.settings.quality) == "low":
+	if String(Game.settings.quality) in ["low", "potato"]:
 		res = 24
 	material = ShaderMaterial.new()
 	material.shader = load("res://shaders/terrain.gdshader")
@@ -63,7 +63,7 @@ func setup(world_view: Node) -> void:
 	while roads.size() < 64:
 		roads.append(Vector4.ZERO)
 	material.set_shader_parameter("roads", roads)
-	material.set_shader_parameter("road_count", mini(Geo.highways().size(), 32) if String(Game.settings.quality) != "low" else 0)
+	material.set_shader_parameter("road_count", mini(Geo.highways().size(), 32) if not String(Game.settings.quality) in ["low", "potato"] else 0)
 	var aps: Array = []
 	for af in Geo.airports_flat.slice(0, 16):
 		aps.append(Vector4(af[0], af[1], af[3], 0))

@@ -207,8 +207,7 @@ func _process(delta: float) -> void:
 		return
 	var mv := move_input
 	if mv.length() < 0.05:
-		mv = Input.get_vector("roll_left", "roll_right", "pitch_up", "pitch_down")
-		mv.y = -mv.y
+		mv = Input.get_vector("move_left", "move_right", "move_back", "move_forward")
 	running = Input.is_action_pressed("walk_run") or mv.length() > 0.95
 	var look_v := Input.get_vector("look_left", "look_right", "look_down", "look_up")
 	if look_v.length() > 0.1:
