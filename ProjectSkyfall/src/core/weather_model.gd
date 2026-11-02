@@ -68,7 +68,7 @@ static func sample(x: float, z: float, t: float) -> Dictionary:
 			"cover": p.cover, "base_ft": p.base_ft + elev / U.FT, "wind_kt": p.wind,
 			"wind_dir": p.dir if override_dir < 0.0 else override_dir, "vis": p.vis,
 			"precip": p.precip, "turb": p.turb, "storm": p.storm,
-			"temp_c": season_temp_c(dt.doy) + p.temp_off - elev * 0.0065 + 4.0 * sin((hour - 9.0) / 24.0 * TAU),
+			"temp_c": season_temp_c(dt.doy) + p.temp_off - elev * 0.0065 + 4.0 * sin((hour - 9.0) / 24.0 * TAU) + Geo.temp_offset(x, z),
 		}
 		if override_preset == "crosswind":
 			w.gust_kt = w.wind_kt + 12.0
@@ -87,7 +87,7 @@ static func sample(x: float, z: float, t: float) -> Dictionary:
 		var cover := clampf(0.32 + storm * 0.55 + loc * 0.35 + mountain * 0.15, 0.0, 1.0)
 		var wind := 5.0 + maxf(storm, 0.0) * 22.0 + absf(loc) * 7.0 + mountain * 6.0 + coast * 3.0
 		var wdir := U.wrap_deg(255.0 + dirn * 140.0 + storm * 30.0)
-		var temp := season_temp_c(dt.doy) - elev * 0.0065 + 5.0 * sin((hour - 9.0) / 24.0 * TAU) - maxf(storm, 0.0) * 4.0
+		var temp := season_temp_c(dt.doy) - elev * 0.0065 + 5.0 * sin((hour - 9.0) / 24.0 * TAU) - maxf(storm, 0.0) * 4.0 + (Geo.temp_offset(x, z) if Geo.ready else 0.0)
 		var vis := 45000.0 - cover * 18000.0
 		var precip := "none"
 		if cover > 0.82 and storm > 0.25:

@@ -78,6 +78,8 @@ var _top: Control
 # ================================================================== setup
 ## opts: autoplay, closable, start, muted, captions, title
 func open(prog: Dictionary, opts: Dictionary = {}) -> void:
+	if not prog.is_empty():
+		Achievements.unlock("couch_pilot")
 	program = prog
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	theme = UIStyle.theme()

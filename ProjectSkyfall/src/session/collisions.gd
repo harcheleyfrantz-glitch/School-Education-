@@ -36,16 +36,22 @@ func _physics_process(delta: float) -> void:
 		return
 	_cooldown = maxf(_cooldown - delta, 0.0)
 	var alt_agl := float(ac.ra)
-	if alt_agl > 80.0:
-		return
 	var xf := ac.global_transform
 	var pts := []
 	for p in _probe:
 		pts.append([p[0], xf * (p[1] as Vector3)])
+	# other aircraft are solid at any height: on the ground, on approach and in the air
 	var hit := _hit_aircraft(pts)
 	if hit.is_empty():
+		if alt_agl > 600.0 or (alt_agl > 80.0 and (view.landmarks == null or view.landmarks.built.is_empty())):
+			return
 		hit = _hit_buildings(pts)
+	if hit.is_empty() and alt_agl < 600.0:
+		hit = _hit_landmarks(pts)
 	if hit.is_empty():
+		return
+	if hit.has("item"):
+		_hit_other(hit, alt_agl)
 		return
 	var speed := ac.fdm.vel.length()
 	if speed >= CRASH_SPEED:
@@ -70,13 +76,13 @@ func _hit_aircraft(pts: Array) -> Dictionary:
 	var tm = session.get("traffic") if session else null
 	if tm == null:
 		return {}
-	for list in [tm.parked, tm.moving]:
+	for list in [tm.parked, tm.moving, tm.sky_items()]:
 		for item in list:
 			var m = item.get("model")
 			if m == null or not is_instance_valid(m) or not (m as Node3D).is_visible_in_tree():
 				continue
 			var mx: Transform3D = (m as Node3D).global_transform
-			if mx.origin.distance_to(ac.global_position) > 90.0:
+			if mx.origin.distance_to(ac.global_position) > 130.0:
 				continue
 			var spec := AircraftTypes.get_type(String(item.get("type", "s320")))
 			var inv := mx.affine_inverse()
@@ -91,7 +97,63 @@ func _hit_aircraft(pts: Array) -> Dictionary:
 				var in_wing := absf(q.x) < b and absf(q.z - 1.5) < 3.0 and absf(q.y + fh * 0.3) < 1.2
 				if in_body or in_wing:
 					var who := "a parked %s" % String(spec.short) if String(item.get("phase", "")) == "parked" else "another aircraft (%s)" % String(item.get("callsign", spec.short))
-					return {"what": who, "part": String(p[0])}
+					return {"what": who, "part": String(p[0]), "item": item}
+	return {}
+
+
+func _hit_other(hit: Dictionary, alt_agl: float) -> void:
+	## Contact with another aircraft. A firm hit is an accident for both: in the air it is a
+	## mid-air collision and both airframes break up; on the ground the other aircraft may burn.
+	var tm = session.get("traffic")
+	var item: Dictionary = hit.item
+	var other_v: Vector3 = tm.item_velocity(item) if tm else Vector3.ZERO
+	var closing := (ac.fdm.vel - other_v).length()
+	var midair := alt_agl > 25.0 and String(item.get("phase", "")) != "parked"
+	var what := String(hit.what)
+	if closing < CRASH_SPEED and not midair:
+		_bump(hit)
+		return
+	var spec := AircraftTypes.get_type(String(item.get("type", "s320")))
+	var other := {"callsign": String(item.get("callsign", "")), "type": String(item.get("type", "")), "type_name": String(spec.get("name", "")),
+		"airline": String(item.get("airline", "")), "aboard": int(item.get("aboard", 0))}
+	if tm:
+		tm.npc_hit(item, ac.fdm.vel, closing, midair)
+	ac.set_meta("breakup", "mid-air collision" if midair else "collision")
+	var hint := ("mid-air collision with %s" % what) if midair else ("collided with %s" % what)
+	ac.call("_crash", {"cause_hint": hint, "collision": what, "hit_part": String(hit.part), "midair": midair, "other": other,
+		"slide": ac.fdm.vel.length() < 25.0 and not midair})
+
+
+func _bump(hit: Dictionary) -> void:
+	var speed := ac.fdm.vel.length()
+	ac.fdm.vel = -ac.fdm.vel.normalized() * 0.3 if speed > 0.05 else Vector3.ZERO
+	ac.sys.brake_input = 1.0
+	if _cooldown > 0.0:
+		return
+	_cooldown = 4.0
+	ac.throttle_lever = 0.0
+	var dmg: Dictionary = ac.damage
+	dmg[String(hit.part).replace(" ", "_")] = true
+	ac.set_meta("ground_collision", hit.what)
+	if session and session.has_signal("toast"):
+		session.toast.emit("Your %s struck %s. The aircraft is damaged - it needs an inspection before it can fly." % [hit.part, hit.what], "warning")
+
+
+func _hit_landmarks(pts: Array) -> Dictionary:
+	## Skyscrapers, towers and bridges of the real-world cities.
+	if view.landmarks == null:
+		return {}
+	var boxes := view.landmarks.boxes_near(ac.world_x(), ac.world_z(), 120.0)
+	if boxes.is_empty():
+		return {}
+	for p in pts:
+		var wp: Vector3 = p[1]
+		var w := Vector3(view.wx(wp), wp.y, view.wz(wp))
+		for bx in boxes:
+			var d: Vector3 = (w - (bx.c as Vector3)).abs()
+			var h: Vector3 = bx.h
+			if d.x < h.x and d.y < h.y and d.z < h.z:
+				return {"what": "the %s" % String(bx.name) if not String(bx.name).begins_with("Downtown") and not String(bx.name).ends_with("skyline") else "a skyscraper in %s" % String(bx.name).replace("Downtown ", "").replace(" skyline", ""), "part": String(p[0])}
 	return {}
 
 

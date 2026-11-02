@@ -257,55 +257,12 @@ static var _wreck_shader: Shader
 
 
 static func wreck_shader() -> Shader:
-	## The airframe paint shader, clipped to a fuselage section, open at the cut (dark inside),
-	## charred and glowing along the break. Derived at runtime so it tracks the paint shader.
-	if _wreck_shader != null:
-		return _wreck_shader
-	var src: String = (load("res://shaders/aircraft_paint.gdshader") as Shader).code
-	src = src.replace("render_mode cull_back;", "render_mode cull_disabled;")
-	src = src.replace("uniform float scorch = 0.0;", "uniform float scorch = 0.0;\nuniform vec2 keep_z = vec2(-1000.0, 1000.0);\nuniform float char_w = 1.8;\nuniform float embers = 0.0;")
-	src = src.replace("void fragment() {", "void fragment() {\n\tif (lpos.z < keep_z.x || lpos.z > keep_z.y) { discard; }\n\tfloat cut_d = min(lpos.z - keep_z.x, keep_z.y - lpos.z);\n\tfloat char_k = 1.0 - smoothstep(0.0, char_w, cut_d);\n\tbool inside = !FRONT_FACING;")
-	src = src.replace("\tALBEDO = col;", "\tcol = mix(col, vec3(0.035, 0.03, 0.025), char_k * 0.95);\n\tALBEDO = inside ? vec3(0.03, 0.026, 0.022) : col;")
-	src = src.replace("\tROUGHNESS = rough;", "\tROUGHNESS = inside ? 0.95 : rough;")
-	src = src.replace("\tMETALLIC = metal;", "\tMETALLIC = inside ? 0.0 : metal;")
-	src = src.replace("\tEMISSION = emit;", "\tEMISSION = (inside ? vec3(0.0) : emit) + vec3(1.0, 0.3, 0.05) * embers * (1.0 - smoothstep(0.0, inside ? 0.6 : 0.35, cut_d)) * 3.0;")
-	var sh := Shader.new()
-	sh.code = src
-	_wreck_shader = sh
-	return sh
+	return CrashDebris.wreck_shader()
 
 
 func _section(z0: float, z1: float, scorch: float, embers: float) -> AircraftModel:
-	var m := AircraftModel.new()
-	m.build(String(world.get("type", "s320")), String(world.get("airline", "SKF")), String(world.get("reg", "")), 1.0)
-	var src: ShaderMaterial = m.mat
-	var wm := ShaderMaterial.new()
-	wm.shader = wreck_shader()
-	for u in src.shader.get_shader_uniform_list():
-		var nm := String(u.name)
-		wm.set_shader_parameter(nm, src.get_shader_parameter(nm))
-	wm.set_shader_parameter("keep_z", Vector2(z0, z1))
-	wm.set_shader_parameter("scorch", scorch)
-	wm.set_shader_parameter("dirt", 0.6)
-	wm.set_shader_parameter("embers", embers)
-	wm.set_shader_parameter("cabin_lights", 0.0)
-	m.fuselage_mi.material_override = wm
-	m.airframe.material_override = wm
-	for g in m.gear:
-		(g.pivot as Node3D).visible = false
-	for ln in m.label_nodes:
-		var lz := float((ln as Node3D).position.z)
-		(ln as Node3D).visible = lz > z0 + 0.5 and lz < z1 - 0.5
-		if scorch > 0.5 and ln is Label3D:
-			(ln as Label3D).modulate = Color(0.25, 0.22, 0.2)
-	for k in m.lights.keys():
-		(m.lights[k] as Node3D).visible = false
-	for sl in m.landing_lights:
-		(sl as Node3D).visible = false
-	for pd in m.prop_discs:
-		if pd != null:
-			(pd as Node3D).visible = false
-	return m
+	return CrashDebris.section(String(world.get("type", "s320")), String(world.get("airline", "SKF")), String(world.get("reg", "")),
+		Vector2(z0, z1), Vector2(-1000.0, 1000.0), scorch, embers)
 
 
 func _place_section(m: AircraftModel, zc: float, at_w: Vector3, yaw_deg: float, pitch_deg: float, roll_deg: float, sink: float) -> void:
@@ -371,40 +328,23 @@ func _build_wreck() -> void:
 		_place_section(front, nose_z + L * b3 * 0.5, site_w, r.randf_range(-15, 15), -1.5, r.randf_range(-6, 6), 0.3)
 		var bw2 := site_w - Vector3(dir2.x, 0, dir2.y) * L * 0.55
 		_place_section(rear, nose_z + L * (b3 + 1.0) * 0.5, _wv(bw2.x, bw2.z), r.randf_range(-20, 20), 2.0, r.randf_range(-8, 8), 0.2)
-	# debris field along the slide path and fanning ahead of the main wreckage
-	var lc := Airlines.livery_colors(String(world.get("airline", "SKF")))
-	var body_c: Color = lc.get("body", Color(0.9, 0.9, 0.92))
-	var acc_c: Color = lc.get("tail", Color(0.2, 0.3, 0.6))
+	# debris field along the slide path and fanning ahead of the main wreckage: skin panels,
+	# seats, luggage, engines, wheels and wing fragments (and, with graphic scenes on, remains)
 	var mb := MeshBuilder.new()
-	var n := int(60 + sev * 140)
-	for i in n:
-		var along := r.randf_range(-trail - 30.0, 160.0 * sev + 40.0)
-		var spread := (12.0 + absf(along) * 0.25) * r.randf_range(-1.0, 1.0)
+	var n := int(70 + sev * 170)
+	var opts := CrashDebris.opts_for(spec, String(world.get("airline", "SKF")), scorch, sev)
+	opts.victims = int(world.get("fatal", 0))
+	opts.tail = sev < 0.88
+	var place := func(_i: int, rr: RandomNumberGenerator) -> Vector3:
+		var along := rr.randf_range(-trail - 30.0, 160.0 * sev + 40.0)
+		var spread := (12.0 + absf(along) * 0.25) * rr.randf_range(-1.0, 1.0)
 		var px := site_w.x + dir2.x * along + side2.x * spread
 		var pz := site_w.z + dir2.y * along + side2.y * spread
-		var gy := Geo.ground_height(px, pz)
-		var big := r.randf() < 0.12
-		var sz := Vector3(r.randf_range(0.3, 2.4), r.randf_range(0.05, 0.6), r.randf_range(0.3, 3.0)) * (2.2 if big else 1.0)
-		var b2b := Basis.from_euler(Vector3(r.randf_range(-0.7, 0.7), r.randf() * TAU, r.randf_range(-0.7, 0.7)))
-		var col := body_c if r.randf() < 0.6 else (acc_c if r.randf() < 0.5 else Color(0.25, 0.25, 0.27))
-		col = col.darkened(r.randf_range(0.0, 0.75) * scorch)
-		mb.add_rounded_box(_local(Vector3(px, gy + sz.y * 0.3, pz)), sz, col, 0.12, 6, 4, b2b)
-		if r.randf() < 0.05:
-			# an engine nacelle or a wheel
-			var ep := _local(Vector3(px, gy + 1.0, pz))
-			var ed := Vector3(r.randf_range(-1, 1), r.randf_range(-0.2, 0.2), r.randf_range(-1, 1)).normalized()
-			mb.add_cylinder(ep - ed * 1.8, ep + ed * 1.8, 1.0, 0.85, 14, Color(0.3, 0.3, 0.32).darkened(scorch * 0.5))
-		elif r.randf() < 0.08:
-			var cp := _local(Vector3(px, gy + 0.35, pz))
-			mb.add_box(cp, Vector3(0.7, 0.45, 0.5), [Color(0.1, 0.12, 0.3), Color(0.5, 0.1, 0.1), Color(0.15, 0.15, 0.15), Color(0.6, 0.45, 0.2)][r.randi() % 4])
-	var dm := StandardMaterial3D.new()
-	dm.vertex_color_use_as_albedo = true
-	dm.vertex_color_is_srgb = true
-	dm.roughness = 0.6
-	dm.metallic = 0.3
+		return _local(Vector3(px, Geo.ground_height(px, pz) + 0.05, pz))
+	CrashDebris.scatter(mb, r, place, n, opts)
 	var debris := MeshInstance3D.new()
 	debris.mesh = mb.commit()
-	debris.material_override = dm
+	debris.material_override = CrashDebris.material()
 	wreck.add_child(debris)
 	# ground scar from first impact to the wreckage, and scorched earth around the fires
 	var mid_w := (impact_w + site_w) * 0.5
@@ -904,9 +844,10 @@ func _build_airport_scene() -> void:
 		parked.animate_simple(1.0, 0.0, 0.0, {"nav": true, "beacon": false}, view.night, 0.0)
 		var to_t := (terminal_look - terminal_w)
 		var yaw := atan2(to_t.x, to_t.z)
-		_person(0, _local(terminal_w), yaw + PI, "talk", Crowd.Outfit.CIVIL, 30001, 0, Color(0.12, 0.2, 0.35))
+		# both face out onto the apron, toward the camera, with the terminal behind them
+		_person(0, _local(terminal_w), yaw, "talk", Crowd.Outfit.CIVIL, 30001, 0, Color(0.12, 0.2, 0.35))
 		_site_people[0] = "reporter"
-		_person(1, _local(terminal_w + Vector3(n.x, 0, n.y) * -1.0 + Vector3(-n.y, 0, n.x) * 6.0), yaw + PI + 0.5, "talk", Crowd.Outfit.CIVIL, 40000 + r.randi() % 9000, Crowd.FLAG_BAG)
+		_person(1, _local(terminal_w + Vector3(n.x, 0, n.y) * -1.0 + Vector3(-n.y, 0, n.x) * 6.0), yaw + 0.5, "talk", Crowd.Outfit.CIVIL, 40000 + r.randi() % 9000, Crowd.FLAG_BAG)
 		_site_people[1] = "interviewee"
 		for k in 10:
 			var wp := terminal_w + Vector3(r.randf_range(-25, 25), 0, r.randf_range(-8, 8))
@@ -1195,6 +1136,29 @@ func _camera(seg: Dictionary, shot: Dictionary, lt: float, st: float, sample_t: 
 				_look(hold, hold + fwd + side + Vector3(0, fwd.length() * 0.06, 0), 64.0)
 			else:
 				_look(hold, aim2, lerpf(cam.fov, zoom, 0.15) if delta > 0.0 else zoom)
+		"debris_walk", "debris_close", "wreck_close":
+			# on foot inside the debris field: walking toward the main wreckage, looking down at
+			# what lies in the grass; or standing close to the wreck itself
+			var fwd2 := Vector3(dir2.x, 0, dir2.y)
+			var lat2 := Vector3(side2.x, 0, side2.y)
+			var pos_w := site_w
+			var look_w := site_w
+			if c == "debris_walk":
+				var along := lerpf(95.0, 20.0, clampf(lt / maxf(float(seg.t1) - float(seg.t0), 1.0), 0.0, 1.0))
+				pos_w = site_w + fwd2 * along + lat2 * (9.0 + sin(lt * 0.25) * 4.0)
+				look_w = pos_w - fwd2 * 9.0 - lat2 * 2.5
+				shake = handheld(lt, 1.3, 4.0) + Vector2(sin(lt * 8.5) * 0.9, absf(cos(lt * 8.5)) * 0.7)
+			elif c == "debris_close":
+				pos_w = site_w + fwd2 * 48.0 + lat2 * (5.0 + lt * 0.4)
+				look_w = pos_w - fwd2 * 3.5 + lat2 * 1.0
+				shake = handheld(lt, 1.6, 3.0)
+			else:
+				pos_w = site_w + fwd2 * (L * 0.5 + 14.0) + lat2 * 12.0
+				look_w = site_w
+				shake = handheld(lt, 1.1, 3.5)
+			var eye_l := _local(_wv(pos_w.x, pos_w.z, 1.62))
+			var aim_l := _local(_wv(look_w.x, look_w.z, 0.2 if c != "wreck_close" else 3.0))
+			_look(eye_l, aim_l, 58.0 if c != "debris_close" else 50.0)
 		"heli_wide", "heli_close", "heli_orbit", "site_orbit", "site_high", "impact_site":
 			var yaw3 := deg_to_rad(40.0 + (lt + float(seg.t0) * 3.0) * (2.2 if c == "heli_orbit" else 1.0))
 			var rad2: float = {"heli_wide": 950.0, "heli_close": 820.0, "heli_orbit": 760.0, "site_orbit": 420.0, "site_high": 650.0, "impact_site": 260.0}[c]
@@ -1267,7 +1231,7 @@ func _terminal_shot(c: String, lt: float, f: float) -> void:
 			if String(_site_people[k]) == "interviewee":
 				var o := int(k) * Crowd.STRIDE
 				ip = people.to_global(Vector3(people.buf[o + 3], people.buf[o + 7], people.buf[o + 11])) + Vector3(0, 1.58, 0)
-		_look(ip + away * 2.3 + Vector3(away.z, 0, -away.x) * 0.6, ip, 26.0)
+		_look(ip + away * 2.3 + Vector3(away.z, 0, -away.x) * 0.6 - Vector3(0, 0.2, 0), ip - Vector3(0, 0.38, 0), 26.0)
 		_dof(true, 2.3, 0.08)
 	else:
 		var d := 3.4 if c == "standup" else 8.0

@@ -681,6 +681,9 @@ func _crash(extra: Dictionary) -> void:
 
 
 func _wreck_update(delta: float) -> void:
+	if has_meta("falling"):
+		_fall_update(delta)
+		return
 	# after impact the wreckage slides to a stop
 	var v := fdm.vel
 	v.y = 0.0
@@ -694,6 +697,35 @@ func _wreck_update(delta: float) -> void:
 	_sync_transform()
 	if model:
 		model.animate(self, delta)
+
+
+func _fall_update(delta: float) -> void:
+	## A broken airframe falling out of the sky after a mid-air collision or in-flight breakup:
+	## ballistic with air drag, tumbling, until it hits the ground or the sea.
+	var v := fdm.vel
+	v.y -= 9.81 * delta
+	v -= v * minf(float(get_meta("fall_drag", 0.0025)) * v.length() * delta, 0.9)
+	fdm.vel = v
+	fdm.pos += v * delta
+	var tumble: Vector3 = get_meta("tumble", Vector3.ZERO)
+	if tumble.length_squared() > 1e-6:
+		fdm.basis = (Basis(tumble.normalized(), tumble.length() * delta) * fdm.basis).orthonormalized()
+	var gy := Geo.ground_height(world_x(), world_z())
+	var rest := float(spec.fuse_h) * 0.4
+	if fdm.pos.y <= gy + rest:
+		remove_meta("falling")
+		set_meta("fall_impact", {"speed": v.length(), "vs": -v.y, "water": Geo.is_water(world_x(), world_z())})
+		ground_elev = gy
+		fdm.pos.y = gy + rest
+		surface = "water" if Geo.is_water(world_x(), world_z()) else surface
+		var fwd := -fdm.basis.z
+		fwd.y = 0.0
+		if fwd.length_squared() < 1e-4:
+			fwd = Vector3.FORWARD
+		var roll := deg_to_rad(randf_range(-40.0, 40.0)) if randf() < 0.7 else PI * 0.9
+		fdm.basis = Basis.looking_at(fwd.normalized(), Vector3.UP) * Basis(Vector3(0, 0, -1), roll) * Basis(Vector3.RIGHT, deg_to_rad(-6.0))
+		fdm.vel = Vector3(v.x, 0.0, v.z) * 0.2
+	_sync_transform()
 
 
 # ---------------------------------------------------------------- helpers for UI

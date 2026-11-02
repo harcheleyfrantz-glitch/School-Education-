@@ -1,7 +1,7 @@
 extends Node
 ## Pilot flight from the runway with auto-fly on: takeoff, skip ahead, approach and landing.
 ## With a crash target the aircraft is flown into it instead.
-## Usage: -- [route|city|terminal|sea|mountain|ahead] [type]
+## Usage: -- [route|city|terminal|sea|mountain|ahead] [type] [dep] [arr]
 
 var s: FlightSession
 var done := false
@@ -10,6 +10,8 @@ func _ready() -> void:
 	var a := OS.get_cmdline_user_args()
 	var target := a[0] if a.size() > 0 else "route"
 	var type_id := a[1] if a.size() > 1 else "s320"
+	var dep := a[2] if a.size() > 2 else "SKPC"
+	var arr := a[3] if a.size() > 3 else "SKRV"
 	Game.settings.tts = false
 	Game.settings.quality = "potato"
 	Game.new_character({"first": "Maya", "last": "Okafor", "name": "Maya Okafor", "gender": "f", "age": 31, "path": "regional_fo"})
@@ -17,7 +19,7 @@ func _ready() -> void:
 	add_child(s)
 	s.toast.connect(func(tx, _k): print("  [toast] ", tx))
 	s.finished.connect(func(res): print("FINISHED outcome=%s" % res.get("outcome", "?")); done = true)
-	s.start({"mode": "pilot", "type": type_id, "airline": "SKF", "reg": "CR-AFT", "dep": "SKPC", "arr": "SKRV", "callsign": "Skyfall 12",
+	s.start({"mode": "pilot", "type": type_id, "airline": "SKF", "reg": "CR-AFT", "dep": dep, "arr": arr, "callsign": "Skyfall 12",
 		"flight_id": "AF-1", "start": "runway", "clock": U.date_to_clock(2027, 6, 14, 12.0)})
 	await s.view.warm_up(5.0)
 	s.set_autofly(true)

@@ -91,6 +91,7 @@ func _pick(r: RandomNumberGenerator, arr: Array) -> String:
 
 # ================================================================== flights finished by the player
 func on_flight_result(res: Dictionary, cons: Dictionary) -> void:
+	Achievements.on_flight_result(res, cons)
 	var outcome := String(res.get("outcome", ""))
 	_store_replay(res)
 	if outcome in ["crashed", "ditched"]:
@@ -188,7 +189,21 @@ func _accident(res: Dictionary, cons: Dictionary) -> void:
 	var r := U.rng(U.hash_str(String(inc.id)))
 	var video := {"type": "reconstruction", "incident": inc.id}
 	var verb := "ditches" if ditch else ("crashes" if fatal > 0 or float(af.get("severity", 0.5)) > 0.4 else "crash-lands")
-	var a1 := publish("skyline", "breaking", "BREAKING: %s flight %s %s %s" % [d.airline, d.num, verb, place],
+	inc["midair"] = bool(crash.get("midair", false))
+	inc["other"] = crash.get("other", {})
+	if bool(inc.midair):
+		# a mid-air collision: two aircraft, two airlines, one story
+		var oth: Dictionary = inc.other
+		var oal := Airlines.get_al(String(oth.get("airline", "")))
+		var oname := String(oal.get("name", "another airline"))
+		publish("skyline", "breaking", "BREAKING: Mid-air collision %s - %s flight %s and a %s jet collide" % [place, d.airline, d.num, oname],
+			"Two airliners have collided in the air %s. Wreckage from both aircraft has fallen across a wide area." % place,
+			["The %s flight %s was operating from %s to %s." % [d.airline, d.num, d.from, d.to],
+			"The second aircraft, %s, a %s, broke up after the impact." % [String(oth.get("callsign", "")), String(oth.get("type_name", "jet"))],
+			"Witnesses on the ground describe a flash, a double bang and burning pieces falling from the sky.",
+			"Investigators from both airlines' home countries are on their way to the scene."],
+			{"importance": 3, "video": video, "incident": inc.id, "place": place, "tags": ["accident", d.code, "midair"]})
+	var a1 := publish("skyline", "breaking", "BREAKING: %s flight %s %s %s" % [d.airline, d.num, "collides with another aircraft and crashes" if bool(inc.midair) else verb, place],
 		"A %s operated by %s with %d people on board has %s %s. Emergency services are on the scene." % [d.type, d.airline, aboard,
 			"come down in the water" if ditch else "crashed", place],
 		["The flight was operating from %s to %s." % [d.from, d.to],
@@ -197,6 +212,7 @@ func _accident(res: Dictionary, cons: Dictionary) -> void:
 		{"importance": 3, "video": video, "incident": inc.id, "place": place, "tags": ["accident", d.code]})
 	var sid := _id("S")
 	stories.append({"id": sid, "kind": "accident", "incident": inc.id, "stage": 0, "next_t": WorldSim.clock + 4.0 * 3600.0})
+	stories.append({"id": _id("S"), "kind": "debate", "incident": inc.id, "story": sid, "stage": 0, "next_t": WorldSim.clock + 30.0 * 3600.0})
 	a1.story = sid
 	# the first wave on social media
 	for i in 5 + mini(aboard / 20, 8):
@@ -263,6 +279,16 @@ func _phone_footage(inc: Dictionary, r: RandomNumberGenerator, d: Dictionary, pl
 		clips.append(clip2)
 		post({"name": biz, "handle": clip2.author, "verified": true}, "Our security camera recorded the moment flight %s came down. We have passed the footage to the police and the Transport Safety Board. Our thoughts are with everyone affected." % d.num,
 			{"story": sid, "importance": 3, "clip": clip2, "t": WorldSim.clock + 5400.0})
+	# someone got past the cordon and filmed the wreckage up close. Posted for every fatal
+	# crash, shown only to players who switched on graphic crash scenes (18+).
+	if int(inc.counts.get("fatal", 0)) > 0 and not ditch:
+		var who2 := _citizen(r)
+		var clip3 := {"type": "uncensored", "incident": inc.id, "author": who2.handle, "name": who2.name, "person": int(who2.get("id", -1)),
+			"seed": r.randi() % 1000000 + 1, "variant": "walk", "views": int(3800000 * r.randf_range(0.5, 2.2)), "mature": true}
+		post(who2, _pick(r, ["UNCENSORED - 18+. I got past the cordon at the %s crash site before the police closed it. You can see everything. Graphic. #%s",
+			"18+ WARNING. Raw footage from inside the debris field near %s. I can't stop shaking. #%s",
+			"Graphic, 18+ only. This is what the %s crash site really looks like. The news won't show you this. #%s"]) % [noun, d.num],
+			{"story": sid, "importance": 2, "clip": clip3, "t": WorldSim.clock + 3.0 * 3600.0, "mature": true})
 	if urban >= 0.3:
 		post({"name": "%s Fire & Rescue" % noun, "handle": "@%sfire" % noun.to_lower().replace(" ", ""), "verified": true},
 			"Crews are fighting fires in several buildings struck by the aircraft. Aerial ladders in use. Please avoid the area and keep the roads clear for emergency vehicles.",
@@ -274,6 +300,40 @@ func _phone_footage(inc: Dictionary, r: RandomNumberGenerator, d: Dictionary, pl
 	inc["clips"] = clips
 	# the person behind the most-watched clip speaks to the press later that day
 	stories.append({"id": _id("S"), "kind": "witness", "incident": inc.id, "stage": 0, "next_t": WorldSim.clock + 7.0 * 3600.0})
+
+
+func _spotter_vlog(day: int, r: RandomNumberGenerator) -> void:
+	## A plane spotter uploads a landing they filmed from the fence.
+	var code: String = Airlines.ORDER[r.randi() % Airlines.ORDER.size()]
+	var al := Airlines.get_al(code)
+	if String(al.get("kind", "")) in ["school", "charter"]:
+		return
+	var types: Array = al.get("fleet", {"s320": 1}).keys()
+	var type_id := String(types[r.randi() % types.size()])
+	var hubs: Array = al.get("hubs", ["SKPC"])
+	var icao := String(hubs[r.randi() % hubs.size()])
+	var who := _citizen(r)
+	var clip := {"type": "vlog", "airport": icao, "airline": code, "type_id": type_id, "author": who.handle, "name": who.name,
+		"person": int(who.get("id", 0)), "seed": r.randi() % 100000, "views": int(r.randf_range(2000.0, 260000.0))}
+	var tpl := AircraftTypes.get_type(type_id)
+	var apn := String(Airports.get_ap(icao).get("short", icao))
+	var text := _pick(r, ["New video! %s %s landing at %s. That flare though." % [String(al.name), String(tpl.short), apn],
+		"Spent the afternoon at the %s fence. Caught the %s %s! Full video up now." % [apn, String(al.name), String(tpl.name)],
+		"%s arrivals in perfect light. The %s never gets old." % [apn, String(tpl.short)]])
+	post(who, text, {"t": float(day) * 86400.0 + r.randf_range(9.0, 20.0) * 3600.0, "importance": 1, "clip": clip})
+
+
+func _debate_story(s: Dictionary) -> void:
+	stories.erase(s)
+	var inc := _find_incident(String(s.incident))
+	if inc.is_empty():
+		return
+	var al := Airlines.get_al(String(inc.airline))
+	publish("skyline", "news", "Is flying still safe? Experts debate the %s crash" % String(al.get("name", "")),
+		"An aviation analyst and a passenger campaigner clashed live in the studio over the loss of flight %s." % String(inc.get("num", "")),
+		["Investigators have urged the public not to speculate.", "Campaigners are calling for a public inquiry."],
+		{"t": float(s.next_t), "story": String(s.get("story", "")), "importance": 2, "incident": inc.id, "place": String(inc.get("place", "")),
+			"video": {"type": "debate", "incident": inc.id}, "tags": ["accident", "debate"]})
 
 
 func _witness_story(s: Dictionary) -> void:
@@ -389,6 +449,9 @@ func _find_incident(id: String) -> Dictionary:
 func _advance_story(s: Dictionary) -> void:
 	if String(s.kind) == "witness":
 		_witness_story(s)
+		return
+	if String(s.kind) == "debate":
+		_debate_story(s)
 		return
 	if String(s.kind) != "accident":
 		stories.erase(s)
@@ -575,6 +638,8 @@ func _daily(day: int) -> void:
 			break
 	if r.randf() < 0.65:
 		_daily_story(day, r)
+	if r.randf() < 0.45:
+		_spotter_vlog(day, r)
 	if day % 7 == 0:
 		var week := latest(40).filter(func(a): return float(a.t) > float(day - 7) * 86400.0 and String(a.get("kind", "")) != "roundup")
 		if week.size() >= 3:
@@ -806,6 +871,8 @@ func feed(count: int = 40, story: String = "") -> Array:
 	for i in range(posts.size() - 1, -1, -1):
 		var p: Dictionary = posts[i]
 		if float(p.t) > WorldSim.clock + 60.0:
+			continue
+		if bool(p.get("mature", false)) and not CrashDebris.graphic_enabled():
 			continue
 		if story == "" or String(p.story) == story:
 			out.append(p)

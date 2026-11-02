@@ -9,17 +9,7 @@ static var _cache := {}
 static func macro_height(x: float, z: float) -> float:
 	if Geo.macro.is_empty():
 		return 10.0
-	var fi := (x + Geo.MAP_HALF) / Geo.CELL - 0.5
-	var fj := (z + Geo.MAP_HALF) / Geo.CELL - 0.5
-	var i0 := clampi(int(floor(fi)), 0, Geo.GRID - 2)
-	var j0 := clampi(int(floor(fj)), 0, Geo.GRID - 2)
-	var u := clampf(fi - i0, 0.0, 1.0)
-	var v := clampf(fj - j0, 0.0, 1.0)
-	var a := Geo.macro[j0 * Geo.GRID + i0]
-	var b := Geo.macro[j0 * Geo.GRID + i0 + 1]
-	var c := Geo.macro[(j0 + 1) * Geo.GRID + i0]
-	var d := Geo.macro[(j0 + 1) * Geo.GRID + i0 + 1]
-	return lerpf(lerpf(a, b, u), lerpf(c, d, u), v)
+	return Geo.macro_bilinear(x, z)
 
 
 ## Map image centred on a world position (x, z), half_m metres to each side.

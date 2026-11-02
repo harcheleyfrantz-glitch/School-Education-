@@ -44,6 +44,11 @@ var settings := {
 	"show_fps": false,
 	"crash_realism": true,
 	"hud_mode": "full",            # full | minimal | off
+	"graphic_crashes": false,      # 18+: stylised remains at crash sites and uncensored news footage
+	"ai_comments": false,          # Claude-written comment sections (needs the player's own API key)
+	"ai_key": "",                  # Anthropic API key, kept only in the local settings file
+	"ai_model": "claude-opus-5-5",
+	"achievements": {},            # unlocked goals and their progress counters
 }
 
 var is_mobile := false

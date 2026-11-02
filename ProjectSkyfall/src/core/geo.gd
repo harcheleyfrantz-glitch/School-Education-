@@ -11,6 +11,7 @@ const SEA_LEVEL := 0.0
 
 static var ready := false
 static var macro := PackedFloat32Array()
+static var macro_world := PackedFloat32Array()   # the real-world region's grid (RealWorld.GRID_*)
 static var airports_flat := []      # [x, z, elev, r_in, r_out]
 static var cities := []             # {x, z, r, tall, name, icao}
 static var lakes := []              # {x, z, rx, rz, level}
@@ -19,6 +20,14 @@ static var river_grid := {}         # Vector2i -> Array of [river, seg]
 static var runway_rects := []       # {cx, cz, dx, dz, half_len, half_wid, elev, icao, surface}
 static var corridors := []          # approach/departure valleys: [thr_x, thr_z, out_x, out_z, elev]
 static var main_sampler: Sampler = null
+static var parks := []              # {x, z, hw, hd}: no buildings
+# spatial buckets so terrain samples only test the airports, corridors and cities nearby
+const BUCKET := 40000.0
+static var bucket_corr := {}
+static var bucket_ap := {}
+static var bucket_city := {}
+static var bucket_lake := {}
+const NONE := []
 static var snowline := 2700.0       # metres; set from the season by WorldSim
 
 # ------------------------------------------------------------------ shape definition (km)
@@ -82,10 +91,150 @@ static func init_world() -> void:
 	if not _load_cache():
 		_bake_macro()
 		_save_cache()
+	macro_world = _load_grid("geo_world_v%d.bin" % WORLD_VERSION, RealWorld.GRID_NX * RealWorld.GRID_NZ)
+	if macro_world.is_empty():
+		macro_world = bake_world()
+		_save_grid("user://geo_world_v%d.bin" % WORLD_VERSION, macro_world)
+	parks = RealWorld.PARKS.duplicate(true)
 	main_sampler = Sampler.new()
 	_build_lakes()
 	_build_rivers()
+	_build_buckets()
 	ready = true
+
+
+const WORLD_VERSION := 1
+
+
+static func _load_grid(name: String, count: int) -> PackedFloat32Array:
+	## Shipped bake first (res://data), then the player's own cache.
+	for path in ["res://data/" + name, "user://" + name]:
+		if not FileAccess.file_exists(path):
+			continue
+		var f := FileAccess.open(path, FileAccess.READ)
+		if f == null:
+			continue
+		var data := f.get_buffer(count * 4)
+		f.close()
+		if data.size() == count * 4:
+			return data.to_float32_array()
+	return PackedFloat32Array()
+
+
+static func _save_grid(path: String, data: PackedFloat32Array) -> void:
+	var f := FileAccess.open(path, FileAccess.WRITE)
+	if f:
+		f.store_buffer(data.to_byte_array())
+		f.close()
+
+
+static func bake_world() -> PackedFloat32Array:
+	## The real-world region: continents and islands from RealWorld, faded to ocean at the edges.
+	var out := PackedFloat32Array()
+	var nx: int = RealWorld.GRID_NX
+	var nz: int = RealWorld.GRID_NZ
+	out.resize(nx * nz)
+	var info := _poly_info(RealWorld.POLYS)
+	var cell_km: float = RealWorld.CELL / 1000.0
+	var x0: float = RealWorld.GRID_X0 / 1000.0
+	var z0: float = RealWorld.GRID_Z0 / 1000.0
+	for j in nz:
+		for i in nx:
+			var p := Vector2(x0 + (i + 0.5) * cell_km, z0 + (j + 0.5) * cell_km)
+			var h := _macro_fast(p, info, RealWorld.ISLANDS, RealWorld.RISES, RealWorld.RANGES)
+			# the region ends in open ocean rather than a cliff
+			var edge := minf(minf(float(i), float(nx - 1 - i)), minf(float(j), float(nz - 1 - j))) * cell_km
+			if edge < 56.0:
+				h = lerpf(-900.0, h, U.smooth01((edge - 8.0) / 48.0))
+			out[j * nx + i] = h
+	return out
+
+
+static func _poly_info(polys: Array) -> Array:
+	var out := []
+	for poly in polys:
+		var mn := Vector2(INF, INF)
+		var mx := Vector2(-INF, -INF)
+		for q in poly:
+			mn = mn.min(q)
+			mx = mx.max(q)
+		out.append({"pts": poly, "mn": mn, "mx": mx})
+	return out
+
+
+static func _macro_fast(p: Vector2, info: Array, islands: Array, rises: Array, ranges: Array) -> float:
+	## Same shape function as _macro_at_km, skipping coastline segments too far away to matter
+	## (every term saturates by 60 km from the coast).
+	var inside := false
+	var dcoast := INF
+	for pi in info:
+		var mn: Vector2 = pi.mn
+		var mx: Vector2 = pi.mx
+		if p.x < mn.x - 60.0 or p.x > mx.x + 60.0 or p.y < mn.y - 60.0 or p.y > mx.y + 60.0:
+			continue
+		var poly: Array = pi.pts
+		if p.x >= mn.x and p.x <= mx.x and p.y >= mn.y and p.y <= mx.y and _point_in_poly(p, poly):
+			inside = true
+		var n := poly.size()
+		for k in n:
+			var a: Vector2 = poly[k]
+			var b: Vector2 = poly[(k + 1) % n]
+			if minf(a.x, b.x) - p.x > 60.0 or p.x - maxf(a.x, b.x) > 60.0 or minf(a.y, b.y) - p.y > 60.0 or p.y - maxf(a.y, b.y) > 60.0:
+				continue
+			dcoast = minf(dcoast, _dist_seg(p, a, b))
+	for isl in islands:
+		var c: Vector2 = isl[0]
+		var rr: Vector2 = isl[1]
+		if absf(p.x - c.x) > rr.x + 60.0 or absf(p.y - c.y) > rr.y + 60.0:
+			continue
+		var q := (p - c) / rr
+		var l := q.length()
+		if l < 1.0:
+			inside = true
+		dcoast = minf(dcoast, absf((l - 1.0) * minf(rr.x, rr.y)))
+	if not inside:
+		return -30.0 - 870.0 * U.smooth01(dcoast / 60.0)
+	var h := 6.0 + 54.0 * U.smooth01(dcoast / 25.0)
+	for rise in rises:
+		var q2: Vector2 = (p - rise[0]) / rise[1]
+		var t := q2.length()
+		if t < 1.0:
+			h += float(rise[2]) * (1.0 - U.smooth01(t)) * U.smooth01(dcoast / 12.0)
+	for rg in ranges:
+		var d := _dist_seg(p, rg[0], rg[1])
+		var t2 := d / float(rg[2])
+		if t2 < 1.0:
+			h += float(rg[3]) * (1.0 - U.smooth01(t2)) * U.smooth01(dcoast / 20.0)
+	return h
+
+
+static func _bkey(x: float, z: float) -> Vector2i:
+	return Vector2i(int(floor(x / BUCKET)), int(floor(z / BUCKET)))
+
+
+static func _bucket_add(d: Dictionary, x: float, z: float, r: float, item) -> void:
+	for gx in range(int(floor((x - r) / BUCKET)), int(floor((x + r) / BUCKET)) + 1):
+		for gz in range(int(floor((z - r) / BUCKET)), int(floor((z + r) / BUCKET)) + 1):
+			var k := Vector2i(gx, gz)
+			if not d.has(k):
+				d[k] = []
+			d[k].append(item)
+
+
+static func _build_buckets() -> void:
+	bucket_corr.clear()
+	bucket_ap.clear()
+	bucket_city.clear()
+	bucket_lake.clear()
+	for c in corridors:
+		# influence reaches ~24 km out along the approach and ~20 km to the sides
+		_bucket_add(bucket_corr, c[0] + c[2] * 11000.0, c[1] + c[3] * 11000.0, 34000.0, c)
+	for ap in airports_flat:
+		_bucket_add(bucket_ap, ap[0], ap[1], float(ap[4]) + 1600.0, ap)
+	for ct in cities:
+		_bucket_add(bucket_city, ct.x, ct.z, float(ct.r) * 1.8, ct)
+	for lk in lakes:
+		_bucket_add(bucket_lake, lk.x, lk.z, maxf(float(lk.rx), float(lk.rz)) * 1.7, lk)
 
 
 static func _build_airports() -> void:
@@ -101,7 +250,7 @@ static func _build_airports() -> void:
 		airports_flat.append([float(a.x), float(a.z), float(a.elev), r_in, r_in + 2600.0])
 		var ci: Dictionary = a.city_info
 		cities.append({"x": a.x + ci.dx, "z": a.z + ci.dz, "r": float(ci.radius), "tall": float(ci.tall),
-			"name": a.city, "icao": icao, "pop": int(ci.pop), "coastal": bool(ci.coastal)})
+			"name": a.city, "icao": icao, "pop": int(ci.pop), "coastal": bool(ci.coastal), "country": String(a.get("country", ""))})
 		for e in Airports.runway_ends(icao):
 			if e.surface != "asphalt":
 				continue
@@ -216,15 +365,23 @@ static func _dist_seg(p: Vector2, a: Vector2, b: Vector2) -> float:
 static func _build_lakes() -> void:
 	# Lake surfaces sit just below the lowest point of their shoreline so water never floats.
 	lakes = []
-	for lk in LAKES:
+	for lk in LAKES + RealWorld.LAKES:
 		var l: Dictionary = lk.duplicate(true)
+		if float(l.level) <= 0.0:
+			# a sea bay: always at sea level, joined to the ocean around it
+			l.level = -1.0
+			lakes.append(l)
+			continue
 		var lowest := INF
 		for i in 36:
 			var ang := TAU * i / 36.0
 			var sx: float = l.x + cos(ang) * l.rx * 1.25
 			var sz: float = l.z + sin(ang) * l.rz * 1.25
-			lowest = minf(lowest, main_sampler.base_height(sx, sz, false))
-		l.level = minf(float(l.level), lowest - 2.0)
+			var hs := main_sampler.base_height(sx, sz, false)
+			if hs > 0.5:
+				lowest = minf(lowest, hs)
+		# a lake whose shore dips into the sea becomes sea level instead of a pit below it
+		l.level = maxf(minf(float(l.level), lowest - 2.0), -1.0)
 		lakes.append(l)
 
 
@@ -232,7 +389,7 @@ static func _build_rivers() -> void:
 	rivers.clear()
 	river_grid.clear()
 	var ri := 0
-	for rd in RIVERS:
+	for rd in RIVERS + RealWorld.RIVERS:
 		var pts := PackedVector2Array()
 		for p in rd.pts:
 			pts.append(Vector2(p.x * 1000.0, p.y * 1000.0))
@@ -261,6 +418,9 @@ static func _build_rivers() -> void:
 			levels[i] = maxf(minf(levels[i], target), -1.5) if i < n - 1 else -1.5
 		for i in range(1, n):
 			levels[i] = minf(levels[i], levels[i - 1])
+		if bool(rd.get("sea", false)):
+			for i in n:
+				levels[i] = -1.5
 		rivers.append({"name": rd.name, "pts": dense, "levels": levels, "width": float(rd.w)})
 		for s in dense.size() - 1:
 			var a2 := dense[s]
@@ -295,7 +455,7 @@ static func ground_height(x: float, z: float) -> float:
 
 
 static func water_level(x: float, z: float) -> float:
-	for lk in lakes:
+	for lk in bucket_lake.get(_bkey(x, z), lakes if bucket_lake.is_empty() else NONE):
 		var q := Vector2((x - lk.x) / lk.rx, (z - lk.z) / lk.rz)
 		if q.length_squared() < 1.3:
 			return float(lk.level)
@@ -368,6 +528,14 @@ static func highways() -> Array:
 				continue
 			seen[key] = true
 			var b: Dictionary = cities[j2]
+			var wet := false
+			for k2 in 15:
+				var f := float(k2 + 1) / 16.0
+				if is_water(lerpf(a.x, b.x, f), lerpf(a.z, b.z, f)):
+					wet = true
+					break
+			if wet:
+				continue
 			_highways.append([float(a.x), float(a.z), float(b.x), float(b.z), float(U.hash_str(key) % 1000) / 1000.0 * 6.28])
 	return _highways
 
@@ -426,6 +594,11 @@ static func place_name(x: float, z: float) -> String:
 		var dn: String = dirs[int(round(brg / 45.0)) % 8]
 		var where := "in the sea " if on_water else ""
 		return "%s%d km %s of %s" % [where, int(round(d / 1000.0)), dn, c.name]
+	if z > MAP_HALF:
+		if on_water:
+			return "over " + RealWorld.sea_name(x, z)
+		var co := String(c.get("country", ""))
+		return "in rural " + (co if co != "" and d < 400000.0 else "North America" if x < -200000.0 else "Europe")
 	if on_water:
 		if x < -60000.0:
 			return "over the Western Sea"
@@ -435,12 +608,69 @@ static func place_name(x: float, z: float) -> String:
 	return "in rural " + ("Westmark" if x < -330000.0 else "Calderra")
 
 
-static func region_country(x: float, _z: float) -> String:
+static func in_world_region(x: float, z: float) -> bool:
+	## True in the real-world region (North America, the Atlantic and Europe).
+	return z > MAP_HALF
+
+
+static func region_country(x: float, z: float) -> String:
+	if z > MAP_HALF:
+		var c := nearest_city(x, z)
+		if not c.is_empty() and float(c.dist) < 350000.0 and not is_water(x, z):
+			return String(c.get("country", "Oceanic"))
+		return "Oceanic"
 	if x < -300000.0:
 		return "Westmark"
 	if x < -70000.0:
 		return "Oceanic"
 	return "Calderra"
+
+
+## The radar / area control centre a pilot talks to at a position.
+static func center_name(x: float, z: float) -> String:
+	if z > MAP_HALF:
+		var c := nearest_city(x, z)
+		var co := String(c.get("country", "")) if not c.is_empty() and float(c.dist) < 350000.0 else ""
+		return RealWorld.center_name(x, z, co)
+	if x < -300000.0:
+		return "Westmark Control"
+	return "Calderra Control"
+
+
+## Sea-level temperature offset for the latitude (warmer towards Miami, colder in Greenland).
+static func temp_offset(_x: float, z: float) -> float:
+	if z <= MAP_HALF:
+		return 0.0
+	var lat := RealWorld.to_lonlat(0.0, z).y
+	return clampf((41.0 - lat) * 0.75, -18.0, 12.0)
+
+
+## Bilinear sample of whichever baked grid covers a point (maps, water depth).
+static func macro_bilinear(x: float, z: float) -> float:
+	var m := macro
+	var nx := GRID
+	var nz := GRID
+	var x0 := -MAP_HALF
+	var z0 := -MAP_HALF
+	var cell := CELL
+	if z > MAP_HALF:
+		m = macro_world
+		nx = RealWorld.GRID_NX
+		nz = RealWorld.GRID_NZ
+		x0 = RealWorld.GRID_X0
+		z0 = RealWorld.GRID_Z0
+		cell = RealWorld.CELL
+	if m.size() != nx * nz:
+		return -900.0
+	var fi := (x - x0) / cell - 0.5
+	var fj := (z - z0) / cell - 0.5
+	if fi < 0.0 or fj < 0.0 or fi > nx - 1 or fj > nz - 1:
+		return -900.0
+	var i0 := clampi(int(floor(fi)), 0, nx - 2)
+	var j0 := clampi(int(floor(fj)), 0, nz - 2)
+	var u := clampf(fi - i0, 0.0, 1.0)
+	var v := clampf(fj - j0, 0.0, 1.0)
+	return lerpf(lerpf(m[j0 * nx + i0], m[j0 * nx + i0 + 1], u), lerpf(m[(j0 + 1) * nx + i0], m[(j0 + 1) * nx + i0 + 1], u), v)
 
 
 # ====================================================================== Sampler
@@ -487,6 +717,8 @@ class Sampler:
 		n_farm.fractal_octaves = 2
 
 	func macro_at(x: float, z: float) -> float:
+		if z > MAP_HALF:
+			return _macro_world(x, z)
 		# Uniform cubic B-spline over the baked grid (smooth, never overshoots).
 		var gx := (x + MAP_HALF) / CELL - 0.5
 		var gz := (z + MAP_HALF) / CELL - 0.5
@@ -519,9 +751,47 @@ class Sampler:
 		var r3 := m[base] * ax0 + m[base + 1] * ax1 + m[base + 2] * ax2 + m[base + 3] * ax3
 		return r0 * az0 + r1 * az1 + r2 * az2 + r3 * az3
 
+	func _macro_world(x: float, z: float) -> float:
+		var nx: int = RealWorld.GRID_NX
+		var nz: int = RealWorld.GRID_NZ
+		var m := Geo.macro_world
+		if m.size() != nx * nz:
+			return -900.0
+		var gx := (x - RealWorld.GRID_X0) / RealWorld.CELL - 0.5
+		var gz := (z - RealWorld.GRID_Z0) / RealWorld.CELL - 0.5
+		var ix := int(floor(gx))
+		var iz := int(floor(gz))
+		if ix < 1 or iz < 1 or ix > nx - 3 or iz > nz - 3:
+			return -900.0
+		var fx := gx - ix
+		var fz := gz - iz
+		var fx2 := fx * fx
+		var fx3 := fx2 * fx
+		var fz2 := fz * fz
+		var fz3 := fz2 * fz
+		var ax0 := (1.0 - 3.0 * fx + 3.0 * fx2 - fx3) / 6.0
+		var ax1 := (4.0 - 6.0 * fx2 + 3.0 * fx3) / 6.0
+		var ax2 := (1.0 + 3.0 * fx + 3.0 * fx2 - 3.0 * fx3) / 6.0
+		var ax3 := fx3 / 6.0
+		var az0 := (1.0 - 3.0 * fz + 3.0 * fz2 - fz3) / 6.0
+		var az1 := (4.0 - 6.0 * fz2 + 3.0 * fz3) / 6.0
+		var az2 := (1.0 + 3.0 * fz + 3.0 * fz2 - 3.0 * fz3) / 6.0
+		var az3 := fz3 / 6.0
+		var base := (iz - 1) * nx + ix - 1
+		var r0 := m[base] * ax0 + m[base + 1] * ax1 + m[base + 2] * ax2 + m[base + 3] * ax3
+		base += nx
+		var r1 := m[base] * ax0 + m[base + 1] * ax1 + m[base + 2] * ax2 + m[base + 3] * ax3
+		base += nx
+		var r2 := m[base] * ax0 + m[base + 1] * ax1 + m[base + 2] * ax2 + m[base + 3] * ax3
+		base += nx
+		var r3 := m[base] * ax0 + m[base + 1] * ax1 + m[base + 2] * ax2 + m[base + 3] * ax3
+		return r0 * az0 + r1 * az1 + r2 * az2 + r3 * az3
+
 	func base_height(x: float, z: float, with_water: bool = true) -> float:
-		var wx := n_warp.get_noise_2d(x, z) * 5500.0
-		var wz := n_warp.get_noise_2d(z + 9100.0, x - 3700.0) * 5500.0
+		# coastlines wander less in the real-world region so cities sit where they should
+		var amp := 5500.0 if z < MAP_HALF else 2000.0
+		var wx := n_warp.get_noise_2d(x, z) * amp
+		var wz := n_warp.get_noise_2d(z + 9100.0, x - 3700.0) * amp
 		var m := macro_at(x + wx, z + wz)
 		var h := m
 		if m > -80.0 and m < 90.0:
@@ -533,12 +803,19 @@ class Sampler:
 			if mt > 0.0:
 				var r := n_ridge.get_noise_2d(x, z)
 				h += (r * 0.5 + 0.5) * 1500.0 * mt - 300.0 * mt
+		if z > MAP_HALF and h < 5.0:
+			# city cores in the real-world region stand on dry land; bays and rivers still cut through
+			for c in Geo.bucket_city.get(Geo._bkey(x, z), Geo.NONE):
+				var d := U.dist2d(x, z, c.x, c.z)
+				var r: float = c.r
+				if d < r * 0.75:
+					h = lerpf(h, 5.0, 1.0 - U.smooth01((d - r * 0.4) / (r * 0.35)))
 		if with_water:
 			h = _carve_water(x, z, h)
 		return h
 
 	func _carve_water(x: float, z: float, h: float) -> float:
-		for lk in Geo.lakes:
+		for lk in Geo.bucket_lake.get(Geo._bkey(x, z), Geo.lakes if Geo.bucket_lake.is_empty() else Geo.NONE):
 			var q := Vector2((x - lk.x) / lk.rx, (z - lk.z) / lk.rz)
 			var l := q.length()
 			if l < 1.6:
@@ -570,8 +847,9 @@ class Sampler:
 	func height(x: float, z: float) -> float:
 		var h := base_height(x, z, true)
 		# approach and climb-out valleys keep instrument procedures clear of terrain
+		var key := Geo._bkey(x, z)
 		if h > 60.0:
-			for c in Geo.corridors:
+			for c in Geo.bucket_corr.get(key, Geo.NONE):
 				var dx0: float = x - c[0]
 				var dz0: float = z - c[1]
 				var along: float = dx0 * c[2] + dz0 * c[3]
@@ -589,7 +867,7 @@ class Sampler:
 					t = t * t * (3.0 - 2.0 * t)
 					h = lerpf(cap, h, t)
 		# airport platforms
-		for ap in Geo.airports_flat:
+		for ap in Geo.bucket_ap.get(key, Geo.NONE):
 			var dx: float = x - ap[0]
 			var dz: float = z - ap[1]
 			var d2 := dx * dx + dz * dz
@@ -606,16 +884,26 @@ class Sampler:
 	func landuse_h(x: float, z: float, h: float) -> Dictionary:
 		var moist := n_moist.get_noise_2d(x, z)
 		var urban := 0.0
-		for c in Geo.cities:
+		var key := Geo._bkey(x, z)
+		for c in Geo.bucket_city.get(key, Geo.NONE):
 			var d := U.dist2d(x, z, c.x, c.z)
 			if d < c.r * 1.4:
 				var edge = n_fine.get_noise_2d(x * 1.7, z * 1.7) * c.r * 0.28
 				urban = maxf(urban, 1.0 - U.smooth01((d + edge - c.r * 0.55) / (c.r * 0.6)))
+		var park := 0.0
+		if urban > 0.0 and z > MAP_HALF:
+			for pk in Geo.parks:
+				if absf(x - pk.x) < pk.hw and absf(z - pk.z) < pk.hd:
+					park = 1.0
+					urban = 0.0
+					break
 		var near_ap := 0.0
-		for ap in Geo.airports_flat:
+		for ap in Geo.bucket_ap.get(key, Geo.NONE):
 			var d2 := U.dist2d(x, z, ap[0], ap[1])
 			near_ap = maxf(near_ap, 1.0 - U.smooth01((d2 - ap[3]) / 1500.0))
+		urban *= 1.0 - near_ap
 		var forest := U.smooth01((moist - 0.02) / 0.3) * (1.0 - urban) * (1.0 - near_ap)
+		forest = maxf(forest, park * 0.32)
 		forest *= 1.0 - U.smooth01((h - 1650.0) / 250.0)
 		if h < 2.0:
 			forest = 0.0

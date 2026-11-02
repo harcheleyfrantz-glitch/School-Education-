@@ -100,7 +100,7 @@ func station_name(st: String) -> String:
 		"GND": return city + " Ground"
 		"TWR": return city + " Tower"
 		"DEP": return city + " Departure"
-		"CTR": return "Calderra Control"
+		"CTR": return _center()
 		"APP": return acity + " Approach"
 		"ATWR": return acity + " Tower"
 		"AGND": return acity + " Ground"
@@ -113,11 +113,25 @@ func station_freq(st: String) -> String:
 		"GND": return _ap_freq(dep, "gnd")
 		"TWR": return _ap_freq(dep, "twr")
 		"DEP": return _ap_freq(dep, "dep")
-		"CTR": return "132.600"
+		"CTR": return String(Airports.CENTER_FREQ.get(_center_country(), "132.600"))
 		"APP": return _ap_freq(arr, "app")
 		"ATWR": return _ap_freq(arr, "twr")
 		"AGND": return _ap_freq(arr, "gnd")
 	return "121.500"
+
+
+func _center() -> String:
+	## The area control centre for where the aircraft is (or the departure airport on the ground).
+	if ac != null and is_instance_valid(ac):
+		return Geo.center_name(ac.world_x(), ac.world_z())
+	var a: Dictionary = Airports.get_ap(dep)
+	return Geo.center_name(float(a.get("x", 0.0)), float(a.get("z", 0.0)))
+
+
+func _center_country() -> String:
+	if ac != null and is_instance_valid(ac):
+		return Geo.region_country(ac.world_x(), ac.world_z())
+	return String(Airports.get_ap(dep).get("country", "Calderra"))
 
 
 func _pick_voices() -> void:
@@ -315,7 +329,7 @@ func _handle(o: Dictionary) -> void:
 		"checkin_ctr":
 			clearance.alt_m = cruise_m
 			var l3 := _lvl(clearance.alt_m)
-			_say("CTR", "%s, %s, climb %s." % [cs, station_name("CTR"), l3[0]], "%s, Calderra Control, climb %s." % [spoken_cs, l3[1]], 2.0, "climb_rb")
+			_say("CTR", "%s, %s, climb %s." % [cs, station_name("CTR"), l3[0]], "%s, %s, climb %s." % [spoken_cs, station_name("CTR"), l3[1]], 2.0, "climb_rb")
 		"req_descent":
 			_issue_descent()
 		"req_higher":
@@ -566,7 +580,7 @@ func _auto_progress(delta: float) -> void:
 				state = "airborne_twr"
 		"climbing":
 			if n.alt > 4500.0 and station == "DEP" and cruise_m > 5000.0:
-				_say("DEP", "%s, contact Calderra Control %s." % [callsign, station_freq("CTR")], "%s, contact Calderra Control %s." % [spoken_cs, Phraseology.freq(station_freq("CTR"))], 1.0, "ctr_contact")
+				_say("DEP", "%s, contact %s %s." % [callsign, station_name("CTR"), station_freq("CTR")], "%s, contact %s %s." % [spoken_cs, station_name("CTR"), Phraseology.freq(station_freq("CTR"))], 1.0, "ctr_contact")
 				state = "handoff"
 			elif absf(n.alt - clearance.alt_m) < 150.0 and clearance.alt_m >= cruise_m - 1.0:
 				_goto("cruise")
@@ -722,7 +736,7 @@ func _chatter(delta: float) -> void:
 			lines = [["%s, %s FL%03d." % [cs, "climb" if climbing else "descend", fl], "%s, %s %s." % [sp, "climb" if climbing else "descend", Phraseology.flight_level(fl)]],
 				["%s, turn right heading %03d, traffic." % [cs, hdg2], "%s, turn right %s, traffic." % [sp, Phraseology.heading(hdg2)]]]
 			if station == "DEP":
-				lines.append(["%s, contact Calderra Control 128.9." % cs, "%s, contact Calderra Control one two eight decimal niner." % sp])
+				lines.append(["%s, contact %s 128.9." % [cs, station_name("CTR")], "%s, contact %s one two eight decimal niner." % [sp, station_name("CTR")]])
 	var l: Array = lines[_rng.randi() % lines.size()]
 	_emit(station, "atc", String(l[0]), String(l[1]))
 	# the other pilot reads back

@@ -13,6 +13,8 @@ var _count_lbl: Label
 var _sort_btns := {}
 var _input: LineEdit
 var _liked := {}
+var _ai_status: Label
+var _ai_btn: Button
 
 
 func setup(a: Dictionary) -> void:
@@ -31,6 +33,8 @@ func setup(a: Dictionary) -> void:
 		head.add_child(b)
 	add_child(head)
 	add_child(_composer())
+	if AIComments.enabled():
+		add_child(_ai_bar())
 	_list = UIStyle.vbox(14)
 	add_child(_list)
 	_more = UIStyle.button("Load more comments", _load_more, 280)
@@ -54,15 +58,57 @@ func _composer() -> Control:
 	return row
 
 
+func _ai_bar() -> Control:
+	## Claude writes a fresh batch of comment threads for this story (one request, cached).
+	var row := UIStyle.hbox(10)
+	var had := not (art.get("ai_comments", []) as Array).is_empty()
+	_ai_btn = UIStyle.button("More comments from Claude" if had else "Write new comments with Claude", _ai_more, 290, UIStyle.ACCENT)
+	row.add_child(_ai_btn)
+	_ai_status = UIStyle.label("Writing comments..." if AIComments.busy(art) else "", 13, UIStyle.DIM)
+	_ai_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_ai_status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(_ai_status)
+	return row
+
+
+func _ai_more() -> void:
+	if AIComments.busy(art):
+		return
+	_ai_status.text = "Claude is reading the story and writing comments..."
+	_ai_status.add_theme_color_override("font_color", UIStyle.DIM)
+	_ai_btn.disabled = true
+	AIComments.comments_for(art, 15, func(ok: bool, err: String):
+		if not is_instance_valid(_ai_btn):
+			return
+		_ai_btn.disabled = false
+		_ai_btn.text = "More comments from Claude"
+		_ai_status.text = "New comments are at the top." if ok else err
+		_ai_status.add_theme_color_override("font_color", UIStyle.GREEN if ok else UIStyle.RED)
+		if ok:
+			Achievements.unlock("talk_of_town")
+			_set_sort(sort))
+
+
 func _post() -> void:
 	var tx := _input.text.strip_edges()
 	if tx == "":
 		return
 	var me := String(Game.player.get("name", "You")) if Game.has_character() else "You"
 	var mine: Array = art.get("player_comments", [])
-	mine.append({"name": me, "text": tx, "t": WorldSim.clock})
+	var pc := {"name": me, "text": tx, "t": WorldSim.clock}
+	mine.append(pc)
 	art["player_comments"] = mine
 	_input.text = ""
+	Achievements.unlock("keyboard_pilot")
+	if AIComments.enabled():
+		# other readers answer what you actually wrote
+		AIComments.replies_to(art, pc, func(ok: bool, err: String):
+			if not is_instance_valid(_list):
+				return
+			if not ok and _ai_status:
+				_ai_status.text = err
+				_ai_status.add_theme_color_override("font_color", UIStyle.RED)
+			_set_sort(sort))
 	_set_sort(sort)
 
 
@@ -77,11 +123,42 @@ func _set_sort(key: String) -> void:
 	shown = 0
 	for pc in art.get("player_comments", []):
 		var me := String(pc.get("name", "You"))
-		var pr := NewsComments.player_replies(art, pc)
+		var pr := _player_replies(pc)
 		_list.add_child(_card({"author": {"name": me, "handle": "@you", "badge": "", "title": "", "color": UIStyle.ACCENT}, "text": String(pc.get("text", "")),
 			"likes": int(pc.get("likes", pr.size() * 3)), "t": float(pc.get("t", WorldSim.clock)), "replies": pr.size(), "edited": false, "pinned": false,
 			"depth": 0, "tone": "mine", "i": -1, "pc": pc}))
+	# Claude-written threads lead the section
+	var ai: Array = (art.get("ai_comments", []) as Array).duplicate()
+	if sort == "top":
+		ai.sort_custom(func(a, b): return int(a.likes) > int(b.likes))
+	else:
+		ai.sort_custom(func(a, b): return float(a.t) > float(b.t))
+	for ac in ai:
+		var reps: Array = ac.get("replies", [])
+		_list.add_child(_card({"author": {"name": String(ac.name), "handle": String(ac.handle), "badge": "", "title": "", "color": _tint(String(ac.name))},
+			"text": String(ac.text), "likes": int(ac.likes), "t": float(ac.get("t", WorldSim.clock)), "replies": reps.size(), "edited": false, "pinned": false,
+			"depth": 0, "tone": String(ac.get("tone", "kind")), "i": -2, "ai": true, "ai_thread": reps}))
 	_load_more()
+
+
+func _player_replies(pc: Dictionary) -> Array:
+	## Claude's replies when it wrote some, otherwise the built-in ones.
+	if pc.has("ai_replies"):
+		var out := []
+		for rp in pc.ai_replies:
+			out.append(_ai_reply_card(rp, float(pc.get("t", WorldSim.clock))))
+		return out
+	return NewsComments.player_replies(art, pc)
+
+
+func _ai_reply_card(rp: Dictionary, t0: float) -> Dictionary:
+	return {"author": {"name": String(rp.get("name", "Reader")), "handle": String(rp.get("handle", "@reader")), "badge": "", "title": "", "color": _tint(String(rp.get("name", "")))},
+		"text": String(rp.get("text", "")), "likes": int(rp.get("likes", 0)), "t": float(rp.get("t", t0 + 240.0)), "replies": 0, "edited": false,
+		"pinned": false, "depth": 1, "tone": "reply", "i": -3, "ai": true}
+
+
+static func _tint(n: String) -> Color:
+	return Color.from_hsv(float(U.hash_str(n) % 360) / 360.0, 0.5, 0.78)
 
 
 func _load_more() -> void:
@@ -89,7 +166,7 @@ func _load_more() -> void:
 	for c in page:
 		_list.add_child(_card(c))
 	shown += page.size()
-	var n := NewsComments.count(art) + (art.get("player_comments", []) as Array).size()
+	var n := NewsComments.count(art) + (art.get("player_comments", []) as Array).size() + (art.get("ai_comments", []) as Array).size()
 	_count_lbl.text = "%s comments" % U.fmt_int(n)
 	_more.visible = shown < NewsComments.count(art)
 	_more.text = "Load more comments  (%s more)" % U.fmt_int(NewsComments.count(art) - shown)
@@ -118,6 +195,10 @@ func _card(c: Dictionary) -> Control:
 	if String(au.get("title", "")) != "":
 		h.add_child(UIStyle.label(String(au.title), 12, UIStyle.AMBER))
 	h.add_child(UIStyle.label("%s · %s%s" % [au.get("handle", ""), U.fmt_ago(WorldSim.clock, float(c.t)), " · edited" if bool(c.get("edited", false)) else ""], 12, UIStyle.DIM))
+	if bool(c.get("ai", false)):
+		h.add_child(UIStyle.label("written by Claude", 11, Color(UIStyle.ACCENT, 0.7)))
+	if c.has("pc") and bool((c.pc as Dictionary).get("ai_pending", false)):
+		h.add_child(UIStyle.label("people are replying...", 11, UIStyle.AMBER))
 	if bool(c.get("pinned", false)):
 		h.add_child(UIStyle.chip("PINNED", UIStyle.GOLD))
 	v.add_child(h)
@@ -177,7 +258,13 @@ func _card(c: Dictionary) -> Control:
 		more_btn.add_theme_font_size_override("font_size", 13)
 		more_btn.add_theme_color_override("font_color", UIStyle.ACCENT)
 		var fill := func():
-			var got: Array = NewsComments.player_replies(art, c.pc).slice(int(state.shown), int(state.shown) + 6) if c.has("pc") else NewsComments.replies(art, c, int(state.shown), 6)
+			var got: Array
+			if c.has("pc"):
+				got = _player_replies(c.pc).slice(int(state.shown), int(state.shown) + 6)
+			elif c.has("ai_thread"):
+				got = (c.ai_thread as Array).slice(int(state.shown), int(state.shown) + 6).map(func(rp): return _ai_reply_card(rp, float(c.t)))
+			else:
+				got = NewsComments.replies(art, c, int(state.shown), 6)
 			for rc in got:
 				var card := _card(rc)
 				if int(rc.depth) > 1:

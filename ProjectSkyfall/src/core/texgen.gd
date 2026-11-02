@@ -108,6 +108,22 @@ static func macro_depth_tex() -> ImageTexture:
 	return tex
 
 
+static func macro_world_tex() -> ImageTexture:
+	## The real-world region's baked heightfield (water shallowness there).
+	if _cache.has("macro_world"):
+		return _cache["macro_world"]
+	var data := Geo.macro_world
+	if data.size() != RealWorld.GRID_NX * RealWorld.GRID_NZ:
+		data = PackedFloat32Array([-900.0, -900.0, -900.0, -900.0])
+		var img0 := Image.create_from_data(2, 2, false, Image.FORMAT_RF, data.to_byte_array())
+		_cache["macro_world"] = ImageTexture.create_from_image(img0)
+		return _cache["macro_world"]
+	var img := Image.create_from_data(RealWorld.GRID_NX, RealWorld.GRID_NZ, false, Image.FORMAT_RF, data.to_byte_array())
+	var tex := ImageTexture.create_from_image(img)
+	_cache["macro_world"] = tex
+	return tex
+
+
 static func smoke_tex(size: int = 64) -> ImageTexture:
 	var key := "smoke_%d" % size
 	if _cache.has(key):

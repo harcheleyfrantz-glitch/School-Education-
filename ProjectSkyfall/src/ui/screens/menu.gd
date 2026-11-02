@@ -39,8 +39,11 @@ func setup(params: Dictionary) -> void:
 			"icon_name": "trophy"}))
 	row2.add_child(ImageCard.make("Passenger Journey", "Book a seat on any departure and ride along in the cabin", "home_passenger",
 		func(): Game.goto("passenger"), {"icon_name": "user"}))
-	row2.add_child(ImageCard.make("Hangar", "Seven aircraft and their liveries, up close", "home_hangar",
+	row2.add_child(ImageCard.make("Hangar", "Eleven aircraft and their liveries, up close", "home_hangar",
 		func(): Game.goto("hangar"), {"icon_name": "hangar"}))
+	row2.add_child(ImageCard.make("Achievements", "%d of %d unlocked: butter landings, landmarks, island hopping and more" % [Achievements.unlocked_count(), Achievements.LIST.size()],
+		"act_landing", func(): Game.goto("achievements"), {"icon_name": "medal", "progress": float(Achievements.unlocked_count()) / float(Achievements.LIST.size()),
+			"progress_text": "%d/%d" % [Achievements.unlocked_count(), Achievements.LIST.size()]}))
 	var arts := News.latest(1)
 	var headline := String(arts[0].get("headline", "")) if not arts.is_empty() else "What Calderra is talking about today"
 	row2.add_child(ImageCard.make("News", headline, "home_news", func(): Game.goto("news"), {"icon_name": "news"}))
@@ -60,6 +63,9 @@ func _featured() -> Array:
 	var out := []
 	out.append(ImageCard.make("Fly the Stratos 320", "Golden hour over the Port Calder coast. Pick an aircraft, an airport and a time of day on the world map.",
 		"home_featured", func(): Game.goto("world_map", {"type": "s320", "airline": "SKF"}), {"ribbon": "FEATURED", "ribbon_color": UIStyle.ACCENT,
+			"title_size": 28, "kenburns": true}))
+	out.append(ImageCard.make("New York, London, Paris", "The real world is here: 21 new airports from JFK and Heathrow to Bermuda and the Faroes, with the Statue of Liberty, Big Ben and the Eiffel Tower to fly past.",
+		"scn:hudson_run", func(): Game.goto("activity", {"category": "discovery", "focus": "hudson_run"}), {"ribbon": "NEW WORLD", "ribbon_color": UIStyle.GOLD,
 			"title_size": 28, "kenburns": true}))
 	out.append(ImageCard.make("Landing Challenges", "Trade-wind crosswinds, fog, mountain gusts and night approaches. How good is your touchdown?",
 		"scn:trade_winds", func(): Game.goto("activity", {"category": "landing"}), {"ribbon": "NEW", "title_size": 28, "kenburns": true}))

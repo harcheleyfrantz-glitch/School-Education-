@@ -34,6 +34,8 @@ var _rng := RandomNumberGenerator.new()
 var _done := false
 var _overlay: Control
 var _overlay_label: RichTextLabel
+var _lc: Dictionary = {}
+var _fall_alt := 0.0
 
 
 func begin(sess: Node, crash_info: Dictionary) -> void:
@@ -43,6 +45,7 @@ func begin(sess: Node, crash_info: Dictionary) -> void:
 	severity = float(info.get("severity", 0.5))
 	ditching = bool(info.get("ditching", false))
 	_rng.seed = U.hash_str(session.flight_id + "crash")
+	_lc = CrashDebris.opts_for(ac.spec, ac.airline, 0.3, severity)
 	Engine.time_scale = 0.4
 	get_tree().create_timer(1.2, true, false, true).timeout.connect(func(): Engine.time_scale = 1.0)
 	# external view of the scene
@@ -55,17 +58,85 @@ func begin(sess: Node, crash_info: Dictionary) -> void:
 		session.cockpit.visible = false
 	if ac.model:
 		ac.model.show_exterior_fuselage(true)
+	_build_overlay()
+	if float(ac.ra) > 25.0 and not ditching:
+		_begin_fall()
+		return
+	_ground_phase()
+
+
+func _begin_fall() -> void:
+	## Mid-air collision or in-flight breakup: the airframe comes apart in the air and the
+	## pieces fall. The ground part of the accident starts when the main wreck hits.
+	stage = "falling"
+	_fall_alt = float(ac.ra)
+	info.airborne = true
+	var pieces := session.wreck_pieces()
+	var hit := String(info.get("part", info.get("hit_part", "")))
+	var plan := {"tail": _rng.randf() < 0.55 or hit in ["tail", "fin"], "wing": 0, "nose": _rng.randf() < 0.2}
+	if hit.contains("left") or (hit == "" and _rng.randf() < 0.35):
+		plan.wing = -1
+	elif hit.contains("right") or (hit == "engine" and _rng.randf() < 0.5):
+		plan.wing = 1
+	if ac.model:
+		var res := pieces.break_up(ac.model, ac.model.global_transform, ac.fdm.vel, ac.type_id, ac.airline, ac.reg, plan, _rng, true)
+		var roll := float(res.get("roll_rate", 0.0))
+		ac.set_meta("tumble", -ac.global_transform.basis.z * (roll * 1.4 + _rng.randf_range(-0.4, 0.4)) + ac.global_transform.basis.x * _rng.randf_range(-0.6, 0.2))
+	ac.set_meta("falling", true)
+	ac.set_meta("fall_drag", 0.0022)
+	pieces.burst(ac.global_position, ac.fdm.vel, 26 + int(severity * 20), _lc, _rng)
+	for i in mini(FlightModel.engine_positions(ac.spec).size(), 1 + _rng.randi() % 2):
+		if _rng.randf() < 0.6:
+			var ep: Vector3 = ac.global_transform * (FlightModel.engine_positions(ac.spec)[i] as Vector3)
+			pieces.engine_piece(ep, ac.fdm.vel, float(_lc.eng_d), _lc.accent, _rng, true)
+	_impact_burst()
+	_start_fire(0.55)
+	progress.emit("In-flight breakup")
+
+
+func _ground_phase() -> void:
+	## Impact on the ground or water: debris, fire, the responders and the injuries.
+	if stage == "falling":
+		Engine.time_scale = 0.5
+		get_tree().create_timer(1.0, true, false, true).timeout.connect(func(): Engine.time_scale = 1.0)
+		var fi: Dictionary = ac.get_meta("fall_impact", {})
+		var water := bool(fi.get("water", false))
+		info.surface = "water" if water else String(info.get("surface", ""))
+		info.place = Geo.place_name(ac.world_x(), ac.world_z())
+		info.x = ac.world_x()
+		info.z = ac.world_z()
+		severity = maxf(severity, 0.98 if _fall_alt > 150.0 else 0.9)
+		info.severity = severity
+		if session.rig:
+			session.rig.add_shake(3.0)
+	stage = "impact"
+	var pieces := session.wreck_pieces()
+	if not ditching and severity >= 0.55 and not bool(info.get("airborne", false)) and ac.model:
+		# the airframe breaks apart as it hits: the tail and, in the worst impacts, a wing come off
+		var plan := {"tail": true, "wing": (-1 if _rng.randf() < 0.5 else 1) if severity >= 0.78 else 0, "nose": severity >= 0.9 and _rng.randf() < 0.5}
+		var v := ac.fdm.vel
+		pieces.break_up(ac.model, ac.model.global_transform, Vector3(v.x, maxf(v.y, 0.0) + 3.0, v.z) * 0.8, ac.type_id, ac.airline, ac.reg, plan, _rng, bool(info.get("fire", false)))
+		for i in FlightModel.engine_positions(ac.spec).size():
+			if _rng.randf() < severity - 0.35:
+				var ep: Vector3 = ac.global_transform * (FlightModel.engine_positions(ac.spec)[i] as Vector3)
+				pieces.engine_piece(ep, v * 0.9 + Vector3(0, 6, 0), float(_lc.eng_d), _lc.accent, _rng, bool(info.get("fire", false)))
+	if not ditching and severity >= 0.3:
+		var v2 := ac.fdm.vel
+		pieces.burst(ac.global_position + Vector3(0, 1.5, 0), Vector3(v2.x, absf(v2.y) * 0.4 + 4.0, v2.z), int(10 + severity * 40), _lc, _rng)
 	_spawn_debris()
-	if bool(info.get("fire", false)):
-		_start_fire(0.35 + severity * 0.5)
+	if bool(info.get("fire", false)) or bool(info.get("airborne", false)):
+		if _fire_root == null:
+			_start_fire(0.35 + severity * 0.5)
+		else:
+			fire_level = maxf(fire_level, 0.7)
 	if not ditching and severity > 0.2:
 		_impact_burst()
 	_compute_injuries()
 	var site := ac.global_position
 	if session.ground_ops:
-		session.ground_ops.emergency_response(site, bool(info.get("fire", false)), 25.0 if _near_airport() else 240.0)
-	_build_overlay()
+		session.ground_ops.emergency_response(site, bool(info.get("fire", false)) or _fire_root != null, 25.0 if _near_airport() else 240.0)
 	stage = "settling"
+	t = 0.0
 
 
 func _near_airport() -> bool:
@@ -321,37 +392,44 @@ func _impact_burst() -> void:
 
 
 func _spawn_debris() -> void:
-	## Pieces of skin, panels and a separated engine cowl scattered along the slide path.
+	## The debris field along the slide path: skin panels, seats and seat rows, luggage, engine
+	## parts, wheels and wing fragments; with graphic crash scenes on, stylised remains too.
 	if severity < 0.3 or ditching:
 		return
-	var mb := MeshBuilder.new()
-	var lc := Airlines.livery_colors(ac.airline)
-	var body_c: Color = lc.get("body", Color(0.9, 0.9, 0.92))
-	var acc_c: Color = lc.get("tail", Color(0.2, 0.3, 0.6))
-	var n := int(8 + severity * 30)
 	var back := ac.global_transform.basis.z
 	back.y = 0.0
+	if back.length_squared() < 1e-4:
+		back = Vector3.BACK
 	back = back.normalized()
 	var side := Vector3(back.z, 0, -back.x)
-	for i in n:
-		var along := _rng.randf_range(4.0, 80.0 + severity * 220.0)
-		var lat := _rng.randf_range(-1.0, 1.0) * (6.0 + along * 0.12)
-		var local := back * along + side * lat
-		var sz := Vector3(_rng.randf_range(0.3, 2.2), _rng.randf_range(0.04, 0.5), _rng.randf_range(0.3, 2.8)) * (0.6 + severity * 0.6)
-		var b := Basis.from_euler(Vector3(_rng.randf_range(-0.6, 0.6), _rng.randf() * TAU, _rng.randf_range(-0.6, 0.6)))
-		var col := body_c if _rng.randf() < 0.7 else (acc_c if _rng.randf() < 0.6 else Color(0.25, 0.25, 0.27))
-		mb.add_rounded_box(local, sz, col.darkened(_rng.randf_range(0.0, 0.5)), 0.15, 8, 6, b)
+	var origin := ac.global_position
+	var vw := session.view
+	var reach := 60.0 + severity * 220.0
+	if bool(info.get("airborne", false)):
+		reach = 120.0
+	var place := func(_i: int, rr: RandomNumberGenerator) -> Vector3:
+		var along := rr.randf_range(4.0, reach)
+		var lat := rr.randf_range(-1.0, 1.0) * (6.0 + along * 0.15)
+		if bool(info.get("airborne", false)):
+			along = rr.randf_range(-reach, reach)
+			lat = rr.randf_range(-1.0, 1.0) * reach * 0.8
+		var p := origin + back * along + side * lat
+		p.y = Geo.ground_height(vw.wx(p), vw.wz(p)) + 0.05
+		return p - origin
+	var opts := _lc.duplicate()
+	opts.scorch = 0.5 if bool(info.get("fire", false)) else 0.2
+	opts.sev = severity
+	opts.tail = false
+	var people: CabinPeople = session.people
+	var aboard := people.pax.size() + people.crew.size() if people else 0
+	opts.victims = int(aboard * clampf((severity - 0.5) * 2.0, 0.0, 1.0))
+	var mb := MeshBuilder.new()
+	CrashDebris.scatter(mb, _rng, place, int(14 + severity * 60), opts)
 	var mi := MeshInstance3D.new()
 	mi.mesh = mb.commit()
-	var m := StandardMaterial3D.new()
-	m.vertex_color_use_as_albedo = true
-	m.vertex_color_is_srgb = true
-	m.roughness = 0.55
-	m.metallic = 0.35
-	mi.material_override = m
-	session.view.dynamic_root.add_child(mi)
-	mi.position = ac.global_position
-	mi.position.y = Geo.ground_height(ac.world_x(), ac.world_z()) + 0.15
+	mi.material_override = CrashDebris.material()
+	vw.dynamic_root.add_child(mi)
+	mi.position = origin
 
 
 # ================================================================== evacuation and fire
@@ -384,6 +462,13 @@ func _process(delta: float) -> void:
 			fl.light_energy = 6.0 * k * (0.8 + 0.4 * sin(t * 13.0) * sin(t * 7.3))
 		if session.cabin:
 			session.cabin.smoke = clampf(fire_level * 1.2 - 0.2, 0.0, 1.0)
+	if stage == "falling":
+		_update_overlay()
+		if not ac.has_meta("falling") or t > 150.0:
+			if ac.has_meta("falling"):
+				ac.remove_meta("falling")
+			_ground_phase()
+		return
 	if stage == "settling" and (t > 4.0 or ac.fdm.vel.length() < 1.0):
 		stage = "evacuation"
 		_start_evacuation()
@@ -449,6 +534,11 @@ func _update_overlay() -> void:
 		out = people.count_state("exited")
 	var gops := session.ground_ops
 	var lines := []
+	if stage == "falling":
+		lines.append("[color=#ff9a50]In-flight breakup[/color] - %s" % String(info.get("cause_hint", "")))
+		lines.append("Falling through %d ft" % int(maxf(float(ac.fdm.pos.y) - Geo.ground_height(ac.world_x(), ac.world_z()), 0.0) / 0.3048))
+		_overlay_label.text = "\n".join(lines)
+		return
 	lines.append("%s at %s" % ["Ditching" if ditching else "Impact", String(info.get("place", "unknown location"))])
 	if aboard > 0:
 		lines.append("[b]%d[/b] of %d people out of the aircraft" % [out, aboard])

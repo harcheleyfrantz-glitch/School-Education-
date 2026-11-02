@@ -250,9 +250,12 @@ func _videos() -> void:
 			var head := String(p.text)
 			if head.length() > 74:
 				head = head.substr(0, 72) + "…"
+			var is_vlog := String(clip.get("type", "")) == "vlog"
+			var is_raw18 := String(clip.get("type", "")) == "uncensored"
 			var c3 := ImageCard.make(head, "%s · %s views · %s" % [String(p.name), NewsComments.short(int(clip.get("views", 0))), U.fmt_ago(WorldSim.clock, float(p.t))],
-				"type:%s:%s" % [String(inc.get("type", "s320")), String(inc.get("airline", "SKF"))], func(): _play_clip(pp),
-				{"ribbon": {"car": "DASHCAM", "cctv": "SECURITY CAM"}.get(String(clip.get("variant", "")), "PHONE VIDEO"), "ribbon_color": UIStyle.AMBER, "icon_name": "news", "title_size": 15})
+				"type:%s:%s" % [String(clip.get("type_id", inc.get("type", "s320"))) if is_vlog else String(inc.get("type", "s320")), String(clip.get("airline", inc.get("airline", "SKF"))) if is_vlog else String(inc.get("airline", "SKF"))], func(): _play_clip(pp),
+				{"ribbon": "18+ UNCENSORED" if is_raw18 else ("SPOTTER VLOG" if is_vlog else {"car": "DASHCAM", "cctv": "SECURITY CAM"}.get(String(clip.get("variant", "")), "PHONE VIDEO")),
+				"ribbon_color": UIStyle.RED if is_raw18 else (UIStyle.GREEN if is_vlog else UIStyle.AMBER), "icon_name": "play" if is_vlog else "news", "title_size": 15})
 			c3.custom_minimum_size = Vector2(0, 200)
 			g3.add_child(c3)
 	_body.add_child(ScreenBase.section("Your flights"))
@@ -283,6 +286,8 @@ func _videos() -> void:
 func _play_clip(p: Dictionary) -> void:
 	## A bystander's own upload: their raw footage, then the comments under it.
 	var clip: Dictionary = p.clip
+	if bool(clip.get("mature", false)) and not CrashDebris.graphic_enabled():
+		return
 	var prog := NewsScript.build(clip, {"id": String(p.id)})
 	if prog.is_empty():
 		return
@@ -339,7 +344,9 @@ func _post_card(p: Dictionary) -> Control:
 	v.add_child(t)
 	var clip: Dictionary = p.get("clip", {})
 	if not clip.is_empty():
-		var vb := UIStyle.button("▶  Watch %s" % {"car": "dashcam video", "cctv": "security footage"}.get(String(clip.get("variant", "")), "phone video"), func(): _play_clip(p), 220, UIStyle.ACCENT)
+		var vt := String(clip.get("type", ""))
+		var vb := UIStyle.button("▶  Watch %s" % ("the vlog" if vt == "vlog" else ("uncensored footage (18+)" if vt == "uncensored" else {"car": "dashcam video", "cctv": "security footage"}.get(String(clip.get("variant", "")), "phone video"))),
+			func(): _play_clip(p), 260 if vt == "uncensored" else 220, UIStyle.RED if vt == "uncensored" else UIStyle.ACCENT)
 		vb.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 		v.add_child(vb)
 		v.add_child(UIStyle.label("%s views" % NewsComments.short(int(clip.get("views", 0))), 12, UIStyle.DIM))

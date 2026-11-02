@@ -117,12 +117,22 @@ static func _compute(icao: String) -> Dictionary:
 		var rB: Dictionary = L.runways[1]
 		var mid: Vector2 = (rA.center + rB.center) * 0.5
 		var depth := 120.0
-		var length := float(maxi(gates / 2, 3)) * spacing + 120.0
+		# mega hubs split their gates between the main terminal and a satellite concourse
+		var sat_g := (gates * 2) / 5 if gates >= 24 else 0
+		var main_g := gates - sat_g
+		var length := float(maxi(main_g / 2, 3)) * spacing + 120.0
 		var axis: Vector2 = rA.dir
 		var nA: Vector2 = (rA.center - mid).normalized()
 		L.buildings.append({"kind": "terminal", "center": mid, "axis": axis, "len": length, "depth": depth, "h": 24.0})
-		facade_list.append({"origin": mid + nA * depth * 0.5, "axis": axis, "normal": nA, "len": length, "gates": gates - gates / 2, "rw": 0})
-		facade_list.append({"origin": mid - nA * depth * 0.5, "axis": axis, "normal": -nA, "len": length, "gates": gates / 2, "rw": 1})
+		facade_list.append({"origin": mid + nA * depth * 0.5, "axis": axis, "normal": nA, "len": length, "gates": main_g - main_g / 2, "rw": 0, "letter": "A"})
+		facade_list.append({"origin": mid - nA * depth * 0.5, "axis": axis, "normal": -nA, "len": length, "gates": main_g / 2, "rw": 1, "letter": "B"})
+		if sat_g > 0:
+			var sat_len := float(maxi(sat_g / 2, 3)) * spacing + 80.0
+			var sat_d := depth * 0.75
+			var sat_c: Vector2 = mid + axis * (length * 0.5 + 210.0 + sat_len * 0.5)
+			L.buildings.append({"kind": "concourse", "center": sat_c, "axis": axis, "len": sat_len, "depth": sat_d, "h": 20.0})
+			facade_list.append({"origin": sat_c + nA * sat_d * 0.5, "axis": axis, "normal": nA, "len": sat_len, "gates": sat_g - sat_g / 2, "rw": 0, "letter": "C"})
+			facade_list.append({"origin": sat_c - nA * sat_d * 0.5, "axis": axis, "normal": -nA, "len": sat_len, "gates": sat_g / 2, "rw": 1, "letter": "D"})
 	else:
 		var depth2 := 105.0 if big else 62.0
 		var length2 := float(maxi(gates, 2)) * spacing + (140.0 if big else 70.0)
@@ -131,7 +141,7 @@ static func _compute(icao: String) -> Dictionary:
 		var center: Vector2 = front - nrm * depth2 * 0.5
 		L.buildings.append({"kind": "terminal", "center": center, "axis": r0.dir, "len": length2, "depth": depth2, "h": 22.0 if big else 14.0})
 		facade_list.append({"origin": front, "axis": r0.dir, "normal": nrm, "len": length2, "gates": gates, "rw": 0})
-	var gate_letter := ["A", "B"]
+	var gate_letter := ["A", "B", "C", "D"]
 	var fi := 0
 	for fc in facade_list:
 		var axis2: Vector2 = fc.axis
@@ -143,7 +153,7 @@ static func _compute(icao: String) -> Dictionary:
 			var t := (float(g) - (n_g - 1) * 0.5) * spacing
 			var stop: Vector2 = fc.origin + axis2 * t + nrm2 * 14.0
 			var lead: Vector2 = lane_pos + axis2 * t
-			var sname := "%s%d" % [gate_letter[fi % 2], g + 1]
+			var sname := "%s%d" % [String(fc.get("letter", gate_letter[fi % 4])), g + 1]
 			var heavy := big and (g % 3 == 0)
 			var ln := _add_node(nodes, lead, "apron", "apron")
 			var sn := _add_node(nodes, stop, "stand", sname)

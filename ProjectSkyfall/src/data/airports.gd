@@ -1,9 +1,14 @@
 class_name Airports
-## Airport database for the Calderra / Westmark region.
+## Airport database: the Calderra / Westmark region and the real-world region (North America,
+## the North Atlantic and Europe, compressed 1:5 - see RealWorld).
 ## Positions are world metres (x = east, z = south). Runway "hdg" is the true heading of the
 ## first-named runway end; "off" shifts the runway sideways (positive = right of hdg).
 
-const ORDER := ["SKPC", "SKRV", "SKNG", "SKHP", "SKOF", "SKWF", "SKIM", "SKSB", "WMIA", "WMSK"]
+const ORDER := ["SKPC", "SKRV", "SKNG", "SKHP", "SKOF", "SKWF", "SKIM", "SKSB", "WMIA", "WMSK",
+	"KJFK", "KBOS", "KIAD", "KORD", "CYYZ", "KMIA", "KLAX", "KSFO", "EGLL", "LFPG", "EHAM", "EIDW", "LEMD", "LIRF",
+	"BIKF", "TXKF", "LPPD", "LPMA", "EKVG", "CYQX", "BGGH"]
+## The fictional home region and the real-world region (see RealWorld).
+const CALDERRA := ["SKPC", "SKRV", "SKNG", "SKHP", "SKOF", "SKWF", "SKIM", "SKSB", "WMIA", "WMSK"]
 
 const DATA := {
 	"SKPC": {
@@ -130,9 +135,284 @@ const DATA := {
 		"desc": "A windswept fishing town airport on Westmark's rugged western coast.",
 		"arff": 6, "fuel": true, "pax_per_day": 1800,
 	},
+	"KJFK": {
+		"iata": "JFK", "name": "John F. Kennedy International", "short": "New York JFK", "city": "New York",
+		"country": "United States", "x": -531800.0, "z": 1394420.0, "elev": 4.0, "size": "hub", "region": "world",
+		"runways": [
+			{"id": "04L/22R", "hdg": 44.0, "len": 3460.0, "wid": 60.0, "off": -800.0, "along": 0.0, "ils": [true, true], "surface": "asphalt"},
+			{"id": "04R/22L", "hdg": 44.0, "len": 2560.0, "wid": 60.0, "off": 800.0, "along": -300.0, "ils": [true, true], "surface": "asphalt"},
+			{"id": "13R/31L", "hdg": 134.0, "len": 4420.0, "wid": 60.0, "off": -2650.0, "along": 0.0, "ils": [true, true], "surface": "asphalt"},
+		],
+		"terminal": {"between": true, "side": 1, "gates": 32, "style": "hub"},
+		"freq": {"atis": "118.050", "del": "125.100", "gnd": "125.100", "twr": "126.800", "app": "128.075", "dep": "125.700"},
+		"city_info": {"dx": -6500.0, "dz": -5200.0, "radius": 13000.0, "pop": 8300000, "tall": 1.60, "coastal": true},
+		"desc": "The gateway to America: four runways, a vast terminal complex and Manhattan's skyline on the horizon.",
+		"arff": 10, "fuel": true, "pax_per_day": 170000,
+	},
+	"KBOS": {
+		"iata": "BOS", "name": "Boston Logan International", "short": "Boston", "city": "Boston",
+		"country": "United States", "x": -490690.0, "z": 1358880.0, "elev": 6.0, "size": "hub", "region": "world",
+		"runways": [
+			{"id": "04R/22L", "hdg": 40.0, "len": 3050.0, "wid": 45.0, "off": 0.0, "along": 0.0, "ils": [true, true], "surface": "asphalt"},
+			{"id": "15R/33L", "hdg": 150.0, "len": 3070.0, "wid": 45.0, "off": 1900.0, "along": 300.0, "ils": [true, true], "surface": "asphalt"},
+		],
+		"terminal": {"between": false, "side": -1, "gates": 16, "style": "hub"},
+		"freq": {"atis": "119.450", "del": "118.600", "gnd": "118.600", "twr": "121.025", "app": "126.050", "dep": "121.050"},
+		"city_info": {"dx": -6000.0, "dz": -1500.0, "radius": 7000.0, "pop": 680000, "tall": 0.95, "coastal": true},
+		"desc": "A harbour airport hemmed in by water on three sides, with the city's towers a stone's throw away.",
+		"arff": 9, "fuel": true, "pax_per_day": 60000,
+	},
+	"KIAD": {
+		"iata": "IAD", "name": "Washington Dulles International", "short": "Washington Dulles", "city": "Washington",
+		"country": "United States", "x": -589730.0, "z": 1433790.0, "elev": 95.0, "size": "hub", "region": "world",
+		"runways": [
+			{"id": "01R/19L", "hdg": 10.0, "len": 3500.0, "wid": 45.0, "off": 800.0, "along": 0.0, "ils": [true, true], "surface": "asphalt"},
+			{"id": "01C/19C", "hdg": 10.0, "len": 3500.0, "wid": 45.0, "off": -800.0, "along": 200.0, "ils": [true, true], "surface": "asphalt"},
+			{"id": "12/30", "hdg": 120.0, "len": 3200.0, "wid": 45.0, "off": -2900.0, "along": -1800.0, "ils": [true, true], "surface": "asphalt"},
+		],
+		"terminal": {"between": true, "side": 1, "gates": 20, "style": "hub"},
+		"freq": {"atis": "119.175", "del": "128.450", "gnd": "128.450", "twr": "118.700", "app": "134.800", "dep": "132.025"},
+		"city_info": {"dx": 17000.0, "dz": 1200.0, "radius": 8000.0, "pop": 690000, "tall": 0.40, "coastal": false},
+		"desc": "The capital's international gateway in the Virginia countryside, a short drive from the Capitol and the Mall.",
+		"arff": 9, "fuel": true, "pax_per_day": 66000,
+	},
+	"KORD": {
+		"iata": "ORD", "name": "Chicago O'Hare International", "short": "Chicago O'Hare", "city": "Chicago",
+		"country": "United States", "x": -760090.0, "z": 1367790.0, "elev": 205.0, "size": "hub", "region": "world",
+		"runways": [
+			{"id": "10L/28R", "hdg": 100.0, "len": 3960.0, "wid": 45.0, "off": -800.0, "along": 0.0, "ils": [true, true], "surface": "asphalt"},
+			{"id": "10C/28C", "hdg": 100.0, "len": 3290.0, "wid": 60.0, "off": 800.0, "along": 250.0, "ils": [true, true], "surface": "asphalt"},
+			{"id": "04R/22L", "hdg": 40.0, "len": 2460.0, "wid": 45.0, "off": -2600.0, "along": 1200.0, "ils": [true, true], "surface": "asphalt"},
+		],
+		"terminal": {"between": true, "side": 1, "gates": 28, "style": "hub"},
+		"freq": {"atis": "121.025", "del": "132.700", "gnd": "132.700", "twr": "126.025", "app": "128.100", "dep": "124.450"},
+		"city_info": {"dx": 10000.0, "dz": 2000.0, "radius": 11000.0, "pop": 2700000, "tall": 1.35, "coastal": true},
+		"desc": "One of the busiest airports on earth: a web of parallel runways on the prairie beside Lake Michigan.",
+		"arff": 10, "fuel": true, "pax_per_day": 150000,
+	},
+	"CYYZ": {
+		"iata": "YYZ", "name": "Toronto Pearson International", "short": "Toronto", "city": "Toronto",
+		"country": "Canada", "x": -626900.0, "z": 1327690.0, "elev": 173.0, "size": "hub", "region": "world",
+		"runways": [
+			{"id": "05/23", "hdg": 57.0, "len": 3390.0, "wid": 60.0, "off": -750.0, "along": 0.0, "ils": [true, true], "surface": "asphalt"},
+			{"id": "06L/24R", "hdg": 57.0, "len": 2960.0, "wid": 60.0, "off": 750.0, "along": 300.0, "ils": [true, true], "surface": "asphalt"},
+		],
+		"terminal": {"between": true, "side": 1, "gates": 20, "style": "hub"},
+		"freq": {"atis": "124.650", "del": "120.650", "gnd": "120.650", "twr": "119.700", "app": "134.125", "dep": "119.700"},
+		"city_info": {"dx": 13000.0, "dz": -1500.0, "radius": 9000.0, "pop": 2800000, "tall": 1.15, "coastal": true},
+		"desc": "Canada's biggest airport, with the CN Tower and the lakefront skyline twenty minutes away.",
+		"arff": 9, "fuel": true, "pax_per_day": 120000,
+	},
+	"KMIA": {
+		"iata": "MIA", "name": "Miami International", "short": "Miami", "city": "Miami",
+		"country": "United States", "x": -634290.0, "z": 1724830.0, "elev": 3.0, "size": "hub", "region": "world",
+		"runways": [
+			{"id": "08R/26L", "hdg": 87.0, "len": 3200.0, "wid": 61.0, "off": 650.0, "along": 0.0, "ils": [true, true], "surface": "asphalt"},
+			{"id": "09/27", "hdg": 90.0, "len": 3960.0, "wid": 61.0, "off": -650.0, "along": -300.0, "ils": [true, true], "surface": "asphalt"},
+		],
+		"terminal": {"between": true, "side": 1, "gates": 20, "style": "resort"},
+		"freq": {"atis": "119.650", "del": "132.800", "gnd": "132.800", "twr": "121.350", "app": "119.700", "dep": "118.750"},
+		"city_info": {"dx": 3000.0, "dz": 1000.0, "radius": 7500.0, "pop": 450000, "tall": 1.05, "coastal": true},
+		"desc": "Sun, thunderstorms and the gateway to the Caribbean, with Miami Beach glittering just across the bay.",
+		"arff": 9, "fuel": true, "pax_per_day": 110000,
+	},
+	"KLAX": {
+		"iata": "LAX", "name": "Los Angeles International", "short": "Los Angeles", "city": "Los Angeles",
+		"country": "United States", "x": -1231910.0, "z": 1544590.0, "elev": 38.0, "size": "hub", "region": "world",
+		"runways": [
+			{"id": "06R/24L", "hdg": 69.0, "len": 3135.0, "wid": 45.0, "off": -750.0, "along": 0.0, "ils": [true, true], "surface": "asphalt"},
+			{"id": "07L/25R", "hdg": 69.0, "len": 3685.0, "wid": 60.0, "off": 750.0, "along": 250.0, "ils": [true, true], "surface": "asphalt"},
+		],
+		"terminal": {"between": true, "side": 1, "gates": 30, "style": "hub"},
+		"freq": {"atis": "126.300", "del": "121.550", "gnd": "121.550", "twr": "134.650", "app": "127.700", "dep": "127.350"},
+		"city_info": {"dx": 11000.0, "dz": -6000.0, "radius": 14000.0, "pop": 3900000, "tall": 1.00, "coastal": true},
+		"desc": "Approaches over the ocean, departures over the Pacific, and the hills of Hollywood beyond the city.",
+		"arff": 10, "fuel": true, "pax_per_day": 180000,
+	},
+	"KSFO": {
+		"iata": "SFO", "name": "San Francisco International", "short": "San Francisco", "city": "San Francisco",
+		"country": "United States", "x": -1294910.0, "z": 1463210.0, "elev": 4.0, "size": "hub", "region": "world",
+		"runways": [
+			{"id": "28L/10R", "hdg": 280.0, "len": 3620.0, "wid": 60.0, "off": 0.0, "along": 0.0, "ils": [true, true], "surface": "asphalt"},
+			{"id": "01R/19L", "hdg": 10.0, "len": 2640.0, "wid": 60.0, "off": 1700.0, "along": 600.0, "ils": [true, true], "surface": "asphalt"},
+		],
+		"terminal": {"between": false, "side": -1, "gates": 18, "style": "hub"},
+		"freq": {"atis": "121.050", "del": "124.175", "gnd": "124.175", "twr": "120.900", "app": "132.250", "dep": "128.550"},
+		"city_info": {"dx": -1500.0, "dz": -10500.0, "radius": 6500.0, "pop": 810000, "tall": 1.05, "coastal": true},
+		"desc": "Fog rolling in under the Golden Gate, a bayside runway and one of the most beautiful approaches anywhere.",
+		"arff": 9, "fuel": true, "pax_per_day": 110000,
+	},
+	"EGLL": {
+		"iata": "LHR", "name": "London Heathrow", "short": "London Heathrow", "city": "London",
+		"country": "United Kingdom", "x": 622640.0, "z": 1156920.0, "elev": 25.0, "size": "hub", "region": "world",
+		"runways": [
+			{"id": "09L/27R", "hdg": 90.0, "len": 3900.0, "wid": 50.0, "off": -720.0, "along": 0.0, "ils": [true, true], "surface": "asphalt"},
+			{"id": "09R/27L", "hdg": 90.0, "len": 3660.0, "wid": 50.0, "off": 720.0, "along": 200.0, "ils": [true, true], "surface": "asphalt"},
+		],
+		"terminal": {"between": true, "side": 1, "gates": 32, "style": "hub"},
+		"freq": {"atis": "132.050", "del": "125.950", "gnd": "125.950", "twr": "127.250", "app": "119.600", "dep": "126.125"},
+		"city_info": {"dx": 12500.0, "dz": -1000.0, "radius": 13000.0, "pop": 8900000, "tall": 0.80, "coastal": false},
+		"desc": "Europe's great hub: two long parallel runways, endless stacks over the city and the Thames winding past Big Ben.",
+		"arff": 10, "fuel": true, "pax_per_day": 220000,
+	},
+	"LFPG": {
+		"iata": "CDG", "name": "Paris Charles de Gaulle", "short": "Paris CDG", "city": "Paris",
+		"country": "France", "x": 669870.0, "z": 1211320.0, "elev": 119.0, "size": "hub", "region": "world",
+		"runways": [
+			{"id": "09L/27R", "hdg": 87.0, "len": 4200.0, "wid": 60.0, "off": -1400.0, "along": 0.0, "ils": [true, true], "surface": "asphalt"},
+			{"id": "09R/27L", "hdg": 87.0, "len": 4200.0, "wid": 45.0, "off": 1400.0, "along": 300.0, "ils": [true, true], "surface": "asphalt"},
+		],
+		"terminal": {"between": true, "side": 1, "gates": 30, "style": "hub"},
+		"freq": {"atis": "118.850", "del": "125.100", "gnd": "125.100", "twr": "127.450", "app": "119.650", "dep": "132.300"},
+		"city_info": {"dx": -6000.0, "dz": 11000.0, "radius": 10000.0, "pop": 2100000, "tall": 0.45, "coastal": false},
+		"desc": "France's front door: four runways, futuristic terminals and the Eiffel Tower on the skyline.",
+		"arff": 10, "fuel": true, "pax_per_day": 200000,
+	},
+	"EHAM": {
+		"iata": "AMS", "name": "Amsterdam Schiphol", "short": "Amsterdam", "city": "Amsterdam",
+		"country": "Netherlands", "x": 706160.0, "z": 1138340.0, "elev": 2.0, "size": "hub", "region": "world",
+		"runways": [
+			{"id": "18C/36C", "hdg": 183.0, "len": 3300.0, "wid": 45.0, "off": 0.0, "along": 0.0, "ils": [true, true], "surface": "asphalt"},
+			{"id": "18R/36L", "hdg": 183.0, "len": 3800.0, "wid": 60.0, "off": 2600.0, "along": -600.0, "ils": [true, true], "surface": "asphalt"},
+			{"id": "06/24", "hdg": 58.0, "len": 3500.0, "wid": 45.0, "off": -1500.0, "along": -2500.0, "ils": [true, true], "surface": "asphalt"},
+		],
+		"terminal": {"between": false, "side": -1, "gates": 24, "style": "hub"},
+		"freq": {"atis": "127.700", "del": "125.900", "gnd": "125.900", "twr": "125.750", "app": "127.050", "dep": "119.200"},
+		"city_info": {"dx": 8500.0, "dz": -5500.0, "radius": 6500.0, "pop": 900000, "tall": 0.40, "coastal": true},
+		"desc": "Below sea level and famously flat: windmills, canals and the long taxi out to the Polderbaan.",
+		"arff": 9, "fuel": true, "pax_per_day": 190000,
+	},
+	"EIDW": {
+		"iata": "DUB", "name": "Dublin Airport", "short": "Dublin", "city": "Dublin",
+		"country": "Ireland", "x": 530010.0, "z": 1113790.0, "elev": 74.0, "size": "regional", "region": "world",
+		"runways": [
+			{"id": "10R/28L", "hdg": 100.0, "len": 3110.0, "wid": 45.0, "off": 0.0, "along": 0.0, "ils": [true, true], "surface": "asphalt"},
+			{"id": "16/34", "hdg": 160.0, "len": 2070.0, "wid": 45.0, "off": 1700.0, "along": 500.0, "ils": [true, false], "surface": "asphalt"},
+		],
+		"terminal": {"between": false, "side": 1, "gates": 14, "style": "hub"},
+		"freq": {"atis": "118.950", "del": "127.900", "gnd": "127.900", "twr": "134.050", "app": "124.800", "dep": "132.850"},
+		"city_info": {"dx": 1500.0, "dz": 6500.0, "radius": 6500.0, "pop": 590000, "tall": 0.35, "coastal": true},
+		"desc": "The first landfall after the Atlantic crossing, Atlantic weather and a city on the River Liffey.",
+		"arff": 8, "fuel": true, "pax_per_day": 90000,
+	},
+	"LEMD": {
+		"iata": "MAD", "name": "Madrid-Barajas", "short": "Madrid", "city": "Madrid",
+		"country": "Spain", "x": 573680.0, "z": 1400180.0, "elev": 610.0, "size": "hub", "region": "world",
+		"runways": [
+			{"id": "18L/36R", "hdg": 180.0, "len": 3500.0, "wid": 60.0, "off": -900.0, "along": 0.0, "ils": [true, true], "surface": "asphalt"},
+			{"id": "18R/36L", "hdg": 180.0, "len": 4350.0, "wid": 60.0, "off": 900.0, "along": -300.0, "ils": [true, true], "surface": "asphalt"},
+		],
+		"terminal": {"between": true, "side": 1, "gates": 26, "style": "hub"},
+		"freq": {"atis": "125.000", "del": "127.250", "gnd": "127.250", "twr": "126.850", "app": "127.350", "dep": "120.750"},
+		"city_info": {"dx": -8000.0, "dz": 5500.0, "radius": 9500.0, "pop": 3300000, "tall": 0.60, "coastal": false},
+		"desc": "High on the Spanish plateau: hot summers, crisp winters and long runways for thin air.",
+		"arff": 9, "fuel": true, "pax_per_day": 170000,
+	},
+	"LIRF": {
+		"iata": "FCO", "name": "Rome Fiumicino", "short": "Rome", "city": "Rome",
+		"country": "Italy", "x": 825070.0, "z": 1369770.0, "elev": 4.0, "size": "hub", "region": "world",
+		"runways": [
+			{"id": "16R/34L", "hdg": 160.0, "len": 3900.0, "wid": 60.0, "off": 800.0, "along": 0.0, "ils": [true, true], "surface": "asphalt"},
+			{"id": "16L/34R", "hdg": 160.0, "len": 3900.0, "wid": 45.0, "off": -800.0, "along": 500.0, "ils": [true, true], "surface": "asphalt"},
+		],
+		"terminal": {"between": true, "side": 1, "gates": 22, "style": "hub"},
+		"freq": {"atis": "124.100", "del": "119.550", "gnd": "119.550", "twr": "118.150", "app": "121.400", "dep": "126.550"},
+		"city_info": {"dx": 10000.0, "dz": -8500.0, "radius": 9000.0, "pop": 2800000, "tall": 0.30, "coastal": true},
+		"desc": "Beside the sea where the Tiber meets it, a short hop from the Colosseum and St Peter's.",
+		"arff": 9, "fuel": true, "pax_per_day": 120000,
+	},
+	"BIKF": {
+		"iata": "KEF", "name": "Keflavik International", "short": "Reykjavik", "city": "Reykjavik",
+		"country": "Iceland", "x": 273610.0, "z": 880040.0, "elev": 52.0, "size": "regional", "region": "world",
+		"runways": [
+			{"id": "01/19", "hdg": 10.0, "len": 3050.0, "wid": 60.0, "off": 0.0, "along": 0.0, "ils": [true, true], "surface": "asphalt"},
+			{"id": "10/28", "hdg": 100.0, "len": 3060.0, "wid": 60.0, "off": 1600.0, "along": 700.0, "ils": [true, true], "surface": "asphalt"},
+		],
+		"terminal": {"between": false, "side": 1, "gates": 10, "style": "island"},
+		"freq": {"atis": "128.200", "del": "119.125", "gnd": "119.125", "twr": "127.400", "app": "120.450", "dep": "128.200"},
+		"city_info": {"dx": 11500.0, "dz": -1800.0, "radius": 3800.0, "pop": 135000, "tall": 0.25, "coastal": true},
+		"desc": "Lava fields, howling crosswinds and the northern lights: the mid-Atlantic stop between two continents.",
+		"arff": 8, "fuel": true, "pax_per_day": 24000,
+	},
+	"TXKF": {
+		"iata": "BDA", "name": "L.F. Wade International", "short": "Bermuda", "city": "Hamilton",
+		"country": "Bermuda", "x": -388540.0, "z": 1579530.0, "elev": 4.0, "size": "regional", "region": "world",
+		"runways": [
+			{"id": "12/30", "hdg": 120.0, "len": 2960.0, "wid": 45.0, "off": 0.0, "along": 0.0, "ils": [true, true], "surface": "asphalt"},
+		],
+		"terminal": {"between": false, "side": 1, "gates": 5, "style": "island"},
+		"freq": {"atis": "121.100", "del": "126.350", "gnd": "126.350", "twr": "134.400", "app": "119.125", "dep": "120.175"},
+		"city_info": {"dx": -4500.0, "dz": 1200.0, "radius": 2200.0, "pop": 64000, "tall": 0.20, "coastal": true},
+		"desc": "A tiny coral island alone in the middle of the Atlantic: pink beaches and nowhere else to land for a thousand kilometres.",
+		"arff": 7, "fuel": true, "pax_per_day": 4000,
+	},
+	"LPPD": {
+		"iata": "PDL", "name": "Ponta Delgada", "short": "Azores", "city": "Ponta Delgada",
+		"country": "Portugal", "x": 225130.0, "z": 1460330.0, "elev": 79.0, "size": "regional", "region": "world",
+		"runways": [
+			{"id": "12/30", "hdg": 120.0, "len": 2490.0, "wid": 45.0, "off": 0.0, "along": 0.0, "ils": [true, true], "surface": "asphalt"},
+		],
+		"terminal": {"between": false, "side": 1, "gates": 5, "style": "island"},
+		"freq": {"atis": "132.125", "del": "134.175", "gnd": "134.175", "twr": "118.550", "app": "124.250", "dep": "118.100"},
+		"city_info": {"dx": 3000.0, "dz": 1200.0, "radius": 2400.0, "pop": 68000, "tall": 0.20, "coastal": true},
+		"desc": "Volcanic islands in mid-ocean, crater lakes and Atlantic gales. A favourite diversion airport.",
+		"arff": 7, "fuel": true, "pax_per_day": 5000,
+	},
+	"LPMA": {
+		"iata": "FNC", "name": "Madeira Airport", "short": "Madeira", "city": "Funchal",
+		"country": "Portugal", "x": 365550.0, "z": 1572010.0, "elev": 58.0, "size": "regional", "region": "world",
+		"runways": [
+			{"id": "05/23", "hdg": 50.0, "len": 2780.0, "wid": 45.0, "off": 0.0, "along": 0.0, "ils": [true, true], "surface": "asphalt"},
+		],
+		"terminal": {"between": false, "side": -1, "gates": 6, "style": "island"},
+		"freq": {"atis": "132.300", "del": "126.650", "gnd": "126.650", "twr": "125.750", "app": "120.900", "dep": "128.750"},
+		"city_info": {"dx": -5000.0, "dz": 600.0, "radius": 2600.0, "pop": 105000, "tall": 0.25, "coastal": true},
+		"desc": "A runway built out over the sea on stilts beneath steep mountains: one of the world's most demanding approaches.",
+		"arff": 7, "fuel": true, "pax_per_day": 9000,
+	},
+	"EKVG": {
+		"iata": "FAE", "name": "Vagar Airport", "short": "Faroe Islands", "city": "Torshavn",
+		"country": "Faroe Islands", "x": 515110.0, "z": 922720.0, "elev": 85.0, "size": "regional", "region": "world",
+		"runways": [
+			{"id": "12/30", "hdg": 120.0, "len": 1800.0, "wid": 30.0, "off": 0.0, "along": 0.0, "ils": [true, false], "surface": "asphalt"},
+		],
+		"terminal": {"between": false, "side": 1, "gates": 3, "style": "island"},
+		"freq": {"atis": "134.650", "del": "134.850", "gnd": "134.850", "twr": "118.500", "app": "126.400", "dep": "126.400"},
+		"city_info": {"dx": 5500.0, "dz": 1500.0, "radius": 1800.0, "pop": 22000, "tall": 0.15, "coastal": true},
+		"desc": "A short runway in a fjord valley ringed by sea cliffs, sheep and sideways rain.",
+		"arff": 5, "fuel": true, "pax_per_day": 1800,
+	},
+	"CYQX": {
+		"iata": "YQX", "name": "Gander International", "short": "Gander", "city": "Gander",
+		"country": "Canada", "x": -229380.0, "z": 1212870.0, "elev": 151.0, "size": "regional", "region": "world",
+		"runways": [
+			{"id": "03/21", "hdg": 30.0, "len": 3200.0, "wid": 60.0, "off": 0.0, "along": 0.0, "ils": [true, true], "surface": "asphalt"},
+			{"id": "13/31", "hdg": 130.0, "len": 2130.0, "wid": 45.0, "off": 1500.0, "along": 300.0, "ils": [true, false], "surface": "asphalt"},
+		],
+		"terminal": {"between": false, "side": 1, "gates": 6, "style": "regional"},
+		"freq": {"atis": "118.150", "del": "119.550", "gnd": "119.550", "twr": "134.400", "app": "119.150", "dep": "127.125"},
+		"city_info": {"dx": 4500.0, "dz": -2500.0, "radius": 2200.0, "pop": 12000, "tall": 0.15, "coastal": false},
+		"desc": "The legendary North Atlantic waypoint where dozens of airliners once diverted in a single day.",
+		"arff": 7, "fuel": true, "pax_per_day": 1500,
+	},
+	"BGGH": {
+		"iata": "GOH", "name": "Nuuk Airport", "short": "Nuuk", "city": "Nuuk",
+		"country": "Greenland", "x": -180880.0, "z": 875620.0, "elev": 86.0, "size": "regional", "region": "world",
+		"runways": [
+			{"id": "05/23", "hdg": 50.0, "len": 2200.0, "wid": 45.0, "off": 0.0, "along": 0.0, "ils": [true, true], "surface": "asphalt"},
+		],
+		"terminal": {"between": false, "side": 1, "gates": 3, "style": "island"},
+		"freq": {"atis": "119.000", "del": "119.300", "gnd": "119.300", "twr": "132.025", "app": "132.100", "dep": "128.075"},
+		"city_info": {"dx": 1500.0, "dz": 2500.0, "radius": 1800.0, "pop": 19000, "tall": 0.15, "coastal": true},
+		"desc": "Greenland's capital between ice cap and fjord. Icebergs float past the end of the runway.",
+		"arff": 5, "fuel": true, "pax_per_day": 1200,
+	},
 }
 
-const CENTER_FREQ := {"Calderra": "128.200", "Westmark": "131.450", "Oceanic": "126.950"}
+const CENTER_FREQ := {"Calderra": "128.200", "Westmark": "131.450", "Oceanic": "126.950", "United States": "132.450",
+	"Canada": "133.300", "United Kingdom": "127.825", "Ireland": "131.150", "France": "128.325", "Netherlands": "124.875",
+	"Spain": "133.950", "Italy": "125.500", "Iceland": "119.700", "Portugal": "132.150", "Bermuda": "128.700",
+	"Greenland": "125.200", "Faroe Islands": "126.300"}
 
 
 static func get_ap(icao: String) -> Dictionary:

@@ -257,7 +257,7 @@ static func _buildings(L: Dictionary, a: Dictionary, prod: Dictionary, detail: f
 		var basis := Basis(Vector3.UP, yaw)
 		# MeshBuilder boxes are axis aligned: x across, z along after rotation
 		var t := Transform3D(basis, _v3(c, 0))
-		if b.kind == "terminal":
+		if b.kind in ["terminal", "concourse"]:
 			# ground floor (baggage, services), glazed departures level (level with the jet bridge
 			# stubs, see TerminalInterior.FLOOR), wavy roof
 			var fl := TerminalInterior.FLOOR
@@ -276,11 +276,12 @@ static func _buildings(L: Dictionary, a: Dictionary, prod: Dictionary, detail: f
 				concrete.add_box(Vector3(b.depth * 0.5 + 0.6, b.h * 0.5, zc2), Vector3(1.0, b.h, 1.0), Color.WHITE, true)
 				concrete.add_box(Vector3(-b.depth * 0.5 - 0.6, b.h * 0.5, zc2), Vector3(1.0, b.h, 1.0), Color.WHITE, true)
 			metal.xf = Transform3D.IDENTITY
-			# airport name on both long sides
+			# airport name on both long sides (the satellite carries its concourse letters)
 			var n := Vector2(-ax.y, ax.x)
 			for sgn in [1.0, -1.0]:
 				var face: Vector2 = c + n * sgn * (b.depth * 0.5 + 0.4)
-				_sign_label(prod, String(a.name).to_upper(), Vector3(face.x, b.h - 3.0, face.y), n * sgn, 3.4 if L.size == "hub" else 2.2, Color(0.95, 0.97, 1.0), 6)
+				var title := String(a.name).to_upper() if b.kind == "terminal" else ("CONCOURSE C" if sgn > 0.0 else "CONCOURSE D")
+				_sign_label(prod, title, Vector3(face.x, b.h - 3.0, face.y), n * sgn, 3.4 if L.size == "hub" else 2.2, Color(0.95, 0.97, 1.0), 6)
 		else:
 			concrete.xf = t
 			concrete.add_box(Vector3(0, b.h * 0.5, 0), Vector3(b.depth, b.h, b.len), Color.WHITE, true)

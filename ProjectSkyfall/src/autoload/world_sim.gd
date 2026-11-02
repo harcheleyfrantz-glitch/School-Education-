@@ -143,7 +143,7 @@ func record_flight_on_aircraft(reg: String, hours: float, stress: float) -> void
 
 # ------------------------------------------------------------------ schedule
 const ROUTES := {
-	"SKF": [["SKPC", "SKNG", "s320", 4], ["SKPC", "SKOF", "s320", 3], ["SKPC", "SKSB", "s320", 3], ["SKPC", "WMIA", "w350", 3],
+	"SKF": [["SKPC", "KJFK", "w350", 1], ["SKPC", "EGLL", "w350", 1], ["SKPC", "SKNG", "s320", 4], ["SKPC", "SKOF", "s320", 3], ["SKPC", "SKSB", "s320", 3], ["SKPC", "WMIA", "w350", 3],
 		["SKPC", "WMIA", "s320", 2], ["SKPC", "SKHP", "rj90", 2], ["SKPC", "SKRV", "rj90", 3], ["SKPC", "SKIM", "rj90", 2],
 		["SKPC", "WMSK", "rj90", 1], ["SKNG", "WMIA", "w350", 1]],
 	"CLK": [["SKPC", "SKIM", "tp72", 4], ["SKPC", "SKRV", "tp72", 3], ["SKSB", "SKIM", "tp72", 2], ["SKSB", "SKOF", "rj90", 2],
@@ -153,10 +153,27 @@ const ROUTES := {
 	"NWC": [["SKNG", "WMIA", "f4", 1], ["SKNG", "SKPC", "f4", 2], ["SKNG", "SKOF", "f4", 1]],
 	"APX": [["SKPC", "SKSB", "bj6", 2], ["SKSB", "WMIA", "bj6", 1], ["SKPC", "SKHP", "bj6", 1], ["SKPC", "SKIM", "bj6", 1]],
 	"HFA": [["SKWF", "SKWF", "t172", 6], ["SKWF", "SKPC", "t172", 2], ["SKWF", "SKOF", "t172", 1], ["SKWF", "SKSB", "t172", 1]],
-	"AUR": [["WMSK", "SKPC", "w380", 2], ["WMIA", "SKPC", "w380", 1], ["WMSK", "WMIA", "s321", 3], ["WMSK", "SKNG", "w350", 2], ["WMIA", "SKSB", "w350", 1]],
+	"AUR": [["WMSK", "SKPC", "w380", 2], ["WMIA", "SKPC", "w380", 1], ["WMSK", "WMIA", "s321", 3], ["WMSK", "SKNG", "w350", 2], ["WMIA", "SKSB", "w350", 1],
+		["WMSK", "EGLL", "w380", 1], ["WMIA", "LFPG", "w350", 1]],
 	"PEL": [["SKIM", "SKSB", "tp50", 4], ["SKIM", "SKOF", "tp50", 2], ["SKSB", "SKHP", "tp50", 2], ["SKIM", "SKPC", "tp72", 2], ["SKSB", "SKIM", "tp72", 2]],
 	"VTX": [["SKOF", "SKPC", "s321", 4], ["SKOF", "SKNG", "s321", 2], ["SKHP", "SKPC", "s320", 3], ["SKOF", "WMIA", "s321", 1], ["SKHP", "SKRV", "rj70", 3]],
-	"WMA": [["WMIA", "SKPC", "w350", 2], ["WMIA", "SKPC", "s320", 2], ["WMIA", "WMSK", "tp72", 3], ["WMIA", "SKNG", "s320", 1],
+	"LBA": [["KJFK", "EGLL", "w380", 2], ["KJFK", "LFPG", "w350", 2], ["KJFK", "KLAX", "s321", 3], ["KJFK", "KMIA", "s321", 3], ["KJFK", "KORD", "s320", 4],
+		["KBOS", "EGLL", "w350", 1], ["KJFK", "KBOS", "rj70", 4], ["KJFK", "KIAD", "rj70", 3], ["KJFK", "TXKF", "s320", 1], ["KJFK", "BIKF", "s320", 1],
+		["KBOS", "EIDW", "s321", 1], ["KJFK", "SKPC", "w350", 1]],
+	"THA": [["EGLL", "KJFK", "w380", 2], ["EGLL", "LFPG", "s320", 4], ["EGLL", "EHAM", "s320", 3], ["EGLL", "EIDW", "s320", 3], ["EGLL", "LEMD", "s321", 2],
+		["EGLL", "LIRF", "s321", 2], ["EGLL", "KMIA", "w350", 1], ["EGLL", "CYYZ", "w350", 1], ["EGLL", "BIKF", "s320", 1], ["EGLL", "LPMA", "s320", 1], ["EGLL", "WMIA", "w350", 1]],
+	"LUE": [["LFPG", "KJFK", "w350", 2], ["LFPG", "LIRF", "s320", 3], ["LFPG", "LEMD", "s320", 3], ["LFPG", "EHAM", "rj90", 3], ["LFPG", "EGLL", "s320", 2],
+		["LFPG", "KMIA", "w350", 1], ["LFPG", "LPMA", "s320", 1]],
+	"GGP": [["KSFO", "KLAX", "rj70", 5], ["KLAX", "KJFK", "s321", 3], ["KSFO", "KJFK", "s321", 2], ["KLAX", "KMIA", "s320", 2], ["KSFO", "KORD", "s320", 2],
+		["KLAX", "KORD", "s320", 2], ["KSFO", "CYYZ", "s320", 1]],
+	"MPN": [["CYYZ", "KJFK", "rj90", 4], ["CYYZ", "KORD", "rj90", 3], ["CYYZ", "KBOS", "tp72", 2], ["CYYZ", "CYQX", "tp72", 2], ["CYYZ", "KMIA", "s320", 2], ["CYYZ", "EGLL", "s320", 1]],
+	"AUN": [["BIKF", "EKVG", "tp72", 2], ["BIKF", "BGGH", "tp72", 2], ["BIKF", "EGLL", "s320", 2], ["BIKF", "KJFK", "s320", 1], ["BIKF", "EIDW", "rj90", 2],
+		["EKVG", "EGLL", "rj90", 1], ["BIKF", "CYQX", "tp50", 1]],
+	"IHA": [["TXKF", "KJFK", "rj70", 2], ["TXKF", "LPPD", "tp72", 1], ["LPPD", "LPMA", "tp72", 2], ["LPPD", "LEMD", "rj70", 1], ["LPMA", "LEMD", "rj70", 1], ["TXKF", "KMIA", "tp72", 1]],
+	"SOL": [["LEMD", "LIRF", "s320", 3], ["LEMD", "LFPG", "s320", 3], ["LEMD", "EGLL", "s321", 3], ["LEMD", "EHAM", "s320", 2], ["LEMD", "LPMA", "s320", 2],
+		["LEMD", "EIDW", "s320", 1], ["LEMD", "KMIA", "s321", 1]],
+	"TFX": [["KORD", "EHAM", "f4", 1], ["KJFK", "EHAM", "f4", 1], ["KORD", "KLAX", "f4", 1], ["EHAM", "LIRF", "f4", 1]],
+	"WMA": [["WMIA", "SKPC", "w350", 2], ["WMIA", "KJFK", "w350", 1], ["WMIA", "SKPC", "s320", 2], ["WMIA", "WMSK", "tp72", 3], ["WMIA", "SKNG", "s320", 1],
 		["WMIA", "SKSB", "s320", 1]],
 }
 
@@ -176,7 +193,7 @@ func schedule_for_day(day: int) -> Array:
 			var type_id: String = route[2]
 			var freq: int = route[3]
 			for k in freq:
-				var cargo = code == "NWC"
+				var cargo := String(al.get("kind", "")) == "cargo"
 				var dep_h := r.randf_range(5.5, 22.5)
 				if cargo:
 					dep_h = fmod(r.randf_range(19.0, 30.0), 24.0)
@@ -220,8 +237,9 @@ func _gate_for(icao: String, r: RandomNumberGenerator) -> String:
 	var gates := int(Airports.get_ap(icao).terminal.gates)
 	if gates <= 0:
 		return "Apron"
-	var letter = "A" if gates < 8 else ["A", "B"][r.randi_range(0, 1)]
-	return "%s%d" % [letter, r.randi_range(1, gates)]
+	var letters := ["A"] if gates < 8 else (["A", "B", "C", "D"] if gates >= 24 else ["A", "B"])
+	var letter: String = letters[r.randi_range(0, letters.size() - 1)]
+	return "%s%d" % [letter, r.randi_range(1, maxi(gates / letters.size(), 1))]
 
 
 func flight_status(f: Dictionary) -> Dictionary:

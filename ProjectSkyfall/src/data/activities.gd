@@ -46,6 +46,26 @@ const SCENARIOS := [
 		"hour": 22.3, "weather": "clear", "difficulty": 2,
 		"desc": "Westmark's capital spreads out below like a circuit board. Descend over the city lights onto the four-kilometre runway of Aldmoor's grand old airport.",
 		"objective": "Land on runway 08 at Aldmoor.", "tags": ["Night", "City lights", "ILS 08"]},
+	{"id": "hudson_run", "category": "discovery", "title": "Down the Hudson", "place": "New York · Manhattan and the Statue of Liberty",
+		"type": "bj6", "airline": "APX", "dep": "KBOS", "arr": "KJFK", "start": "air", "at_lm": "esb", "at_off": Vector2(-1.6, -15.0), "alt_ft": 1500.0,
+		"hour": 17.6, "weather": "few", "difficulty": 2,
+		"desc": "Fly the famous corridor down the Hudson River at fifteen hundred feet: Midtown's towers and the Empire State Building off the left wing, then the Statue of Liberty in the harbour. Swing east and land at JFK.",
+		"objective": "Pass the Statue of Liberty, then land at New York JFK.", "tags": ["New York", "Landmarks", "Low level"]},
+	{"id": "thames_evening", "category": "discovery", "title": "Along the Thames", "place": "London · Big Ben, the Eye and Tower Bridge",
+		"type": "bj6", "airline": "APX", "dep": "EIDW", "arr": "EGLL", "start": "air", "at_lm": "bigben", "at_off": Vector2(-12.0, 0.6), "alt_ft": 1800.0,
+		"hour": 18.4, "weather": "few", "difficulty": 2,
+		"desc": "Follow the river east into the heart of London as the sun sets: the Houses of Parliament and Big Ben, the London Eye, the Shard and Tower Bridge. Then turn back west for Heathrow.",
+		"objective": "Fly past Big Ben, then land at London Heathrow.", "tags": ["London", "Golden hour", "River"]},
+	{"id": "paris_lights", "category": "discovery", "title": "City of Light", "place": "Paris · the Eiffel Tower at dusk",
+		"type": "bj6", "airline": "APX", "dep": "EGLL", "arr": "LFPG", "start": "air", "at_lm": "eiffel", "at_off": Vector2(-9.0, -6.0), "alt_ft": 2000.0,
+		"hour": 20.6, "weather": "clear", "difficulty": 2,
+		"desc": "Paris lights up below you. Circle the Eiffel Tower, follow the Seine past the Arc de Triomphe and the towers of La Defense, then head north-east for Charles de Gaulle.",
+		"objective": "Circle the Eiffel Tower, then land at Paris CDG.", "tags": ["Paris", "Dusk", "City lights"]},
+	{"id": "golden_gate_fog", "category": "discovery", "title": "Through the Golden Gate", "place": "San Francisco · the bridge and the bay",
+		"type": "bj6", "airline": "APX", "dep": "KLAX", "arr": "KSFO", "start": "air", "at_lm": "ggb", "at_off": Vector2(-9.0, 0.0), "alt_ft": 1200.0,
+		"hour": 8.2, "weather": "few", "difficulty": 2,
+		"desc": "Come in from the Pacific at bridge height: the red towers of the Golden Gate rise out of the morning haze, the city's hills on the right. Cross into the bay and land at San Francisco.",
+		"objective": "Fly over the Golden Gate Bridge, then land at San Francisco.", "tags": ["San Francisco", "Bridge", "Morning"]},
 	# ------------------------------------------------------------ landing challenges
 	{"id": "trade_winds", "category": "landing", "title": "Trade Wind Crosswind", "place": "Isla Marea · runway 29",
 		"type": "tp72", "airline": "CLK", "dep": "SKPC", "arr": "SKIM", "start": "air", "arr_rwy": "29", "dist_km": 11.0, "alt_ft": 2000.0,
@@ -77,6 +97,36 @@ const SCENARIOS := [
 		"hour": 17.2, "weather": "rain", "difficulty": 3,
 		"desc": "A squall line is sweeping across Sable Bay. Heavy rain, a low ceiling and a wet runway: fly the ILS, keep it stable and land firmly enough to break through the water on the runway.",
 		"objective": "Land on runway 16 in heavy rain.", "tags": ["Rain", "Low ceiling", "Wet runway"]},
+	{"id": "jfk_crosswind", "category": "landing", "title": "Kennedy Crosswind", "place": "New York JFK · runway 31L",
+		"type": "s321", "airline": "LBA", "dep": "KBOS", "arr": "KJFK", "start": "air", "arr_rwy": "31L", "dist_km": 12.0, "alt_ft": 2600.0,
+		"hour": 16.4, "weather": "crosswind", "wind": 225.0, "difficulty": 4,
+		"desc": "A blustery afternoon at JFK. The wind is coming straight across runway 31L at 26 knots, gusting 38, over the waters of Jamaica Bay. Hold the crab, kick it straight and land the long Stratos 321 without touching a wingtip.",
+		"objective": "Land on runway 31L in the touchdown zone.", "tags": ["Crosswind 26G38", "Stretched jet", "New York"]},
+	{"id": "heathrow_fog", "category": "landing", "title": "Heathrow Pea-Souper", "place": "London Heathrow · runway 27L in fog",
+		"type": "w350", "airline": "THA", "dep": "KJFK", "arr": "EGLL", "start": "air", "arr_rwy": "27L", "dist_km": 15.0, "alt_ft": 3200.0,
+		"hour": 6.7, "weather": "fog", "difficulty": 4,
+		"desc": "The overnight flight from New York arrives into thick London fog. 350 metres of visibility and a heavy wide-body: capture the ILS, trust the autoland or fly it down by hand.",
+		"objective": "Land on runway 27L in low visibility.", "tags": ["Fog 350 m", "Wide-body", "London"]},
+	{"id": "madeira_winds", "category": "landing", "title": "The Madeira Approach", "place": "Madeira · runway 05",
+		"type": "s320", "airline": "SOL", "dep": "LEMD", "arr": "LPMA", "start": "air", "arr_rwy": "05", "dist_km": 10.0, "alt_ft": 2200.0,
+		"hour": 14.2, "weather": "crosswind", "wind": 340.0, "difficulty": 5,
+		"desc": "Mountains on one side, the Atlantic on the other and a runway built out over the sea on stilts. Gusts tumble off the cliffs onto short final. Only the best pilots are allowed to land here.",
+		"objective": "Land on runway 05 at Madeira.", "tags": ["Gusts", "Runway on stilts", "Special airport"]},
+	{"id": "faroe_valley", "category": "landing", "title": "Faroe Islands Fjord", "place": "Vagar · runway 30 in rain",
+		"type": "rj90", "airline": "AUN", "dep": "BIKF", "arr": "EKVG", "start": "air", "arr_rwy": "30", "dist_km": 10.0, "alt_ft": 2100.0,
+		"hour": 11.3, "weather": "rain", "difficulty": 4,
+		"desc": "Sideways rain over the North Atlantic and a short 1,800 metre runway in a valley between sea cliffs. Get down on the numbers and stop before the end.",
+		"objective": "Land on runway 30 at Vagar.", "tags": ["Rain", "1800 m runway", "Cliffs"]},
+	{"id": "bermuda_night", "category": "landing", "title": "Bermuda by Night", "place": "Bermuda · runway 12 at night",
+		"type": "tp72", "airline": "IHA", "dep": "KJFK", "arr": "TXKF", "start": "air", "arr_rwy": "12", "dist_km": 12.0, "alt_ft": 2400.0,
+		"hour": 22.8, "weather": "clear", "difficulty": 3,
+		"desc": "A tiny island alone in a black ocean. There is nothing below you but water until the runway lights appear. Fly the instruments all the way down.",
+		"objective": "Land on runway 12 at Bermuda.", "tags": ["Night", "Island", "Black hole"]},
+	{"id": "lax_sunset", "category": "landing", "title": "Los Angeles Sunset", "place": "Los Angeles · runway 25R",
+		"type": "w350", "airline": "GGP", "dep": "KJFK", "arr": "KLAX", "start": "air", "arr_rwy": "25R", "dist_km": 16.0, "alt_ft": 3400.0,
+		"hour": 19.4, "weather": "clear", "difficulty": 2,
+		"desc": "The classic arrival over downtown Los Angeles at sunset, the Hollywood Hills glowing on the right and the Pacific ahead. Grease it onto 25R.",
+		"objective": "Land on runway 25R in the touchdown zone.", "tags": ["Sunset", "City approach", "Wide-body"]},
 	# ------------------------------------------------------------ bush trips
 	{"id": "grand_tour", "category": "bush", "title": "Calderra Grand Tour", "place": "Willow Field · Oren Falls · Highpass",
 		"type": "t172", "airline": "HFA", "legs": [["SKWF", "SKOF"], ["SKOF", "SKHP"], ["SKHP", "SKNG"]], "start": "runway", "hour": 9.0,
@@ -103,6 +153,21 @@ const SCENARIOS := [
 		"weather": "few", "difficulty": 3, "cruise_ft": 15000.0,
 		"desc": "Down Westmark's rugged coast to the fishing town of Skerra, then the long crossing of the Western Sea to Calderra, with nothing but water below until the coast appears.",
 		"objective": "Complete both legs.", "tags": ["2 legs", "Ocean crossing", "Long leg"]},
+	{"id": "atlantic_steps", "category": "bush", "title": "North Atlantic Stepping Stones", "place": "Gander · Nuuk · Reykjavik · Faroe Islands",
+		"type": "tp72", "airline": "AUN", "legs": [["CYQX", "BGGH"], ["BGGH", "BIKF"], ["BIKF", "EKVG"]], "start": "runway", "hour": 10.0,
+		"weather": "scattered", "difficulty": 3, "cruise_ft": 16000.0,
+		"desc": "Ferry a turboprop across the top of the world the way the pioneers did: from Gander up to Greenland's capital, across the ice to Iceland, then on to the cliffs of the Faroe Islands.",
+		"objective": "Complete all three legs.", "tags": ["3 legs", "Ocean crossing", "Greenland"]},
+	{"id": "atlantic_islands", "category": "bush", "title": "Islands of the Atlantic", "place": "Bermuda · Azores · Madeira",
+		"type": "tp72", "airline": "IHA", "legs": [["TXKF", "LPPD"], ["LPPD", "LPMA"]], "start": "runway", "hour": 9.5,
+		"weather": "few", "difficulty": 3, "cruise_ft": 18000.0,
+		"desc": "The long way across the ocean in a turboprop: from Bermuda out to the volcanic Azores, then south to Madeira's dramatic runway.",
+		"objective": "Complete both legs.", "tags": ["2 legs", "Long over water", "Islands"]},
+	{"id": "euro_capitals", "category": "bush", "title": "European Capitals", "place": "Dublin · London · Paris · Amsterdam",
+		"type": "rj90", "airline": "LUE", "legs": [["EIDW", "EGLL"], ["EGLL", "LFPG"], ["LFPG", "EHAM"]], "start": "runway", "hour": 11.0,
+		"weather": "few", "difficulty": 2, "cruise_ft": 14000.0,
+		"desc": "Three capitals in a day: hop from Dublin across the Irish Sea to Heathrow, over the Channel to Paris and up to Amsterdam. Short legs, busy airspace, big airports.",
+		"objective": "Complete all three legs.", "tags": ["3 legs", "Busy airspace", "Europe"]},
 ]
 
 
@@ -206,6 +271,14 @@ static func launch(scn: Dictionary, leg: int = -1) -> void:
 	if p.start == "air":
 		p.alt_ft = float(scn.get("alt_ft", 3000.0))
 		p.dist_km = float(scn.get("dist_km", 12.0))
+		if scn.has("at_lm"):
+			# sightseeing: start a few kilometres from a landmark, pointed at it
+			for lm in RealWorld.LANDMARKS:
+				if String(lm.id) == String(scn.at_lm):
+					var off: Vector2 = scn.get("at_off", Vector2(0, -10)) * 1000.0
+					p.at_x = float(lm.x) + off.x
+					p.at_z = float(lm.z) + off.y
+					p.at_hdg = fposmod(rad_to_deg(atan2(-off.x, off.y)), 360.0)
 	# the activity's weather, with its wind fixed across the runway where the scenario asks for it
 	WeatherModel.override_preset = String(p.weather)
 	WeatherModel.override_dir = float(scn.get("wind", -1.0))
@@ -271,6 +344,8 @@ static func consume(params: Dictionary) -> Dictionary:
 	recs[id] = r
 	Game.settings[SETTINGS_KEY] = recs
 	Game.save_settings()
+	if complete:
+		Achievements.on_activity(final_score, medal_for(final_score))
 	return {"id": id, "category": String(scn.category), "score": final_score, "leg_score": score, "leg": leg, "legs": lg.size(),
 		"complete": complete, "leg_ok": leg_ok, "new_best": new_best, "medal": medal_for(final_score) if complete else "",
 		"best": float(r.get("best", final_score)), "outcome": outcome, "touchdown": res.get("touchdown", {})}

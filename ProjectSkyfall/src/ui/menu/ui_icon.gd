@@ -33,6 +33,8 @@ func _draw() -> void:
 static func draw(ci: CanvasItem, kind: String, r: Rect2, col: Color, w: float = 2.0) -> void:
 	var c := r.get_center()
 	var s := r.size.x
+	if s < 4.0:
+		return      # not laid out yet: polygons would collapse to a point
 	var p := func(x: float, y: float) -> Vector2: return r.position + Vector2(x, y) * s
 	match kind:
 		"chevron":
@@ -88,6 +90,8 @@ static func draw(ci: CanvasItem, kind: String, r: Rect2, col: Color, w: float = 
 			ci.draw_line(p.call(0.5, 0.58), p.call(0.5, 0.74), col, w)
 			ci.draw_line(p.call(0.32, 0.82), p.call(0.68, 0.82), col, w * 1.4)
 		"star":
+			if s < 4.0:
+				return
 			var st := PackedVector2Array()
 			for k3 in 10:
 				var a4 := -PI * 0.5 + TAU * k3 / 10.0
@@ -110,13 +114,33 @@ static func draw(ci: CanvasItem, kind: String, r: Rect2, col: Color, w: float = 
 				var a5 := TAU * k4 / 8.0
 				ci.draw_line(c + Vector2(cos(a5), sin(a5)) * s * 0.28, c + Vector2(cos(a5), sin(a5)) * s * 0.42, col, w, true)
 		"moon":
+			# crescent = disc A minus disc B, outlined between the two circles' intersection points
+			var ra := s * 0.38
+			var rb := s * 0.3
+			var off := Vector2(0.16, -0.06) * s
+			var dl := off.length()
+			var u := off / dl
+			var v := Vector2(-u.y, u.x)
+			var along := (ra * ra - rb * rb + dl * dl) / (2.0 * dl)
+			var hh := sqrt(maxf(ra * ra - along * along, 0.0))
+			var p1 := c + u * along + v * hh
+			var p2 := c + u * along - v * hh
+			var cb := c + off
 			var mp := PackedVector2Array()
+			var a0 := (p1 - c).angle()
+			var a1 := (p2 - c).angle()
+			var da := wrapf(a1 - a0, 0.0, TAU)
+			if absf(wrapf(a0 + da * 0.5 - u.angle(), -PI, PI)) < PI * 0.5:
+				da -= TAU       # go round the side away from the bite
 			for k5 in 25:
-				var a6 := PI * 0.35 + (TAU - PI * 0.7) * k5 / 24.0
-				mp.append(c + Vector2(cos(a6), sin(a6)) * s * 0.38)
-			for k6 in 25:
-				var a7 := PI * 2.0 - PI * 0.42 - (TAU - PI * 0.84) * k6 / 24.0
-				mp.append(c + Vector2(s * 0.16, -s * 0.06) + Vector2(cos(a7), sin(a7)) * s * 0.3)
+				mp.append(c + Vector2.from_angle(a0 + da * k5 / 24.0) * ra)
+			var b0 := (p2 - cb).angle()
+			var b1 := (p1 - cb).angle()
+			var db := wrapf(b1 - b0, 0.0, TAU)
+			if absf(wrapf(b0 + db * 0.5 - (-u).angle(), -PI, PI)) > PI * 0.5:
+				db -= TAU       # the inner edge bulges toward the disc's centre
+			for k6 in range(1, 24):
+				mp.append(cb + Vector2.from_angle(b0 + db * k6 / 24.0) * rb)
 			ci.draw_colored_polygon(mp, col)
 		"cloud":
 			ci.draw_circle(p.call(0.36, 0.56), s * 0.16, col)

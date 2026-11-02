@@ -31,11 +31,14 @@ var ground_ops: GroundOps = null
 var ai: AIPilot = null
 var ai_taxi: AITaxi = null
 var autofly := false              # pilot mode: the AI crew flies the route for you
+var _landmark_t := 0.0
+var _landmarks_seen := {}
 var crash_target := "route"       # route | city | terminal | sea | mountain | ahead
 var _crash_pt := Vector3.ZERO     # world position the aircraft is being flown into
 const CRASH_TARGETS := {"route": "Follow the route", "city": "Crash into the nearest city", "terminal": "Crash into the airport terminal",
 	"sea": "Crash into the sea", "mountain": "Crash into a mountain", "ahead": "Crash straight ahead"}
 var traffic: TrafficManager = null
+var wreck: WreckPieces = null
 var phase := "preflight"
 var dep_icao := ""
 var arr_icao := ""
@@ -256,10 +259,16 @@ func _spawn_aircraft() -> void:
 		var alt := float(params.get("alt_ft", 6000.0)) * U.FT
 		var dd := Vector2(sin(deg_to_rad(arr_end.hdg)), -cos(deg_to_rad(arr_end.hdg)))
 		var pos2 := Vector2(arr_end.thr_x, arr_end.thr_z) - dd * float(params.get("dist_km", 40.0)) * 1000.0
-		ac.place_at(view.world_to_local(pos2.x, alt, pos2.y), float(arr_end.hdg), false, minf(float(spec.cruise_ias), 250.0) * U.KT)
+		var hdg0 := float(arr_end.hdg)
+		if params.has("at_x"):
+			# a sightseeing start near a landmark
+			pos2 = Vector2(float(params.at_x), float(params.at_z))
+			hdg0 = float(params.get("at_hdg", hdg0))
+			alt = maxf(alt, Geo.ground_height(pos2.x, pos2.y) + 250.0)
+		ac.place_at(view.world_to_local(pos2.x, alt, pos2.y), hdg0, false, minf(float(spec.cruise_ias), 250.0) * U.KT)
 		view.rebase(ac.position)
 		ac.ap.alt_sel = alt
-		ac.ap.hdg_sel = float(arr_end.hdg)
+		ac.ap.hdg_sel = hdg0
 		ac.ap.spd_sel = minf(float(spec.cruise_ias), 250.0)
 		ac.ap.set_lat("HDG")
 		ac.ap.set_vert("ALT")
@@ -548,6 +557,10 @@ func _process(delta: float) -> void:
 	recorder.record(ac, phase, delta)
 	if (mode == "passenger" or autofly) and not ac.crashed_state:
 		_update_ai(delta)
+	_landmark_t -= delta
+	if _landmark_t <= 0.0:
+		_landmark_t = 1.0
+		_check_landmarks()
 	if traffic and cockpit and cockpit.canvas:
 		cockpit.canvas.traffic = traffic.traffic_list(ac.world_x(), ac.world_z(), 60000.0)
 
@@ -1238,6 +1251,16 @@ func _on_deviation(kind: String, severity: float, text: String) -> void:
 	toast.emit("ATC: " + text, "caution")
 
 
+func wreck_pieces() -> WreckPieces:
+	## Loose wreckage (separated sections, engines, seats, luggage) flying and coming to rest.
+	if wreck == null:
+		wreck = WreckPieces.new()
+		wreck.name = "WreckPieces"
+		add_child(wreck)
+		wreck.setup(view)
+	return wreck
+
+
 func _on_crash(info: Dictionary) -> void:
 	crash_info = info
 	recorder.mark("crash", "Impact: %s" % String(info.get("cause_hint", "")))
@@ -1296,6 +1319,22 @@ func _update_ai(delta: float) -> void:
 		_update_crash_run(delta)
 	else:
 		ai.update(delta)
+
+
+func _check_landmarks() -> void:
+	## A low pass near one of the real-world landmarks: a sightseeing note and an achievement.
+	if ac == null or ac.crashed_state or not Geo.in_world_region(ac.world_x(), ac.world_z()) or ac.ra > 1300.0:
+		return
+	var here := Vector2(ac.world_x(), ac.world_z())
+	for lm in RealWorld.LANDMARKS:
+		var id := String(lm.id)
+		if _landmarks_seen.has(id) or String(lm.kind).begins_with("skyline"):
+			continue
+		if here.distance_to(Vector2(float(lm.x), float(lm.z))) < 2600.0:
+			_landmarks_seen[id] = true
+			toast.emit("Flying past %s, %s." % [String(lm.name), String(lm.city)], "info")
+			recorder.mark("sightseeing", String(lm.name))
+			Achievements.on_landmark(id)
 
 
 # ================================================================== auto-fly, skip ahead, crash target
@@ -1461,7 +1500,7 @@ func skip_ahead() -> void:
 		ai._set_phase("cruise")
 		ai.pattern_built = false
 	recorder.mark("skip", "Skipped %d minutes of cruise" % int(skipped / 60.0))
-	toast.emit("Skipped %d minutes ahead. %s" % [int(skipped / 60.0), "Approaching %s." % Airports.get_ap(arr_icao).get("short", "") if crash_target == "route" else "Target ahead."], "info")
+	toast.emit("Skipped %d minutes ahead. %s" % [maxi(1, int(round(skipped / 60.0))), "Approaching %s." % Airports.get_ap(arr_icao).get("short", "") if crash_target == "route" else "Target ahead."], "info")
 
 
 # ================================================================== end of flight
@@ -1567,6 +1606,7 @@ func finish_flight(outcome: String) -> void:
 		"weather": ac.weather, "fuel_planned": fuel_planned, "fuel_start": fuel_start, "accepted_defects": accepted_defects,
 		"walkaround": walk_frac, "emergency_declared": emergency != "", "phase": phase, "late_min": late,
 		"free_flight": bool(params.get("free_flight", false)), "aircraft_record": WorldSim.aircraft(ac.reg),
+		"autofly_landed": autofly and not (touchdown as Dictionary).is_empty(),
 		"captain": _captain_name()}, true)
 	if outcome in ["crashed", "ditched"] or not incidents.is_empty():
 		var inv_in := res.duplicate()

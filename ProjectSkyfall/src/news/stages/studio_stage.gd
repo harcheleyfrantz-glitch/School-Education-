@@ -32,7 +32,7 @@ func build(prog: Dictionary) -> void:
 	add_child(people)
 	people.setup(6, 0, "", true)
 	var a := NewsStyle.anchor(outlet, U.hash_str(String(prog.get("incident", prog.get("title", "")))) % 2)
-	var b := NewsStyle.anchor(outlet, U.hash_str(String(prog.get("incident", prog.get("title", "")))) % 2 + 1)
+	var b: Array = prog.guest if prog.has("guest") else NewsStyle.anchor(outlet, U.hash_str(String(prog.get("incident", prog.get("title", "")))) % 2 + 1)
 	var id_a := 1000 + U.hash_str(String(a[0])) % 9000
 	var id_b := 1000 + U.hash_str(String(b[0])) % 9000
 	_person(0, (ANCHOR_A if _two else Vector3(0, 0, 0.98)), deg_to_rad(-6.0) if _two else 0.0, "sit", Crowd.Outfit.SUIT, id_a, 0, Color(-1, 0, 0), 0.4, String(a[1]))

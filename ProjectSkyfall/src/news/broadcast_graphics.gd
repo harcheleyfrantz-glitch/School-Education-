@@ -727,6 +727,18 @@ func _card(card: String) -> void:
 	if card == "impact":
 		_impact_box(k)
 		return
+	if card == "warning":
+		draw_rect(Rect2(0, 0, W, H), Color(0, 0, 0, 0.97 * k))
+		var red := Color(0.95, 0.15, 0.12, k)
+		_txt(Vector2(0, H * 0.28), "WARNING", f_head, 64, red, HORIZONTAL_ALIGNMENT_CENTER, W)
+		draw_rect(Rect2(W * 0.5 - 140, H * 0.28 + 84, 280, 3), red)
+		var rows := _wrap("The following footage was filmed by a member of the public at the site of a fatal air crash. It contains graphic images of the wreckage and of human remains that some viewers will find deeply disturbing.", f_body, 26, W - 420.0)
+		var yy := H * 0.28 + 112.0
+		for rw in rows:
+			_txt(Vector2(0, yy), String(rw), f_body, 26, Color(1, 1, 1, 0.92 * k), HORIZONTAL_ALIGNMENT_CENTER, W)
+			yy += 36.0
+		_txt(Vector2(0, yy + 24.0), "VIEWER DISCRETION ADVISED  ·  18+ ONLY", f_bold, 22, Color(1, 1, 1, 0.75 * k), HORIZONTAL_ALIGNMENT_CENTER, W)
+		return
 	draw_rect(Rect2(0, 0, W, H), Color(0.015, 0.03, 0.06, (0.8 if card != "title" else 0.55) * k))
 	var x := 150.0
 	var w := W - 300.0
@@ -738,7 +750,7 @@ func _card(card: String) -> void:
 	match card:
 		"title":
 			_emblem(Vector2(W * 0.5, 190), 52.0)
-			_txt(Vector2(0, 262), "CALDERRA TRANSPORT SAFETY BOARD", f_bold, 22, gold, HORIZONTAL_ALIGNMENT_CENTER, W)
+			_txt(Vector2(0, 262), String(ctx.get("board", "Calderra Transport Safety Board")).to_upper(), f_bold, 22, gold, HORIZONTAL_ALIGNMENT_CENTER, W)
 			_txt(Vector2(0, 300), "AIRCRAFT ACCIDENT REPORT", f_head, 54, white, HORIZONTAL_ALIGNMENT_CENTER, W)
 			_txt(Vector2(0, 372), "%s flight %s · %s · %s" % [ctx.get("airline", ""), ctx.get("num", ""), ctx.get("type", ""), String(ctx.get("reg", ""))], f_body, 24, dim, HORIZONTAL_ALIGNMENT_CENTER, W)
 			_txt(Vector2(0, 408), "%s · %s" % [ctx.get("date", ""), ctx.get("place", "")], f_body, 22, dim, HORIZONTAL_ALIGNMENT_CENTER, W)

@@ -93,6 +93,16 @@ func _build(video: Dictionary, art: Dictionary) -> Dictionary:
 		"witness_presser":
 			var incw := News.incident(String(video.get("incident", "")))
 			return _witness_presser(incw, video, art) if not incw.is_empty() else {}
+		"debate":
+			var incd := News.incident(String(video.get("incident", "")))
+			return _debate(incd, art) if not incd.is_empty() else {}
+		"vlog":
+			return _vlog(video, art)
+		"uncensored":
+			if not CrashDebris.graphic_enabled():
+				return {}
+			var incu := News.incident(String(video.get("incident", "")))
+			return _uncensored(incu, video) if not incu.is_empty() else {}
 		"investigation":
 			var inc1 := News.incident(String(video.get("incident", "")))
 			return _inv_report(inc1, false) if not inc1.is_empty() else {}
@@ -285,7 +295,9 @@ func _context(inc: Dictionary) -> Dictionary:
 	var dep := Airports.get_ap(String(inc.get("dep", "")))
 	var arr := Airports.get_ap(String(inc.get("arr", "")))
 	var cause := String(inc.get("cause", "")).strip_edges().trim_suffix(".")
-	return {"airline": String(al.get("name", "the airline")), "code": String(inc.get("airline", "")), "num": String(inc.get("num", "")),
+	var world_region := Geo.in_world_region(float(inc.get("x", 0.0)), float(inc.get("z", 0.0)))
+	return {"board": "International Air Accident Board" if world_region else "Calderra Transport Safety Board", "board_short": "IAAB" if world_region else "CTSB",
+		"airline": String(al.get("name", "the airline")), "code": String(inc.get("airline", "")), "num": String(inc.get("num", "")),
 		"type": "%s %s" % [tpl.maker, tpl.name], "type_name": String(tpl.name), "short": String(tpl.short), "maker": String(tpl.maker),
 		"cat": String(tpl.category), "reg": String(inc.get("reg", "")), "from": String(dep.get("short", "")), "to": String(arr.get("short", "")),
 		"to_icao": String(inc.get("arr", "")), "from_icao": String(inc.get("dep", "")),
@@ -413,7 +425,7 @@ func _accident(inc: Dictionary, art: Dictionary, pkg: String) -> Dictionary:
 			else:
 				open_lines.append("It is being called a miracle: all %s people on board flight %s survived when the %s %s %s." % [_n(int(c.aboard)), c.num, c.short, "ditched" if c.ditching else "crashed", c.place])
 				open_lines.append("%s people are being treated in hospital." % _n(int(c.injured)))
-			open_lines.append("The Calderra Transport Safety Board has opened an investigation, and both flight recorders have been recovered.")
+			open_lines.append("The %s has opened an investigation, and both flight recorders have been recovered." % String(c.board))
 		"victims":
 			open_lines.append("Tonight, the families of the %s people who died on flight %s are sharing the stories of the people they lost." % [_n(int(c.fatal)), c.num])
 			var vic: Array = inc.get("victims", [])
@@ -584,7 +596,7 @@ func _accident(inc: Dictionary, art: Dictionary, pkg: String) -> Dictionary:
 		var e8 := _end(1.5)
 		e8.recon = {"span": maxf(float(e8.t1) - float(e8.t0) - 3.0, 20.0), "post": 3.0}
 		_shots(e8, [["analysis", 0.0], ["recon_chase", 0.4], ["analysis", 0.7]])
-		_third("label", "INVESTIGATION ANIMATION", "SOURCE: CTSB PRELIMINARY REPORT", e8.t0 + 0.5, e8.t1 - 0.5)
+		_third("label", "INVESTIGATION ANIMATION", "SOURCE: %s PRELIMINARY REPORT" % String(c.board_short), e8.t0 + 0.5, e8.t1 - 0.5)
 	# ---------------------------------------------------------------- memorial
 	if pkg in ["victims", "memorial", "anniversary"] or (pkg == "pilot" and bool(c.died)):
 		var me := _seg("memorial", "memorial", 10.0, {"amb": "candles", "music": "somber", "night": true})
@@ -625,7 +637,7 @@ func _accident_ticker(c: Dictionary, pkg: String, days_after: int) -> Array:
 	if pkg != "breaking":
 		tk.append("%s ON BOARD · %s KILLED · %s SURVIVORS" % [_n(int(c.aboard)), _n(int(c.fatal)), _n(int(c.survivors))])
 	tk.append("FAMILY ASSISTANCE LINE OPEN · %s" % String(c.airline).to_upper())
-	tk.append("CTSB INVESTIGATORS ON SITE · FLIGHT RECORDERS %s" % ("RECOVERED" if pkg != "breaking" else "BEING SEARCHED FOR"))
+	tk.append("%s INVESTIGATORS ON SITE · FLIGHT RECORDERS %s" % [String(c.get("board_short", "CTSB")), "RECOVERED" if pkg != "breaking" else "BEING SEARCHED FOR"])
 	tk.append("%s %s FLEET: OPERATOR SAYS AIRCRAFT WAS FULLY MAINTAINED" % [String(c.airline).to_upper(), c.short])
 	tk.append("ROADS AROUND %s CLOSED · AVOID THE AREA" % String(c.noun).to_upper())
 	tk.append("WEATHER: %s" % String(c.wx).to_upper())
@@ -656,7 +668,7 @@ func _inv_report(inc: Dictionary, from_debrief: bool) -> Dictionary:
 	var tf := _track_facts(samples)
 	# title card over the site
 	var ti := _seg("title", "world", 7.0, {"site": "investigation", "music": "somber", "card": "title", "lead": 1.4})
-	_line("narrator", narr, "Calderra Transport Safety Board. Aircraft accident report.", {"voice": "narrator"})
+	_line("narrator", narr, "%s. Aircraft accident report." % String(c.get("board", "Calderra Transport Safety Board")), {"voice": "narrator"})
 	_line("narrator", narr, "%s flight %s, %s, %s." % [c.airline, c.num, c.date, c.place], {"voice": "narrator"})
 	var e1 := _end(0.8)
 	_shots(e1, [["site_orbit", 0.0]])
@@ -847,6 +859,41 @@ func _phone_clip(inc: Dictionary, video: Dictionary) -> Dictionary:
 	e.recon = {"span": minf(9.0, dur - 3.0), "post": maxf(dur - 9.0, 3.0)}
 	_shots(e, [["phone", 0.0]])
 	_cue(float(e.t0) + minf(9.0, dur - 3.0), "impact", -2.0 if variant != "zoom" else -9.0)
+	return _finish()
+
+
+func _uncensored(inc: Dictionary, video: Dictionary) -> Dictionary:
+	## 18+ only: a bystander's unedited phone footage from inside the debris field, hours after
+	## the crash. Opens on a content warning; no anchor, no blurring.
+	ctx = _context(inc)
+	outlet = "skyline"
+	var handle := String(video.get("author", "@witness"))
+	var who := String(video.get("name", handle))
+	_begin("uncensored", "%s · %s" % [who, String(inc.get("place", ""))])
+	var air := float(inc.get("clock", WorldSim.clock)) + 2.5 * 3600.0
+	prog.world = _world_spec(inc, air)
+	prog.incident = String(inc.get("id", ""))
+	prog.raw = true
+	prog.no_ticker = true
+	prog.air_clock = air
+	var wn := _seg("title", "world", 6.5, {"site": "response", "card": "warning", "lead": 0.4, "air": air})
+	_hold(6.0)
+	var e0 := _end(0.3)
+	_shots(e0, [["site_high", 0.0]])
+	var seed := int(video.get("seed", 1))
+	var rr := U.rng(seed)
+	var ph := _seg("phone", "world", 26.0, {"label": "", "amb": "sirens", "site": "response", "handle": handle, "phone_seed": seed, "variant": "walk", "raw": true, "lead": 0.8, "air": air})
+	var lines := [["Okay. Okay, I'm going in. Nobody's stopping anyone yet.", "I'm walking in now. The police are all on the other side.", "Stay quiet. I'm going closer."],
+		["Oh my God. Those are seats. That's a whole row of seats.", "There's suitcases everywhere. Clothes, bags... everywhere.", "It's in pieces. The whole plane is in pieces."],
+		["Oh no. Oh no, no... that's a person. Oh God.", "Don't look at that. Don't... I can't.", "There are people. There are people under those sheets."],
+		["Somebody's phone is ringing in the grass.", "That's an engine. That's a whole engine over there.", "Everything smells like fuel."],
+		["Hey! Hey, you can't be here! Back behind the line!", "Okay, okay, I'm going. I'm going.", "That's it. I'm stopping. I'm sorry."]]
+	for i in lines.size():
+		var opts: Array = lines[i]
+		_line("witness", who, String(opts[rr.randi() % opts.size()]), {"speak": false, "style": "nat"})
+		_hold(2.4 if i < 3 else 1.6)
+	var e1 := _end(1.0)
+	_shots(e1, [["debris_walk", 0.0], ["debris_close", 0.34], ["debris_walk", 0.55], ["wreck_close", 0.78]])
 	return _finish()
 
 
@@ -1052,6 +1099,139 @@ func _roundup(video: Dictionary, art: Dictionary) -> Dictionary:
 	var e5 := _end(1.2)
 	_shots(e5, [["two", 0.0], ["wide_out", 0.5]])
 	_cue(e5.t1 - 2.2, "outro", -6.0)
+	return _finish()
+
+
+# ================================================================== studio debate
+func _debate(inc: Dictionary, art: Dictionary) -> Dictionary:
+	## The day after a crash: the host and an aviation analyst in the studio, a passenger
+	## advocate on the video wall, arguing over what happened and whether flying is still safe.
+	ctx = _context(inc)
+	var c := ctx
+	if not art.has("outlet"):
+		outlet = "skyline"
+	var air := float(art.get("t", float(inc.get("clock", WorldSim.clock)) + 30.0 * 3600.0))
+	_begin("debate", String(art.get("headline", "Is flying still safe?")))
+	prog.air_clock = air
+	prog.world = _world_spec(inc, air)
+	prog.incident = String(inc.get("id", ""))
+	var st := NewsStyle.get_style(outlet)
+	var host := NewsStyle.anchor(outlet, U.hash_str(String(inc.get("id", ""))) % 2)
+	var guest: Array = st.analyst
+	prog.guest = guest
+	var r2 := U.rng(U.hash_str(String(inc.get("id", "")) + "debate"))
+	var adv: Array = U.pick(r2, [["Maria Castell", "f", "Passenger rights campaigner"], ["Owen Pryce", "m", "Air safety campaigner"], ["Leila Haddad", "f", "Founder, Fly Safe Families"]])
+	var h_name := String(host[0])
+	var g_name := String(guest[0])
+	var a_name := String(adv[0])
+	var fatal := int(c.fatal)
+	prog.tag = "THE DEBATE"
+	prog.headline = "IS FLYING STILL SAFE?"
+	prog.sub = "AFTER THE LOSS OF %s FLIGHT %s" % [String(c.airline).to_upper(), String(c.num)]
+	prog.ticker = ["%s %s · %s" % [String(c.airline).to_upper(), String(c.num), String(c.place).to_upper()], "INVESTIGATORS RECOVER BOTH FLIGHT RECORDERS",
+		"AIR TRAVEL REMAINS THE SAFEST WAY TO TRAVEL, SAYS INDUSTRY", "PASSENGER GROUPS CALL FOR PUBLIC INQUIRY"]
+	var b := _seg("bumper", "studio", 3.6, {"graphic": "bumper", "music": "sting", "lead": 3.6})
+	_shots(b, [["wide", 0.0]])
+	_cue(0.05, "whoosh")
+	_end(0.0)
+	var s1 := _seg("studio", "studio", 6.0, {"music": "bed", "graphic": "story"})
+	_line("anchor", h_name, "%s Tonight: after the loss of %s flight %s, we ask the question many of you are asking. Is flying still safe?" % [_hello(air), c.airline, c.num], {"voice": "anchor"})
+	_line("anchor", h_name, "With me in the studio is %s, %s. And joining us on the line, %s, %s." % [g_name, String(guest[2]).to_lower(), a_name, String(adv[2]).to_lower()], {"voice": "anchor"})
+	var e1 := _end()
+	_shots(e1, [["wide", 0.0], ["two", 0.45]])
+	_third("strap", String(prog.headline), String(prog.sub), e1.t0 + 1.5, 1e9, String(prog.tag))
+	var cause := String(c.cause).to_lower() if String(c.cause) != "" else ""
+	var qa := [
+		["anchor", "%s, what do we actually know about what happened?" % _first_name(g_name)],
+		["guest", (("The early evidence points to %s. But I'd urge caution: investigators always find a chain of events, never just one cause." % cause) if cause != ""
+			else "Honestly, very little so far. The recorders have been recovered, and until they're read, anyone who tells you the cause is guessing.")],
+		["wall", _pick(["That's what the industry always says. Wait for the report. Meanwhile families are grieving and people are still flying the same aircraft today.",
+			"People want answers now, not in a year. If there's any doubt about the %s, it should be on the ground." % c.short])],
+		["guest", _pick(["I understand the anger. But grounding a type needs evidence. If investigators find a design problem, regulators act within hours. That's happened before.",
+			"The %s has flown millions of hours. If there were a systemic fault, we'd see a pattern. One accident is a tragedy; it isn't yet a pattern." % c.short])],
+		["anchor", "So should people listening tonight feel safe getting on a plane tomorrow?"],
+		["guest", "Statistically, yes. You're far safer in the cabin of an airliner than in a car on the way to the airport. That doesn't make tonight any easier for the families."],
+		["wall", ("%s people died. Statistics are cold comfort. We want a public inquiry, and we want the airline to answer questions in public, not in a press release." % _n(fatal)) if fatal > 0
+			else "Everyone survived, and thank God for the crew. But a near miss is a warning. Why does it take a disaster for anything to change?"],
+		["guest", _pick(["On that, we agree completely. Every accident report becomes new rules. Pilots train for this precisely because of the ones before.",
+			"Fair. Transparency matters. The best safety cultures are the ones that admit mistakes openly."])],
+	]
+	for i in qa.size():
+		var who := String(qa[i][0])
+		var sg := _seg("studio", "studio", 4.0, {"music": "", "graphic": "story"})
+		match who:
+			"anchor":
+				_line("anchor", h_name, String(qa[i][1]), {"voice": "anchor"})
+			"guest":
+				_line("analyst", g_name, String(qa[i][1]), {"voice": "analyst", "style": "sot"})
+			_:
+				_line("official", a_name, String(qa[i][1]), {"voice": "official", "style": "sot"})
+		var e := _end(0.4)
+		var cam := "single_a" if who == "anchor" else ("single_b" if who == "guest" else "wall")
+		_shots(e, [[cam, 0.0]] if i % 3 != 2 else [[cam, 0.0], ["two", 0.7]])
+		if who == "guest" and i == 1:
+			_third("name", g_name.to_upper(), String(guest[2]).to_upper(), e.t0 + 0.5, e.t1 - 0.3)
+		elif who == "wall" and i == 2:
+			_third("name", a_name.to_upper(), String(adv[2]).to_upper() + " · VIA VIDEO LINK", e.t0 + 0.5, e.t1 - 0.3)
+	var ou := _seg("outro", "studio", 4.0, {"music": "bed_out", "graphic": "story"})
+	_line("anchor", h_name, "%s, %s, thank you both. The investigation into flight %s continues, and we'll bring you every development." % [g_name, a_name, c.num], {"voice": "anchor"})
+	var e5 := _end(1.2)
+	_shots(e5, [["two", 0.0], ["wide_out", 0.5]])
+	_cue(e5.t1 - 2.2, "outro", -6.0)
+	return _finish()
+
+
+static func _first_name(full: String) -> String:
+	var parts := full.split(" ", false)
+	for p in parts:
+		if not p.ends_with(".") and not p in ["Sir", "Dame"]:
+			return p
+	return full
+
+
+# ================================================================== spotter vlog
+func _vlog(video: Dictionary, art: Dictionary) -> Dictionary:
+	## A plane spotter's own upload: hello to the camera at the airport, the aircraft landing with
+	## their commentary over it, then the sign-off.
+	var icao := String(video.get("airport", "SKPC"))
+	var ap := Airports.get_ap(icao)
+	var al := Airlines.get_al(String(video.get("airline", "SKF")))
+	var tpl := AircraftTypes.get_type(String(video.get("type_id", "s320")))
+	var air := float(art.get("t", WorldSim.clock))
+	var name := String(video.get("name", "Spotter"))
+	var handle := String(video.get("author", "@spotter"))
+	var first := name.split(" ")[0]
+	outlet = "skyline"
+	_begin("vlog", "%s · %s" % [name, String(ap.get("short", icao))])
+	prog.air_clock = air
+	prog.raw = true
+	prog.no_ticker = true
+	prog.world = {"mode": "airport", "icao": icao, "type": String(video.get("type_id", "s320")), "airline": String(video.get("livery", video.get("airline", "SKF"))),
+		"clock": air - 1800.0, "air_clock": air, "emergency": false, "storm": false, "seed": int(video.get("seed", 7)), "ending": "landed"}
+	var apn := String(ap.get("short", icao))
+	var iv := _seg("interview", "world", 6.0, {"amb": "airport", "where": "terminal", "person": int(video.get("person", 0)), "raw": true})
+	_line("interview", name, _pick(["Hey everyone, %s here, welcome back to the channel! We're at %s today and the traffic is insane." % [first, apn],
+		"What's up spotters! It's %s and we are live at the fence at %s. Big one coming in." % [first, apn],
+		"Morning everyone! %s from the spotting hill at %s. Perfect light, light breeze, let's go." % [first, apn]]), {"voice": "witness", "style": "sot"})
+	_line("interview", name, _pick(["We're waiting for the %s %s. Should be on final any second now." % [String(al.get("name", "")), String(tpl.get("name", ""))],
+		"Flight tracker says the %s is five minutes out. Let's see if the crew greases it." % String(tpl.get("short", "")),
+		"Today's star is a %s in %s colours. Haven't caught one here before." % [String(tpl.get("short", "")), String(al.get("name", ""))]]), {"voice": "witness", "style": "sot"})
+	var e1 := _end(0.5)
+	_shots(e1, [["interview", 0.0]])
+	_third("credit", handle.to_upper(), "SPOTTING AT %s" % apn.to_upper(), e1.t0 + 0.5, e1.t1 - 0.3)
+	var sp := _seg("spotter", "world", 13.0, {"label": "", "amb": "airport", "raw": true, "storm": false})
+	_line("interview", name, _pick(["There she is. Look at that, gear down, landing lights on...", "Here it comes! Lined up perfectly...", "Okay okay okay, here we go..."]), {"voice": "witness", "style": "sot"})
+	_hold(2.5)
+	_line("interview", name, _pick(["Little bit of crab in this wind... and... touchdown! Smoke off the mains! Beautiful.", "Flare... hold it... BUTTER! Did you see that? Unreal.",
+		"Firm one! Planted it. Safe landing is a good landing, as they say."]), {"voice": "witness", "style": "sot"})
+	_line("interview", name, _pick(["Reversers coming in, you can hear that roar from here.", "Listen to those engines spooling down.", "And she's off the runway at the second exit."]), {"voice": "witness", "style": "sot"})
+	var e2 := _end(1.0)
+	_shots(e2, [["spotter_long", 0.0], ["spotter_track", 0.3], ["spotter_rollout", 0.72]])
+	var ou := _seg("interview", "world", 4.0, {"amb": "airport", "where": "terminal", "person": int(video.get("person", 0)), "raw": true})
+	_line("interview", name, _pick(["That's the video! Like, subscribe and tell me in the comments what I should catch next.", "If you enjoyed that, smash the like button. See you at the fence!",
+		"Thanks for watching, guys. Blue skies and see you next time."]), {"voice": "witness", "style": "sot"})
+	var e3 := _end(0.8)
+	_shots(e3, [["interview", 0.0]])
 	return _finish()
 
 

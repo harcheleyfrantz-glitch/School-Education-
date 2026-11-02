@@ -65,6 +65,16 @@ func setup(params: Dictionary) -> void:
 	legend.offset_top = 0
 	legend.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	body.add_child(legend)
+	# jump between the home region and the real world
+	var regions := UIStyle.hbox(8)
+	regions.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+	regions.offset_top = 26
+	regions.offset_left = -230
+	regions.offset_right = 330
+	for rg in [["Calderra", "calderra"], ["North America", "america"], ["Atlantic", "atlantic"], ["Europe", "europe"], ["Whole world", "all"]]:
+		var key: String = rg[1]
+		regions.add_child(UIStyle.button(rg[0], func(): map.frame_region(key), 0.0))
+	body.add_child(regions)
 	_rebuild()
 
 

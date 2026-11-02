@@ -4,6 +4,7 @@ extends ScreenBase
 
 const CATS := [["graphics", "Graphics", "Quality preset, frame rate and the flight HUD"], ["sound", "Sound", "Volumes, voices and subtitles"],
 	["flying", "Flying", "Assists, realism and air traffic control"], ["controls", "Controls", "Mouse, touch and tilt"],
+	["news", "News & AI", "Comment sections written by Claude with your own API key"], ["content", "Content (18+)", "Optional mature crash content for adults"],
 	["data", "Saved world", "Your persistent world and characters"]]
 
 var _back := "menu"
@@ -103,6 +104,57 @@ func _show(key: String) -> void:
 				_slider(String(k[0]), String(k[1]))
 			_check("Spoken ATC and announcements", "Text to speech for controllers, crew and the captain", "tts")
 			_check("Subtitles", "", "subtitles")
+		"news":
+			_check("AI comments", "Claude writes fresh comment threads under stories and replies to what you post", "ai_comments")
+			var key_edit := LineEdit.new()
+			key_edit.secret = true
+			key_edit.placeholder_text = "sk-ant-..."
+			key_edit.text = String(Game.settings.get("ai_key", ""))
+			key_edit.custom_minimum_size = Vector2(320, 38)
+			key_edit.text_changed.connect(func(t): Game.set_setting("ai_key", String(t).strip_edges()))
+			_row("Anthropic API key", "Create one at console.anthropic.com. It is saved only in this computer's settings file and sent only to api.anthropic.com; requests are billed to your Anthropic account.", key_edit)
+			var ids := AIComments.MODELS.map(func(m): return String(m[0]))
+			_row("Model", "Opus 5.5 writes the best comments; Haiku 5.5 is the cheapest and quickest", option(AIComments.MODELS.map(func(m): return String(m[1])),
+				maxi(ids.find(AIComments.model()), 0), func(i): Game.set_setting("ai_model", ids[i])))
+			var tv := UIStyle.hbox(10)
+			var status := UIStyle.label("", 13, UIStyle.DIM)
+			status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			var test := UIStyle.button("Test key", func():
+				status.text = "Asking Claude..."
+				status.add_theme_color_override("font_color", UIStyle.DIM)
+				AIComments.test_key(func(ok: bool, msg: String):
+					if is_instance_valid(status):
+						status.text = ("Working: " + msg) if ok else msg
+						status.add_theme_color_override("font_color", UIStyle.GREEN if ok else UIStyle.RED)), 130)
+			tv.add_child(test)
+			tv.add_child(status)
+			_row("Check the connection", "Sends one tiny request", tv)
+		"content":
+			var cb := CheckButton.new()
+			cb.button_pressed = bool(Game.settings.get("graphic_crashes", false))
+			cb.text = "On" if cb.button_pressed else "Off"
+			cb.alignment = HORIZONTAL_ALIGNMENT_RIGHT
+			cb.toggled.connect(func(on):
+				if on and not bool(Game.settings.get("graphic_crashes", false)):
+					# switching it on needs an age confirmation; switching it off never does
+					cb.set_pressed_no_signal(false)
+					cb.text = "Off"
+					_age_gate(func():
+						cb.set_pressed_no_signal(true)
+						cb.text = "On"
+						Game.set_setting("graphic_crashes", true))
+					return
+				cb.text = "On" if on else "Off"
+				Game.set_setting("graphic_crashes", on))
+			_row("Graphic crash scenes (18+)", "Shows stylised human remains (no blood) among the wreckage of fatal crashes, in flight and at the news crash site, and unlocks uncensored crash-site footage in the news. Off by default; switch it off again at any time.", cb)
+			var note := UIStyle.label("With this off, crash sites show only wreckage, seats and luggage, and the news shows covered scenes.", 13, UIStyle.DIM)
+			note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			var np := MarginContainer.new()
+			np.add_theme_constant_override("margin_left", 14)
+			np.add_theme_constant_override("margin_top", 10)
+			np.add_child(note)
+			_rows.add_child(np)
 		"flying":
 			var assists := ["assisted", "realistic"]
 			_row("Flight controls", "Assisted holds attitude and protects the envelope", option(["Assisted", "Realistic (direct)"],
@@ -131,6 +183,33 @@ func _show(key: String) -> void:
 					Game.wipe_world()
 					Game.goto("menu"), 180, UIStyle.RED))
 			r.modulate = Color(1, 0.92, 0.9)
+
+
+func _age_gate(on_yes: Callable) -> void:
+	## A modal confirmation before mature content is switched on.
+	var veil := ColorRect.new()
+	veil.color = Color(0, 0, 0, 0.7)
+	veil.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	veil.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(veil)
+	var cc := CenterContainer.new()
+	cc.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	veil.add_child(cc)
+	var pn := UIStyle.panel(Vector2(520, 0), Color(0.08, 0.06, 0.07, 0.98))
+	cc.add_child(pn)
+	var v := UIStyle.vbox(12)
+	pn.add_child(v)
+	v.add_child(UIStyle.label("MATURE CONTENT - 18+", 22, UIStyle.RED, true))
+	var t := UIStyle.label("Graphic crash scenes show stylised human remains at the sites of fatal accidents and unlock uncensored crash-site footage in the news. There is no blood, but some players may find it disturbing.\n\nAre you 18 or older, and do you want to turn it on?", 15, Color(0.92, 0.92, 0.94))
+	t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	t.custom_minimum_size = Vector2(480, 0)
+	v.add_child(t)
+	var h := UIStyle.hbox(12)
+	v.add_child(h)
+	h.add_child(UIStyle.button("I am 18+, turn it on", func():
+		veil.queue_free()
+		on_yes.call(), 240, UIStyle.RED))
+	h.add_child(UIStyle.button("Cancel", func(): veil.queue_free(), 140))
 
 
 func _row(text: String, desc: String, ctl: Control) -> Control:

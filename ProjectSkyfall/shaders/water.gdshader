@@ -13,6 +13,8 @@ uniform float wave_scale = 1.0;
 uniform sampler2D normal_tex : hint_normal, filter_linear_mipmap, repeat_enable;
 uniform sampler2D macro_tex : filter_linear, repeat_disable;
 uniform float map_half = 512000.0;
+uniform sampler2D macro2_tex : filter_linear, repeat_disable;
+uniform vec4 macro2_rect = vec4(0.0, 0.0, 1.0, 1.0);   // real-world region grid: x0, z0, width, depth
 
 varying vec3 wpos;
 varying float vdist;
@@ -37,6 +39,10 @@ void fragment() {
 	if (use_macro > 0.5) {
 		vec2 muv = (wpos.xz + map_half) / (2.0 * map_half);
 		float m = texture(macro_tex, muv).r;
+		if (wpos.z > map_half) {
+			vec2 muv2 = (wpos.xz - macro2_rect.xy) / macro2_rect.zw;
+			m = (muv2.x > 0.0 && muv2.x < 1.0 && muv2.y > 0.0 && muv2.y < 1.0) ? texture(macro2_tex, muv2).r : -900.0;
+		}
 		depth = clamp(-m, 0.0, 900.0);
 	}
 	float shallow = max(1.0 - smoothstep(10.0, 140.0, depth), flat_shallow);

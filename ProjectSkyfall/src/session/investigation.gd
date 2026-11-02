@@ -84,7 +84,17 @@ static func analyse(d: Dictionary) -> Dictionary:
 	var outcome := String(d.get("outcome", "crashed"))
 	# ---- probable cause, most specific first
 	var cause := ""
-	if String(crash.get("collision", "")) != "":
+	if bool(crash.get("midair", false)):
+		var oth: Dictionary = crash.get("other", {})
+		cause = "Mid-air collision with %s. The crew did not see and avoid the other aircraft or follow the traffic alerts." % String(crash.collision)
+		share.pilot += 0.8
+		share.atc += 0.1
+		negligent = true
+		findings.append("Both aircraft broke up in flight and fell to the ground.")
+		if String(oth.get("type_name", "")) != "":
+			findings.append("The other aircraft, %s, a %s, was in level flight on its assigned course." % [String(oth.get("callsign", "")), String(oth.type_name)])
+		findings.append("Closing speed at the moment of impact was about %d knots." % int(float(crash.get("speed_kt", 0.0)) * 1.4))
+	elif String(crash.get("collision", "")) != "":
 		cause = "The aircraft collided with %s. The crew did not keep it clear of the obstacle." % String(crash.collision)
 		share.pilot += 0.85
 		negligent = true

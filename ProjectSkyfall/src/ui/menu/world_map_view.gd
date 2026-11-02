@@ -26,30 +26,70 @@ var _min_scale := 0.5
 var _layers: Array = []
 
 static var _htex: ImageTexture
+static var _htex_world: ImageTexture
 static var _land_shader: Shader
 static var _sea_shader: Shader
+
+## Map regions in km: the fictional home region and the compressed real world.
+static func region_rect(region: String) -> Rect2:
+	if region == "world":
+		return Rect2(RealWorld.GRID_X0 / 1000.0, RealWorld.GRID_Z0 / 1000.0, RealWorld.GRID_NX * RealWorld.CELL / 1000.0, RealWorld.GRID_NZ * RealWorld.CELL / 1000.0)
+	return Rect2(-512, -512, 1024, 1024)
 
 
 func _ready() -> void:
 	clip_contents = true
 	mouse_filter = Control.MOUSE_FILTER_STOP
-	var sea := Layer.new()
-	sea.map = self
-	sea.kind = "sea"
-	sea.material = _material(true)
-	var land := Layer.new()
-	land.map = self
-	land.kind = "land"
-	land.material = _material(false)
+	var made := []
+	for region in ["main", "world"]:
+		for sea_l in [true, false]:
+			var l0 := Layer.new()
+			l0.map = self
+			l0.kind = "sea" if sea_l else "land"
+			l0.region = region
+			l0.material = _material(sea_l, region)
+			made.append(l0)
+	# draw order: both seas, both lands, then the overlay
+	var sea_m: Layer = made[0]
+	var land_m: Layer = made[1]
+	var sea_w: Layer = made[2]
+	var land_w: Layer = made[3]
 	var over := Layer.new()
 	over.map = self
 	over.kind = "over"
-	for l in [sea, land, over]:
+	for l in [sea_m, sea_w, land_m, land_w, over]:
 		(l as Control).set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		(l as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
 		add_child(l)
 		_layers.append(l)
 	resized.connect(_on_resized)
+
+
+## Centres the map on a region: "calderra", "america", "europe", "atlantic" or "all".
+func frame_region(name: String, left_pad: float = 380.0) -> void:
+	var r: Rect2
+	match name:
+		"calderra":
+			r = Rect2(-520, -480, 1000, 900)
+		"america":
+			r = _rect_ll(-125.0, 24.0, -60.0, 52.0)
+		"europe":
+			r = _rect_ll(-26.0, 35.0, 20.0, 66.0)
+		"atlantic":
+			r = _rect_ll(-100.0, 22.0, 20.0, 70.0)
+		_:
+			r = Rect2(-1360, -520, 2320, 2360)
+	var avail := Vector2(maxf(size.x - left_pad - 40.0, 200.0), maxf(size.y - 120.0, 200.0))
+	px_per_km = minf(avail.x / r.size.x, avail.y / r.size.y)
+	_min_scale = minf(_min_scale, px_per_km * 0.7)
+	center = r.get_center() - Vector2((left_pad - 40.0) * 0.5, 0.0) / px_per_km
+	_redraw()
+
+
+static func _rect_ll(lon0: float, lat0: float, lon1: float, lat1: float) -> Rect2:
+	var a := RealWorld.to_world(lat1, lon0) / 1000.0
+	var b := RealWorld.to_world(lat0, lon1) / 1000.0
+	return Rect2(a, b - a)
 
 
 func _draw() -> void:
@@ -64,9 +104,15 @@ func _on_resized() -> void:
 
 ## Frames every airport (or the two route ends) with margins for the side panel.
 func fit_all(left_pad: float = 380.0) -> void:
+	# frame the region(s) of the planned route rather than the whole world
 	var mn := Vector2(INF, INF)
 	var mx := Vector2(-INF, -INF)
+	var world := (dep != "" and String(Airports.get_ap(dep).get("region", "")) == "world") or (arr != "" and String(Airports.get_ap(arr).get("region", "")) == "world")
+	var home := (dep == "" or String(Airports.get_ap(dep).get("region", "")) != "world") or (arr == "" or String(Airports.get_ap(arr).get("region", "")) != "world")
 	for icao in Airports.ORDER:
+		var in_world := String(Airports.get_ap(icao).get("region", "")) == "world"
+		if (in_world and not world) or (not in_world and not home):
+			continue
 		var p := Airports.pos2(icao) / KM
 		mn = mn.min(p)
 		mx = mx.max(p)
@@ -74,7 +120,7 @@ func fit_all(left_pad: float = 380.0) -> void:
 	mx += Vector2(40, 50)
 	var avail := Vector2(maxf(size.x - left_pad - 40.0, 200.0), maxf(size.y - 120.0, 200.0))
 	px_per_km = minf(avail.x / (mx.x - mn.x), avail.y / (mx.y - mn.y))
-	_min_scale = px_per_km * 0.7
+	_min_scale = minf(px_per_km * 0.7, 0.2)
 	var mid := (mn + mx) * 0.5
 	center = mid - Vector2((left_pad - 40.0) * 0.5, 0.0) / px_per_km
 	_fitted = true
@@ -178,7 +224,19 @@ func _click(sp: Vector2) -> void:
 
 
 # ------------------------------------------------------------------ resources
-static func height_tex() -> ImageTexture:
+static func height_tex(region: String = "main") -> ImageTexture:
+	if region == "world":
+		if _htex_world == null:
+			var nx: int = RealWorld.GRID_NX
+			var nz: int = RealWorld.GRID_NZ
+			var imgw := Image.create(nx, nz, false, Image.FORMAT_L8)
+			for j in nz:
+				for i in nx:
+					var hw := float(Geo.macro_world[j * nx + i]) if Geo.macro_world.size() == nx * nz else -100.0
+					var vw := clampf((hw + 1000.0) / 4000.0, 0.0, 1.0)
+					imgw.set_pixel(i, j, Color(vw, vw, vw))
+			_htex_world = ImageTexture.create_from_image(imgw)
+		return _htex_world
 	if _htex == null:
 		var n := Geo.GRID
 		var img := Image.create(n, n, false, Image.FORMAT_L8)
@@ -191,14 +249,18 @@ static func height_tex() -> ImageTexture:
 	return _htex
 
 
-static func _material(sea: bool) -> ShaderMaterial:
+static func _material(sea: bool, region: String = "main") -> ShaderMaterial:
 	if _land_shader == null:
 		_land_shader = Shader.new()
 		_land_shader.code = """shader_type canvas_item;
 uniform sampler2D hmap : filter_linear, repeat_disable;
 uniform float texel = 0.0078125;
+uniform float cut = 0.0;
 void fragment() {
 	float h = texture(hmap, UV).r * 4000.0 - 1000.0;
+	if (cut > 0.5 && h < 0.0) {
+		discard;
+	}
 	float hx = texture(hmap, UV + vec2(texel, 0.0)).r - texture(hmap, UV - vec2(texel, 0.0)).r;
 	float hz = texture(hmap, UV + vec2(0.0, texel)).r - texture(hmap, UV - vec2(0.0, texel)).r;
 	vec3 n = normalize(vec3(-hx * 42.0, 1.0, -hz * 42.0));
@@ -217,6 +279,7 @@ void fragment() {
 		_sea_shader = Shader.new()
 		_sea_shader.code = """shader_type canvas_item;
 uniform sampler2D hmap : filter_linear, repeat_disable;
+uniform vec4 rect_km = vec4(-512.0, -512.0, 1024.0, 1024.0);
 void fragment() {
 	float h = texture(hmap, UV).r * 4000.0 - 1000.0;
 	float d = clamp(-h / 900.0, 0.0, 1.0);
@@ -224,7 +287,7 @@ void fragment() {
 	float k = -h / 150.0;
 	float bd = abs(fract(k + 0.5) - 0.5) / max(fwidth(k), 0.0001);
 	c += (1.0 - min(bd, 1.0)) * 0.025 * step(0.3, k);
-	vec2 km = UV * 1024.0 - 512.0;
+	vec2 km = rect_km.xy + UV * rect_km.zw;
 	vec2 g = abs(fract(km / 50.0 + 0.5) - 0.5) / max(fwidth(km / 50.0), vec2(0.0001));
 	c += (1.0 - min(min(g.x, g.y), 1.0)) * 0.04;
 	COLOR = vec4(c, 1.0);
@@ -232,12 +295,18 @@ void fragment() {
 """
 	var m := ShaderMaterial.new()
 	m.shader = _sea_shader if sea else _land_shader
-	m.set_shader_parameter("hmap", height_tex())
+	m.set_shader_parameter("hmap", height_tex(region))
+	var rr := region_rect(region)
+	m.set_shader_parameter("rect_km", Vector4(rr.position.x, rr.position.y, rr.size.x, rr.size.y))
+	if not sea:
+		m.set_shader_parameter("texel", 1.0 / float(RealWorld.GRID_NX if region == "world" else Geo.GRID))
+		m.set_shader_parameter("cut", 1.0 if region == "world" else 0.0)
 	return m
 
 
-static func _uv(km: Vector2) -> Vector2:
-	return (km * KM + Vector2(Geo.MAP_HALF, Geo.MAP_HALF)) / (Geo.MAP_HALF * 2.0)
+static func _uv(km: Vector2, region: String = "main") -> Vector2:
+	var r := region_rect(region)
+	return (km - r.position) / r.size
 
 
 static func _ellipse(c: Vector2, r: Vector2, n: int = 28) -> Array:
@@ -248,7 +317,12 @@ static func _ellipse(c: Vector2, r: Vector2, n: int = 28) -> Array:
 	return out
 
 
-static func land_polys() -> Array:
+static func land_polys(region: String = "main") -> Array:
+	if region == "world":
+		var wp: Array = RealWorld.POLYS.duplicate()
+		for isl2 in RealWorld.ISLANDS:
+			wp.append(_ellipse(isl2[0], isl2[1], 20))
+		return wp
 	var polys := [Geo.MAINLAND, Geo.WESTMARK]
 	for isl in Geo.ISLANDS:
 		polys.append(_ellipse(isl[0], isl[1], 24))
@@ -259,22 +333,37 @@ static func land_polys() -> Array:
 class Layer extends Control:
 	var map: WorldMapView
 	var kind := "over"
+	var region := "main"
 
 	func _draw() -> void:
 		match kind:
 			"sea":
-				var a := map.to_screen(Vector2(-512, -512))
-				var b := map.to_screen(Vector2(512, 512))
+				var rr := WorldMapView.region_rect(region)
+				var a := map.to_screen(rr.position)
+				var b := map.to_screen(rr.end)
 				draw_primitive(PackedVector2Array([a, Vector2(b.x, a.y), b, Vector2(a.x, b.y)]), PackedColorArray([Color.WHITE, Color.WHITE, Color.WHITE, Color.WHITE]),
 					PackedVector2Array([Vector2(0, 0), Vector2(1, 0), Vector2(1, 1), Vector2(0, 1)]))
 			"land":
-				for poly in WorldMapView.land_polys():
+				var rr2 := WorldMapView.region_rect(region)
+				if region == "world":
+					# the real-world coast is drawn from the heightfield (its outlines run past the grid edge)
+					var a2 := map.to_screen(rr2.position)
+					var b2 := map.to_screen(rr2.end)
+					draw_primitive(PackedVector2Array([a2, Vector2(b2.x, a2.y), b2, Vector2(a2.x, b2.y)]), PackedColorArray([Color.WHITE, Color.WHITE, Color.WHITE, Color.WHITE]),
+						PackedVector2Array([Vector2(0, 0), Vector2(1, 0), Vector2(1, 1), Vector2(0, 1)]))
+					return
+				for poly in WorldMapView.land_polys(region):
 					var pts := PackedVector2Array()
 					var uvs := PackedVector2Array()
 					for p in poly:
-						pts.append(map.to_screen(p))
-						uvs.append(WorldMapView._uv(p))
-					draw_colored_polygon(pts, Color.WHITE, uvs)
+						# polygons may run past the edge of the region's grid
+						var q := Vector2(clampf(p.x, rr2.position.x, rr2.end.x), clampf(p.y, rr2.position.y, rr2.end.y))
+						pts.append(map.to_screen(q))
+						uvs.append(WorldMapView._uv(q, region))
+					if pts.size() >= 3:
+						var ok := Geometry2D.triangulate_polygon(pts)
+						if not ok.is_empty():
+							draw_colored_polygon(pts, Color.WHITE, uvs)
 			"over":
 				_overlay()
 
@@ -284,33 +373,40 @@ class Layer extends Control:
 		var fc := UIStyle.face(700, 1.0, 4)
 		var zoom := map.px_per_km
 		# coastline
-		for poly in WorldMapView.land_polys():
-			var pts := PackedVector2Array()
-			for p in poly:
-				pts.append(map.to_screen(p))
-			pts.append(pts[0])
-			draw_polyline(pts, Color(0.62, 0.82, 0.92, 0.55), 1.3, true)
+		for reg in ["main", "world"]:
+			var rr3 := WorldMapView.region_rect(reg)
+			for poly in WorldMapView.land_polys(reg):
+				var pts := PackedVector2Array()
+				for p in poly:
+					pts.append(map.to_screen(Vector2(clampf(p.x, rr3.position.x, rr3.end.x), clampf(p.y, rr3.position.y, rr3.end.y))))
+				pts.append(pts[0])
+				draw_polyline(pts, Color(0.62, 0.82, 0.92, 0.55), 1.3, true)
 		# lakes and rivers
-		for lk in Geo.LAKES:
+		for lk in Geo.LAKES + RealWorld.LAKES:
+			if float(lk.level) <= 0.0:
+				continue
 			var lp := PackedVector2Array()
 			for q in WorldMapView._ellipse(Vector2(float(lk.x), float(lk.z)) / 1000.0, Vector2(float(lk.rx), float(lk.rz)) / 1000.0 * 1.2, 24):
 				lp.append(map.to_screen(q))
 			draw_colored_polygon(lp, Color(0.09, 0.24, 0.31))
-		for rv in Geo.RIVERS:
+		for rv in Geo.RIVERS + RealWorld.RIVERS:
 			var rp := PackedVector2Array()
 			for q2 in rv.pts:
 				rp.append(map.to_screen(q2))
 			draw_polyline(rp, Color(0.25, 0.5, 0.62, 0.8), maxf(1.0, zoom * 0.5), true)
 		# region names
 		for r in [["CALDERRA", Vector2(225, -40)], ["WESTMARK", Vector2(-425, -60)], ["WESTERN SEA", Vector2(-225, 150)],
-				["CALDER RANGE", Vector2(215, -245)], ["SOUTHERN SEA", Vector2(90, 410)]]:
+				["CALDER RANGE", Vector2(215, -245)], ["SOUTHERN SEA", Vector2(90, 410)]] + RealWorld.LABELS:
 			var sp := map.to_screen(r[1])
 			var fs := int(clampf(zoom * 9.0, 11.0, 22.0))
 			var w := fc.get_string_size(r[0], HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 			draw_string(fc, sp - Vector2(w * 0.5, 0), r[0], HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(1, 1, 1, 0.2))
 		# cities
+		var vis := Rect2(Vector2(-40, -40), map.size + Vector2(80, 80))
 		for c in Geo.cities:
 			var cp := map.to_screen(Vector2(float(c.x), float(c.z)) / 1000.0)
+			if not vis.has_point(cp):
+				continue
 			var big := int(c.pop) > 300000
 			var cr := 2.5 if big else 1.8
 			draw_circle(cp, cr + 1.0, Color(0, 0, 0, 0.5))
@@ -324,6 +420,8 @@ class Layer extends Control:
 		for icao in Airports.ORDER:
 			var ap: Dictionary = Airports.get_ap(icao)
 			var p := map.to_screen(Airports.pos2(icao) / 1000.0)
+			if not vis.has_point(p):
+				continue
 			var is_dep: bool = icao == map.dep
 			var is_arr: bool = icao == map.arr
 			var hub: bool = String(ap.size) == "hub"

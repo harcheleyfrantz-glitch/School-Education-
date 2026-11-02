@@ -3,8 +3,8 @@ extends Node3D
 ## Quadtree terrain streaming. Chunks are generated on worker threads and swapped in only when a
 ## complete, crack-free cover is available. Fine chunks also carry forests and buildings.
 
-const ROOT_SIZE := 1024000.0
-const MAX_LEVEL := 10            # 1024 km / 2^10 = 1 km leaves
+const ROOT_SIZE := 4096000.0     # covers Calderra and the real-world region
+const MAX_LEVEL := 12            # 4096 km / 2^12 = 1 km leaves
 const DETAIL_SIZE := 2100.0       # chunks this size or smaller get trees/buildings
 
 var view: Node = null             # WorldView (provides origin)
@@ -56,20 +56,7 @@ func setup(world_view: Node) -> void:
 	material.shader = load("res://shaders/terrain.gdshader")
 	material.set_shader_parameter("noise_tex", TexGen.noise_tex(256, 0.03, 4, 5))
 	material.set_shader_parameter("detail", 1.0 if not Game.is_mobile else 0.6)
-	var roads: Array = []
-	for h in Geo.highways().slice(0, 32):
-		roads.append(Vector4(h[0], h[1], h[2], h[3]))
-		roads.append(Vector4(h[4], 0, 0, 0))
-	while roads.size() < 64:
-		roads.append(Vector4.ZERO)
-	material.set_shader_parameter("roads", roads)
-	material.set_shader_parameter("road_count", mini(Geo.highways().size(), 32) if not String(Game.settings.quality) in ["low", "potato"] else 0)
-	var aps: Array = []
-	for af in Geo.airports_flat.slice(0, 16):
-		aps.append(Vector4(af[0], af[1], af[3], 0))
-	while aps.size() < 16:
-		aps.append(Vector4(0, 0, -1, 0))
-	material.set_shader_parameter("airports", aps)
+	_refresh_local(cam_x, cam_z)
 	tree_material = ShaderMaterial.new()
 	tree_material.shader = load("res://shaders/tree.gdshader")
 	building_material = ShaderMaterial.new()
@@ -165,6 +152,43 @@ func set_camera(x: float, z: float, alt: float, agl: float) -> void:
 	cam_z = z
 	cam_alt = alt
 	cam_agl = agl
+	if Vector2(x, z).distance_to(_local_at) > 60000.0:
+		_refresh_local(x, z)
+
+
+var _local_at := Vector2(INF, INF)
+
+
+func _refresh_local(x: float, z: float) -> void:
+	## The terrain shader paints the 32 motorways and 16 airports nearest the camera.
+	_local_at = Vector2(x, z)
+	var here := Vector2(x, z)
+	var hw: Array = Geo.highways().duplicate()
+	hw.sort_custom(func(a, b): return _seg_dist(here, a) < _seg_dist(here, b))
+	var roads: Array = []
+	for h in hw.slice(0, 32):
+		roads.append(Vector4(h[0], h[1], h[2], h[3]))
+		roads.append(Vector4(h[4], 0, 0, 0))
+	while roads.size() < 64:
+		roads.append(Vector4.ZERO)
+	material.set_shader_parameter("roads", roads)
+	material.set_shader_parameter("road_count", mini(hw.size(), 32) if not String(Game.settings.quality) in ["low", "potato"] else 0)
+	var afl: Array = Geo.airports_flat.duplicate()
+	afl.sort_custom(func(a, b): return here.distance_squared_to(Vector2(a[0], a[1])) < here.distance_squared_to(Vector2(b[0], b[1])))
+	var aps: Array = []
+	for af in afl.slice(0, 16):
+		aps.append(Vector4(af[0], af[1], af[3], 0))
+	while aps.size() < 16:
+		aps.append(Vector4(0, 0, -1, 0))
+	material.set_shader_parameter("airports", aps)
+
+
+static func _seg_dist(p: Vector2, h: Array) -> float:
+	var a := Vector2(h[0], h[1])
+	var b := Vector2(h[2], h[3])
+	var ab := b - a
+	var t := clampf((p - a).dot(ab) / maxf(ab.length_squared(), 1.0), 0.0, 1.0)
+	return p.distance_to(a + ab * t)
 
 
 func _exit_tree() -> void:
@@ -605,6 +629,8 @@ static func _scatter(result: Dictionary, job: Dictionary, hs: PackedFloat32Array
 				var h := _height_sample(hs, w, fx, fz)
 				if h < 1.5 or h > 2150.0:
 					continue
+				if Geo.water_level(x0 + lx, z0 + lz) > h - 0.6:
+					continue
 				var hx := _height_sample(hs, w, minf(fx + 0.5, n - 0.01), fz) - h
 				var hz := _height_sample(hs, w, fx, minf(fz + 0.5, n - 0.01)) - h
 				if absf(hx) + absf(hz) > s * 0.45:
@@ -642,6 +668,14 @@ static func _scatter(result: Dictionary, job: Dictionary, hs: PackedFloat32Array
 			result.multimeshes.append({"kind": "tree", "mesh": meshes[k], "count": buf.size() / 16, "buffer": buf, "range": 3000.0 + 1800.0 * density})
 	# buildings on the 95 m street grid used by the terrain shader
 	var bdens: float = job.buildings
+	# how high-rise the nearest city is (Manhattan 1.6, Paris 0.45), and the European look
+	var city := Geo.nearest_city(float(job.cx), float(job.cz))
+	var tall := clampf(float(city.get("tall", 0.7)), 0.15, 1.8)
+	var tower_p := minf(0.45 * pow(tall, 1.5), 0.8)
+	var tower_k := 0.55 + 0.45 * tall
+	var euro := float(job.cz) > Geo.MAP_HALF and RealWorld.to_lonlat(float(job.cx), float(job.cz)).x > -30.0
+	if euro:
+		tower_p *= 0.3      # European towers stand in their business districts (the skyline clusters)
 	if bdens > 0.01:
 		var blds := PackedFloat32Array()
 		var houses := PackedFloat32Array()
@@ -669,6 +703,8 @@ static func _scatter(result: Dictionary, job: Dictionary, hs: PackedFloat32Array
 				var h2 := _height_sample(hs, w, lx2 / s, lz2 / s)
 				if h2 < 1.0:
 					continue
+				if Geo.water_level(gx, gz) > h2 - 0.6:
+					continue
 				var ox0 := lx2 - size * 0.5
 				var oz0 := lz2 - size * 0.5
 				if not roads.is_empty() and Geo.highway_distance(gx, gz, roads) < 70.0:
@@ -688,10 +724,10 @@ static func _scatter(result: Dictionary, job: Dictionary, hs: PackedFloat32Array
 						var hcol := U.pick(rb, [Color(0.88, 0.85, 0.78), Color(0.8, 0.72, 0.6), Color(0.9, 0.88, 0.84), Color(0.72, 0.52, 0.42), Color(0.85, 0.8, 0.66), Color(0.7, 0.74, 0.76)])
 						_push_instance(houses, Vector3(ox0 + hp.x, h2 - 0.5, oz0 + hp.y), hy, Vector3(hw, hh + 0.5, hd), hcol, rb.randf())
 					continue
-				if u > 0.82 and rb.randf() < 0.45:
+				if u > 0.82 and rb.randf() < tower_p:
 					# downtown tower with setbacks and a glass curtain wall
 					var tw_w := rb.randf_range(28.0, 46.0)
-					var tw_h := rb.randf_range(45.0, 120.0) * (0.7 + u * 0.5)
+					var tw_h := rb.randf_range(45.0, 120.0) * (0.7 + u * 0.5) * tower_k
 					var gcol := U.pick(rb, [Color(0.42, 0.52, 0.62), Color(0.35, 0.45, 0.5), Color(0.55, 0.6, 0.65), Color(0.3, 0.38, 0.48), Color(0.6, 0.56, 0.5)])
 					_push_instance(towers, Vector3(ox0, h2 - 2.0, oz0), float(rb.randi() % 4) * PI * 0.5, Vector3(tw_w, tw_h + 2.0, tw_w * rb.randf_range(0.8, 1.2)), gcol, rb.randf())
 					continue
@@ -702,13 +738,18 @@ static func _scatter(result: Dictionary, job: Dictionary, hs: PackedFloat32Array
 					var ox := 0.0 if count == 1 else (-17.0 if k % 2 == 0 else 17.0)
 					var oz := 0.0 if count == 1 else (-17.0 if k < 2 else 17.0)
 					var height := rb.randf_range(6.0, 14.0) + u * u * rb.randf_range(4.0, 38.0)
-					if u > 0.85 and rb.randf() < 0.3:
-						height += rb.randf_range(20.0, 70.0)
+					if u > 0.85 and rb.randf() < 0.3 * minf(tall, 1.0):
+						height += rb.randf_range(20.0, 70.0) * tower_k
+					if euro and u > 0.5:
+						# old-town blocks: six to eight storeys of stone and stucco
+						height = rb.randf_range(16.0, 27.0)
 					var industrial := hb % 7 == 0 and u < 0.75
 					if industrial:
 						height = rb.randf_range(7.0, 11.0)
 						fw *= 1.4
 					var bcol := U.pick(rb, [Color(0.78, 0.74, 0.68), Color(0.66, 0.62, 0.58), Color(0.82, 0.8, 0.76), Color(0.6, 0.5, 0.42), Color(0.55, 0.6, 0.66), Color(0.86, 0.82, 0.7)])
+					if euro:
+						bcol = U.pick(rb, [Color(0.88, 0.83, 0.72), Color(0.84, 0.78, 0.66), Color(0.9, 0.87, 0.8), Color(0.72, 0.6, 0.5), Color(0.8, 0.72, 0.6)])
 					if industrial:
 						bcol = U.pick(rb, [Color(0.72, 0.74, 0.76), Color(0.6, 0.64, 0.66), Color(0.75, 0.7, 0.62)])
 					_push_instance(blds, Vector3(ox0 + ox, h2 - 2.0, oz0 + oz), 0.0, Vector3(fw, height + 2.0, fd), bcol, rb.randf())

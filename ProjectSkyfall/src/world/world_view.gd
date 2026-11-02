@@ -36,6 +36,7 @@ var weather := {}                 # weather at the camera
 var weather_override := {}        # optional fixed weather (menus, cinematics)
 var day_factor := 1.0
 var night := 0.0
+var landmarks: Landmarks
 var sun_dir := Vector3.UP
 var inside_cloud := 0.0
 var cloud_base := 1500.0
@@ -80,6 +81,10 @@ func setup(start_x: float, start_z: float, clock: float, with_airports: bool = t
 		airports.name = "Airports"
 		add_child(airports)
 		airports.setup(self)
+	landmarks = Landmarks.new()
+	landmarks.name = "Landmarks"
+	add_child(landmarks)
+	landmarks.setup(self)
 	update_weather(true)
 	update_lighting(true)
 
@@ -223,6 +228,8 @@ func _build_water() -> void:
 	var mt := TexGen.macro_depth_tex()
 	water_mat.set_shader_parameter("macro_tex", mt)
 	water_mat.set_shader_parameter("map_half", Geo.MAP_HALF)
+	water_mat.set_shader_parameter("macro2_tex", TexGen.macro_world_tex())
+	water_mat.set_shader_parameter("macro2_rect", Vector4(RealWorld.GRID_X0, RealWorld.GRID_Z0, RealWorld.GRID_NX * RealWorld.CELL, RealWorld.GRID_NZ * RealWorld.CELL))
 	inland_water_mat = water_mat.duplicate()
 	inland_water_mat.set_shader_parameter("use_macro", 0.0)
 	inland_water_mat.set_shader_parameter("flat_shallow", 0.55)
@@ -253,6 +260,7 @@ func _build_water() -> void:
 		mi.mesh = mb.commit()
 		mi.material_override = inland_water_mat
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mi.visibility_range_end = maxf(float(lk.rx), float(lk.rz)) * 1.3 + 140000.0
 		static_root.add_child(mi)
 		register_static(mi, lk.x, lk.level, lk.z)
 	# rivers as ribbons following their water level
@@ -283,6 +291,7 @@ func _build_water() -> void:
 			rmi.mesh = mb2.commit()
 			rmi.material_override = inland_water_mat
 			rmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			rmi.visibility_range_end = 120000.0
 			static_root.add_child(rmi)
 			register_static(rmi, o.x, 0.0, o.y)
 			start = stop

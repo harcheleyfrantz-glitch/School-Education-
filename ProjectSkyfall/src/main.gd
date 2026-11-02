@@ -3,7 +3,7 @@ extends Node
 ## gate at golden hour); a flight replaces the backdrop with a full FlightSession.
 
 const MENU_SCREENS := ["menu", "create", "hub", "briefing", "free", "passenger", "news", "archive", "settings", "jobs", "logbook",
-	"activities", "activity", "profile", "hangar", "world_map"]
+	"activities", "activity", "profile", "hangar", "world_map", "achievements"]
 
 var current: Node = null
 var backdrop: Node3D = null
@@ -15,6 +15,7 @@ func _ready() -> void:
 	Game.main = self
 	get_tree().set_auto_accept_quit(true)
 	ui_layer = CanvasLayer.new()
+	Game.toast.connect(_global_toast)
 	ui_layer.name = "UI"
 	ui_layer.layer = 10
 	add_child(ui_layer)
@@ -56,6 +57,27 @@ func _boot_screen() -> Control:
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(l)
 	return c
+
+
+func _global_toast(text: String, kind: String) -> void:
+	## Menu-side notifications (achievements unlocked outside a flight).
+	if session != null and is_instance_valid(session):
+		return
+	var p := PanelContainer.new()
+	p.add_theme_stylebox_override("panel", UIStyle.box(Color(0.03, 0.06, 0.1, 0.92), 6, UIStyle.GOLD if kind == "success" else UIStyle.ACCENT, 1, 14))
+	var lb := UIStyle.label(text, 15, Color.WHITE, true)
+	p.add_child(lb)
+	p.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+	p.offset_top = 18
+	p.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ui_layer.add_child(p)
+	p.modulate.a = 0.0
+	var tw := p.create_tween()
+	tw.tween_property(p, "modulate:a", 1.0, 0.25)
+	tw.tween_interval(4.0)
+	tw.tween_property(p, "modulate:a", 0.0, 0.6)
+	tw.tween_callback(p.queue_free)
 
 
 func show_screen(screen_name: String, params: Dictionary) -> void:

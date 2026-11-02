@@ -15,6 +15,7 @@ var parked: Array = []
 var airborne: Array = []         # distant traffic for TCAS only: {callsign, x, z, alt, vs, hdg, spd}
 var _rng := RandomNumberGenerator.new()
 var _spawn_t := 25.0
+var _cross_t := 200.0
 var _queue: Array = []           # deferred model builds: {item, kind}
 var _next_id := 0
 var evacuee_sink: Callable
@@ -43,11 +44,22 @@ func _ap_local(icao: String, p: Vector2, y: float) -> Vector3:
 	return view.world_to_local(float(ap.x) + p.x, y, float(ap.z) + p.y)
 
 
-func _airline_for(type_id: String) -> String:
+func _airline_for(type_id: String, icao: String = "") -> String:
+	## Airlines that fly this type, preferring those based within reach of the airport (so New
+	## York's gates fill with Liberty Atlantic, not Calderra's island turboprops).
 	var codes := []
+	var near := []
+	var here := Airports.pos2(icao) if icao != "" and Airports.DATA.has(icao) else Vector2.INF
 	for c in Airlines.all_codes():
 		if Airlines.operates_type(c, type_id):
 			codes.append(c)
+			if here != Vector2.INF:
+				for hb in Airlines.get_al(c).get("hubs", []):
+					if Airports.DATA.has(hb) and Airports.pos2(hb).distance_to(here) < 1400000.0:
+						near.append(c)
+						break
+	if not near.is_empty():
+		codes = near
 	if codes.is_empty():
 		return "SKF"
 	return codes[_rng.randi() % codes.size()]
@@ -95,7 +107,7 @@ func _populate_parked(icao: String, count: int) -> void:
 		if String(sd.name) in used or _rng.randf() < 0.3:
 			continue
 		var t := _type_for_span(float(sd.max_span), ["narrowbody", "regional", "widebody", "turboprop", "bizjet"])
-		var al := _airline_for(t)
+		var al := _airline_for(t, icao)
 		var item := {"icao": icao, "stand": sd.name, "type": t, "airline": al, "model": null, "callsign": _callsign(al),
 			"sd": sd, "phase": "parked", "id": _next_id}
 		_next_id += 1
@@ -173,7 +185,7 @@ func _spawn_moving() -> void:
 
 func _start_arrival(icao: String, end: Dictionary) -> void:
 	var t := _type_for_span(66.0, ["narrowbody", "regional", "widebody", "turboprop"])
-	var al := _airline_for(t)
+	var al := _airline_for(t, icao)
 	var item := {"icao": icao, "type": t, "airline": al, "model": null, "callsign": _callsign(al), "phase": "final",
 		"end": end, "dist": 15000.0 + _rng.randf_range(0.0, 6000.0), "speed": 150.0 * U.KT, "id": _next_id, "t": 0.0,
 		"path": [], "hdg": float(end.hdg), "alt": 0.0, "vs": 0.0, "pitch": 0.0, "gear": 1.0, "flap": 3.0}
@@ -210,10 +222,96 @@ func _spawn_airborne() -> void:
 	var ac: Aircraft = session.get("ac")
 	var cx := ac.world_x() if ac else 0.0
 	var cz := ac.world_z() if ac else 0.0
-	var al = Airlines.all_codes()[_rng.randi() % Airlines.all_codes().size()]
+	var t := _type_for_span(80.0, ["narrowbody", "regional", "widebody"])
+	var al := _airline_for(t)
 	airborne.append({"callsign": _callsign(al), "x": cx + _rng.randf_range(-60000, 60000), "z": cz + _rng.randf_range(-60000, 60000),
 		"alt": _rng.randf_range(2500.0, 11500.0), "vs": _rng.randf_range(-8.0, 8.0) if _rng.randf() < 0.4 else 0.0,
-		"hdg": _rng.randf_range(0.0, 360.0), "spd": _rng.randf_range(200.0, 250.0)})
+		"hdg": _rng.randf_range(0.0, 360.0), "spd": _rng.randf_range(200.0, 250.0), "type": t, "airline": al, "model": null, "phase": "airborne"})
+
+
+func _spawn_crossing() -> void:
+	## Traffic on a converging course that passes close to the player (a near miss on TCAS,
+	## visible out of the window). It is set up to miss; flying into it is the player's doing.
+	var ac: Aircraft = session.get("ac")
+	if ac == null or ac.crashed_state or ac.fdm.on_ground or float(ac.ra) < 900.0:
+		return
+	var t := _type_for_span(80.0, ["narrowbody", "regional", "widebody"])
+	var al := _airline_for(t)
+	var lead := 70.0
+	var my_v := ac.fdm.vel
+	var meet := Vector2(ac.world_x() + my_v.x * lead, ac.world_z() + my_v.z * lead)
+	var spd := _rng.randf_range(210.0, 250.0)
+	var hdg := _rng.randf_range(0.0, 360.0)
+	var d := Vector2(sin(deg_to_rad(hdg)), -cos(deg_to_rad(hdg)))
+	var miss := Vector2(-d.y, d.x) * _rng.randf_range(350.0, 1200.0) * (1.0 if _rng.randf() < 0.5 else -1.0)
+	var start := meet + miss - d * spd * U.KT * lead
+	airborne.append({"callsign": _callsign(al), "x": start.x, "z": start.y, "alt": ac.fdm.pos.y + _rng.randf_range(-150.0, 150.0), "vs": 0.0,
+		"hdg": hdg, "spd": spd, "type": t, "airline": al, "model": null, "phase": "airborne"})
+	if airborne.size() > 14:
+		_drop_airborne(airborne[0])
+
+
+func _drop_airborne(a: Dictionary) -> void:
+	airborne.erase(a)
+	if a.get("model") != null and is_instance_valid(a.model):
+		(a.model as Node).queue_free()
+	a.model = null
+
+
+func sky_items() -> Array:
+	## Airborne background traffic currently close enough to be drawn (and to collide with).
+	var out := []
+	for a in airborne:
+		if a.get("model") != null:
+			out.append(a)
+	return out
+
+
+func item_velocity(item: Dictionary) -> Vector3:
+	var hdg := deg_to_rad(float(item.get("hdg", 0.0)))
+	var d := Vector3(sin(hdg), 0.0, -cos(hdg))
+	match String(item.get("phase", "")):
+		"parked", "hold":
+			return Vector3.ZERO
+		"airborne":
+			return d * float(item.spd) * U.KT + Vector3(0, float(item.get("vs", 0.0)), 0)
+	return d * float(item.get("speed", 0.0))
+
+
+func npc_hit(item: Dictionary, impact_vel: Vector3, closing: float, midair: bool) -> void:
+	## The other aircraft in a collision. In the air it breaks up and falls burning; on the
+	## ground a hard hit sets it on fire.
+	var m: AircraftModel = item.get("model")
+	if m == null or not is_instance_valid(m):
+		return
+	var pieces: WreckPieces = session.call("wreck_pieces") if session and session.has_method("wreck_pieces") else null
+	if not midair or pieces == null:
+		if closing > 15.0 and pieces != null:
+			var f := pieces._flames(1.2)
+			m.add_child(f)
+			f.position = Vector3(0, 1.0, 2.0)
+			var sm := pieces._trail(1.0, true)
+			m.add_child(sm)
+		item.phase = "parked" if String(item.get("phase", "")) == "parked" else "hold"
+		moving.erase(item)
+		parked.erase(item)
+		return
+	var v := item_velocity(item)
+	moving.erase(item)
+	parked.erase(item)
+	airborne.erase(item)
+	item.model = null
+	m.reparent(view.dynamic_root, true)
+	var lc := CrashDebris.opts_for(AircraftTypes.get_type(String(item.type)), String(item.airline), 0.3, 1.0)
+	var plan := {"tail": _rng.randf() < 0.6, "wing": -1 if _rng.randf() < 0.5 else 1, "nose": _rng.randf() < 0.25}
+	var xf := m.global_transform
+	pieces.break_up(m, xf, v + impact_vel * 0.15, String(item.type), String(item.airline), "", plan, _rng, true)
+	pieces.add_piece(m, v + impact_vel * 0.15, -xf.basis.z * float(plan.wing) * 1.6 + xf.basis.x * _rng.randf_range(-0.5, 0.5),
+		{"drag": 0.0022, "rest_h": 2.0, "bounce": 0.1, "smoke": true, "fire": true, "big": true})
+	pieces.burst(xf.origin, v, 22, lc, _rng)
+	pieces.engine_piece(xf.origin + xf.basis.x * 6.0, v, float(lc.eng_d), lc.accent, _rng, true)
+	if session and session.has_signal("toast"):
+		session.toast.emit("MID-AIR COLLISION with %s" % String(item.get("callsign", "another aircraft")), "warning")
 
 
 # ================================================================== per frame
@@ -241,11 +339,35 @@ func _process(delta: float) -> void:
 				_update_departure(item, delta)
 			"taxi_in":
 				_update_taxi(item, delta, 8.0)
-	for a in airborne:
+	_cross_t -= delta
+	if _cross_t <= 0.0:
+		_cross_t = _rng.randf_range(240.0, 480.0)
+		_spawn_crossing()
+	var me: Aircraft = session.get("ac")
+	var built_one := false
+	for a in airborne.duplicate():
 		var d := Vector2(sin(deg_to_rad(float(a.hdg))), -cos(deg_to_rad(float(a.hdg))))
 		a.x = float(a.x) + d.x * float(a.spd) * U.KT * delta
 		a.z = float(a.z) + d.y * float(a.spd) * U.KT * delta
 		a.alt = clampf(float(a.alt) + float(a.vs) * delta, 600.0, 12500.0)
+		# draw the ones close to the player (one new model per frame at most)
+		if me == null:
+			continue
+		var dist := Vector3(float(a.x) - me.world_x(), float(a.alt) - me.fdm.pos.y, float(a.z) - me.world_z()).length()
+		var m = a.get("model")
+		if m == null and dist < 6000.0 and not built_one and a.has("type"):
+			a.model = _make_model(String(a.type), String(a.airline))
+			built_one = true
+			m = a.model
+		elif m != null and dist > 8000.0:
+			(m as Node).queue_free()
+			a.model = null
+			continue
+		if m != null and is_instance_valid(m):
+			var am: AircraftModel = m
+			am.position = view.world_to_local(float(a.x), float(a.alt), float(a.z))
+			am.basis = _basis(float(a.hdg), clampf(float(a.vs) * 0.4, -3.0, 6.0) + 2.0)
+			am.animate_simple(0.0, 0.0, 60.0, {"nav": true, "beacon": true, "strobe": true}, view.night, delta)
 
 
 func _update_arrival(item: Dictionary, dt: float) -> void:
@@ -459,9 +581,10 @@ func _retire(item: Dictionary) -> void:
 	item.model = null
 	# keep it on TCAS for a while
 	airborne.append({"callsign": item.callsign, "x": float(item.get("x", 0.0)), "z": float(item.get("z", 0.0)),
-		"alt": float(item.get("alt", 900.0)), "vs": 8.0, "hdg": float(item.get("hdg", 0.0)), "spd": 220.0})
-	if airborne.size() > 12:
-		airborne.pop_front()
+		"alt": float(item.get("alt", 900.0)), "vs": 8.0, "hdg": float(item.get("hdg", 0.0)), "spd": 220.0,
+		"type": String(item.get("type", "s320")), "airline": String(item.get("airline", "SKF")), "model": null, "phase": "airborne"})
+	if airborne.size() > 14:
+		_drop_airborne(airborne[0])
 
 
 func _atc_call(icao: String, cs: String, atc_text: String, reply: String) -> void:
