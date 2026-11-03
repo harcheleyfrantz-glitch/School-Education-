@@ -38,6 +38,15 @@ static func daily(day: int, r: RandomNumberGenerator) -> void:
 		_spotters(day, r)
 	if r.randf() < 0.1:
 		_travel(day, r)
+	_forecast(day, r)
+	if r.randf() < 0.6:
+		_history(day, r)
+	if r.randf() < 0.15:
+		_poll(day, r)
+	if day % 7 == 3:
+		_busiest_routes(day)
+	if day % 7 == 5:
+		_fuel(day, r)
 
 
 static func _close(icao: String, days: float, why: String) -> void:
@@ -226,6 +235,64 @@ static func _travel(day: int, r: RandomNumberGenerator) -> void:
 	News.publish("gazette", "news", String(s[0]), String(s[1]), [], {"importance": 1, "t": _t(day, r.randf_range(7.0, 20.0)), "tags": ["travel"]})
 
 
+const HISTORY := ["On this day the first passenger jet service crossed the Atlantic, taking just over eight hours.",
+	"On this day a seaplane landed safely on the Hudson after a double bird strike - every one of the 155 people aboard survived.",
+	"On this day the first double-deck airliner carried paying passengers.", "On this day an airliner glided out of a volcanic ash cloud after all four engines failed - and landed safely.",
+	"On this day the first flight across the English Channel took 36 minutes.", "On this day the first supersonic airliner made its last commercial flight.",
+	"On this day two brothers flew the first powered aeroplane for twelve seconds.", "On this day the first jet bridge was opened at an airport.",
+	"On this day the black box flight recorder was invented to help investigators learn from accidents.", "On this day the first in-flight meal was served: sandwiches and fruit."]
+
+
+static func _forecast(day: int, r: RandomNumberGenerator) -> void:
+	## The morning aviation weather: four hubs, what crews should expect today.
+	var t := float(day) * 86400.0 + 6.0 * 3600.0
+	var lines := []
+	for icao in ["KJFK", "EGLL", "KATL", "EDDF", "SKPC", "KDEN", "ENGM", "LEBL"].slice(0, 8):
+		if r.randf() < 0.5:
+			continue
+		var ap := Airports.get_ap(String(icao))
+		var w := WeatherModel.sample(float(ap.x), float(ap.z), t + 6.0 * 3600.0)
+		lines.append("%s: %s, wind %d kt, %d C." % [String(ap.get("short", icao)), WeatherModel.describe(w), int(w.get("wind_kt", 0.0)), int(w.get("temp_c", 15.0))])
+	if lines.is_empty():
+		return
+	News.publish("skyline", "news", "Aviation weather today: what pilots can expect", "The morning outlook for the busiest airports on the network.",
+		lines, {"importance": 0, "t": t, "tags": ["weather", "travel"]})
+
+
+static func _history(day: int, r: RandomNumberGenerator) -> void:
+	News.publish("aeroweek", "people", "On this day in aviation", String(HISTORY[(day + r.randi() % 3) % HISTORY.size()]), [],
+		{"importance": 0, "t": float(day) * 86400.0 + 7.0 * 3600.0, "tags": ["feelgood"]})
+
+
+static func _poll(day: int, r: RandomNumberGenerator) -> void:
+	var q := ["POLL: window or aisle?", "POLL: which airline has the best crews?", "POLL: four engines or two?", "POLL: best airport for plane spotting?",
+		"POLL: would you fly through a hurricane to get home?", "POLL: clap when the plane lands - yes or no?", "POLL: best approach in the world?"]
+	News.post(News._outlet_author("aeroweek"), "%s Vote in the replies! #avgeek" % String(q[r.randi() % q.size()]),
+		{"importance": 1, "t": float(day) * 86400.0 + r.randf_range(10.0, 20.0) * 3600.0})
+
+
+static func _busiest_routes(day: int) -> void:
+	var all := []
+	for code in WorldSim.ROUTES:
+		for rt in WorldSim.ROUTES[code]:
+			if String(rt[0]) != String(rt[1]):
+				all.append([int(rt[3]), String(rt[0]), String(rt[1]), String(Airlines.get_al(String(code)).get("name", ""))])
+	all.sort_custom(func(a, b): return int(a[0]) > int(b[0]))
+	var lines := []
+	for i in mini(5, all.size()):
+		lines.append("%d. %s - %s (%s, %d flights a day)" % [i + 1, _ap_city(all[i][1]), _ap_city(all[i][2]), all[i][3], all[i][0]])
+	News.publish("aeroweek", "business", "The busiest routes on the network this week", "Where the planes are: the shuttles and trunk routes with the most flights.",
+		lines, {"importance": 1, "t": float(day) * 86400.0 + 9.0 * 3600.0, "tags": ["business", "routes"]})
+
+
+static func _fuel(day: int, r: RandomNumberGenerator) -> void:
+	var price := snappedf(r.randf_range(2.1, 3.4), 0.01)
+	var up := r.randf() < 0.5
+	News.publish("aeroweek", "business", "Jet fuel %s to %.2f a gallon" % ["climbs" if up else "falls", price],
+		"Airlines are %s as fuel prices %s." % ["warning of higher fares" if up else "breathing a little easier", "rise" if up else "ease"],
+		["Fuel is about a quarter of an airline's costs.", "Low-cost carriers feel price swings first."], {"importance": 1, "t": float(day) * 86400.0 + 11.0 * 3600.0, "tags": ["business"]})
+
+
 # ================================================================== the player's own flight
 static func on_flight(res: Dictionary, d: Dictionary) -> void:
 	var r := U.rng(U.hash_str(String(res.get("flight_id", "")) + "extra"))
@@ -277,6 +344,18 @@ static func on_flight(res: Dictionary, d: Dictionary) -> void:
 		News.publish("herald", "news", "Calderra One lands safely in %s%s" % [place, " after escorts shoot down hostile drone" if ic > 0 else ""],
 			"The presidential aircraft arrived on schedule with its fighter escort.%s" % (" Defence officials confirmed %d unidentified drone%s was intercepted on the way." % [ic, "" if ic == 1 else "s"] if ic > 0 else ""),
 			["The president thanked the crew personally on the steps of the aircraft."], {"importance": 3 if ic > 0 else 2, "place": place, "tags": ["president"]})
+	# a butter landing filmed by a passenger goes viral
+	var vs := absf(float(res.get("touchdown", {}).get("vs_fpm", 300.0)))
+	if vs < 60.0 and int(res.get("pax", 0)) >= 30 and r.randf() < 0.5:
+		var views := int(r.randf_range(0.4, 6.0) * 1000000.0)
+		News.publish("gazette", "people", "Smoothest landing ever? Video of %s touchdown at %s goes viral" % [airline, place],
+			"A passenger's video of flight %s touching down at just %d feet per minute has been watched %s times." % [num, int(vs), U.fmt_int(views)],
+			["\"I didn't even feel it,\" the passenger said.", "Pilots online called it a textbook landing."], {"importance": 2, "place": place, "tags": ["feelgood", "spotter"]})
+	if int(res.get("near_misses", 0)) > 0:
+		News.publish("herald", "incident", "Near miss: %s flight passes within metres of another airliner" % airline,
+			"Investigators are looking into how flight %s came so close to another aircraft in flight." % num,
+			["Both crews received collision-avoidance alerts.", "Nobody was hurt, but passengers on both aircraft saw the other jet flash past the windows."],
+			{"importance": 2, "tags": ["incident", d.get("code", "")]})
 	_reviews(res, d, r)
 
 

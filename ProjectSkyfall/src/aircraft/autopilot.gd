@@ -90,15 +90,15 @@ var _flare_acc := 0.0
 
 
 ## Flare initiation height (m): heavier aircraft respond more slowly and start earlier.
-static func flare_height(t: Dictionary) -> float:
-	match String(t.category):
-		"widebody", "cargo":
-			return 16.0
-		"turboprop":
-			return 10.0
-		"trainer":
-			return 6.0
-	return 12.5
+static func flare_height(t: Dictionary, vs: float = -3.4) -> float:
+	## Radio height to start the flare: earlier when sinking faster, so the flare always has
+	## about four seconds to round out.
+	var lo := 4.0 if String(t.category) == "trainer" else 8.0
+	var hi := 9.0 if String(t.category) == "trainer" else 20.0
+	var k := 3.2 if String(t.category) == "trainer" else 4.2
+	if String(t.category) in ["widebody", "cargo"]:
+		k = 4.6
+	return clampf(absf(minf(vs, -0.5)) * k + 1.0, lo, hi)
 
 
 func flare_reset(pitch_now: float) -> void:
@@ -107,35 +107,41 @@ func flare_reset(pitch_now: float) -> void:
 
 
 func flare_law(n: Dictionary, dt: float) -> float:
+	## Planned flare: the pitch needed to bend the flight path from the approach sink rate to a
+	## 60-90 ft/min touchdown is worked out from the speed, then fed in early (the airframe lags
+	## the command by about a second) with light sink-rate feedback and damping on top. The
+	## nose is only ever lowered slowly, so the flare never unloads into a second sink.
 	var h := maxf(float(n.ra), 0.0)
 	var vs := float(n.vs)
 	var light: bool = spec.category == "trainer"
+	var vs_td := -0.3 if light else -0.42
 	if _flare_h0 < 0.0:
-		_flare_h0 = maxf(h, 4.0)
-		_flare_vs0 = minf(vs, -1.0)
+		_flare_h0 = maxf(h, 3.0)
+		_flare_vs0 = minf(vs, -0.8)
 		_flare_p0 = flare_pitch
 		_flare_last_vs = vs
 		_flare_acc = 0.0
 	var acc := (vs - _flare_last_vs) / maxf(dt, 0.001)
 	_flare_last_vs = vs
-	_flare_acc = lerpf(_flare_acc, clampf(acc, -6.0, 6.0), clampf(dt * 5.0, 0.0, 1.0))
-	var vs_td := -0.35 if light else -0.6
-	var frac := clampf(h / _flare_h0, 0.0, 1.0)
-	var vs_cmd := vs_td + (_flare_vs0 - vs_td) * frac
-	var vs_pred := vs + _flare_acc * (0.9 if light else 1.4)
-	var rate := clampf((vs_cmd - vs_pred) * 1.5, -1.2, 3.0)
-	# the flare only ever pulls while still descending; after a float it holds the attitude
-	if rate < 0.0 and vs < 0.3:
-		rate = 0.0
+	_flare_acc = lerpf(_flare_acc, clampf(acc, -4.0, 4.0), clampf(dt * 4.0, 0.0, 1.0))
+	var v_ms := maxf(float(n.true_ias_kt) * U.KT, 25.0)
+	var dgam := rad_to_deg((-_flare_vs0 + vs_td) / v_ms)
+	var dp := dgam * 1.05 + (1.2 if light else 0.3)
+	var f := 1.0 - clampf(h / _flare_h0, 0.0, 1.0)
+	var plan := _flare_p0 + dp * pow(f, 0.85)
+	var tau := _flare_h0 / maxf(-_flare_vs0 + vs_td, 0.4)
+	var vs_cmd := vs_td - h / tau
+	var err := vs_cmd - vs                                   # + : sinking faster than planned
+	var tgt := plan + (0.9 if light else 0.7) * err - 0.35 * _flare_acc
 	# never keep pulling once the speed has decayed well below the approach speed
-	if float(n.true_ias_kt) < float(spec.vref) - 8.0 and rate > 0.0:
-		rate *= 0.3
-	var max_p := minf(float(spec.get("tailstrike", 11.0)) - 2.2, _flare_p0 + (4.0 if not light else 8.0))
-	# land on the main wheels: be a little nose-up from the approach attitude in the last metres
-	var min_td := _flare_p0 + (1.2 if not light else 3.0)
-	if h < 2.5 and flare_pitch < min_td:
-		rate = maxf(rate, (min_td - flare_pitch) * 0.6)
-	flare_pitch = clampf(flare_pitch + rate * dt, _flare_p0 - 0.5, maxf(max_p, _flare_p0))
+	if float(n.true_ias_kt) < float(spec.vref) - 8.0:
+		tgt = minf(tgt, flare_pitch)
+	var max_p := minf(float(spec.get("tailstrike", 11.0)) - 2.2, _flare_p0 + (5.0 if not light else 9.0))
+	tgt = clampf(tgt, _flare_p0 - 0.5, maxf(max_p, _flare_p0))
+	if vs > 0.2:
+		tgt = minf(tgt, flare_pitch)
+	var up_rate := 4.0 if light else 3.0
+	flare_pitch = move_toward(flare_pitch, tgt, (up_rate if tgt > flare_pitch else 0.6) * dt)
 	return flare_pitch
 
 
@@ -361,12 +367,13 @@ func _vertical(dt: float, n: Dictionary, fdm: FlightModel) -> void:
 			var h_gs := float(approach.elev) + (maxf(dist_thr, -250.0) + 300.0) * tan(deg_to_rad(approach.slope))
 			var vs_t3 := -float(n.gs) * tan(deg_to_rad(approach.slope)) + clampf((h_gs - alt) * 0.15, -3.0, 3.0)
 			pitch_t = _pitch_for_vs(vs_t3, n, fdm, dt)
-			if n.ra < flare_height(spec) and bool(spec.autoland):
+			if n.ra < flare_height(spec, float(n.vs)) and bool(spec.autoland):
+				flare_reset(out_pitch)
 				set_vert("FLARE")
 		"FLARE":
 			pitch_t = flare_law(n, dt)
 			out_pitch = pitch_t
-			if n.ra < 9.0:
+			if n.ra < (1.5 if spec.category in ["widebody", "cargo"] else 1.0):
 				set_thr("RETARD")
 			if fdm.wow[1] or fdm.wow[2]:
 				set_vert("ROLLOUT")

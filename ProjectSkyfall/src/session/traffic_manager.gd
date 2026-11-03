@@ -327,6 +327,12 @@ func _fly_airborne(a: Dictionary, me: Aircraft, delta: float) -> void:
 		dist = rel.length()
 		var av := item_velocity(a)
 		var closing := rel.dot(av - me.fdm.vel) < 0.0
+		if dist < 350.0 and not bool(a.get("near_missed", false)):
+			a.near_missed = true
+			session.set("near_misses", int(session.get("near_misses")) + 1)
+			if session.has_signal("toast"):
+				session.toast.emit("NEAR MISS! %s passed %d metres away." % [String(a.callsign), int(dist)], "warning")
+			Achievements.unlock("close_call")
 		if not bool(a.get("called", true)) and closing and dist < 14000.0 and dist > 3000.0:
 			_advise(a, me)
 		if bool(a.react) and not bool(a.tcas) and closing and dist < 2800.0 and absf(rel.y) < 320.0:
@@ -680,7 +686,7 @@ func _update_departure(item: Dictionary, dt: float) -> void:
 				item.t = 0.0
 		"hold":
 			m.animate_simple(1.0, 1.0, 18.0, {"nav": true, "beacon": true}, view.night, dt)
-			if float(item.t) > 20.0 and not _player_on_runway(icao, end) and not arrival_within(icao, 70.0):
+			if float(item.t) > 20.0 and not _player_on_runway(icao, end) and not arrival_within(icao, 70.0) and not _player_arriving(icao, end):
 				item.phase = "lineup"
 				item.t = 0.0
 				_atc_call(icao, String(item.callsign), "%s, runway %s, cleared for takeoff." % [item.callsign, end.name],
@@ -753,6 +759,20 @@ func _player_on_runway(icao: String, end: Dictionary) -> bool:
 	var lat := absf(rel.dot(Vector2(-dir.y, dir.x)))
 	var on := along > -400.0 and along < float(end.len) + 100.0 and lat < float(end.wid) * 0.5 + 25.0
 	return on and ac.ra < 60.0
+
+
+func _player_arriving(icao: String, end: Dictionary) -> bool:
+	## The player is on approach to (or rolling out on) this airport: departures hold short.
+	var ac: Aircraft = session.get("ac")
+	if ac == null or ac.crashed_state:
+		return false
+	var ap: Dictionary = Airports.get_ap(icao)
+	var d := U.dist2d(ac.world_x(), ac.world_z(), float(ap.x), float(ap.z))
+	if d > 16000.0:
+		return false
+	if ac.fdm.on_ground:
+		return ac.fdm.ground_speed() > 12.0
+	return float(ac.ra) < 1200.0
 
 
 func runway_busy(icao: String) -> bool:

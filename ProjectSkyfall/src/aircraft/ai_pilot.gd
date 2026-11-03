@@ -65,6 +65,8 @@ func update(dt: float) -> void:
 	var spec: Dictionary = ac.spec
 	var ias: float = n.true_ias_kt
 	var agl: float = ac.ra
+	if not ac.ap.engaged and phase in ["climb", "cruise", "descent", "approach", "final", "go_around"]:
+		_hand_fly(dt)
 	match phase:
 		"takeoff_roll":
 			ac.throttle_lever = move_toward(ac.throttle_lever, 1.0 if spec.category != "trainer" else 1.0, dt * 0.5)
@@ -104,7 +106,7 @@ func update(dt: float) -> void:
 			ac.laws.target_bank = move_toward(ac.laws.target_bank, 0.0, 2.0 * dt)
 			ac.in_pitch = 0.0
 			ac.in_roll = 0.0
-			if agl > 120.0 and bool(spec.autopilot):
+			if agl > 120.0:
 				ac.ap.hdg_sel = dep.hdg
 				ac.ap.alt_sel = cruise_alt
 				ac.ap.spd_sel = minf(float(spec.climb_ias), 250.0)
@@ -208,7 +210,7 @@ func update(dt: float) -> void:
 				_go_around()
 				return
 			if not bool(spec.autoland) or not allow_autoland:
-				var flare_h := Autopilot.flare_height(spec)
+				var flare_h := Autopilot.flare_height(spec, float(n.vs))
 				var above_rwy := float(n.alt) - float(arr.elev) - float(spec.gear_height)
 				if agl < flare_h + 2.0 and ac.ap.dist_thr < 600.0 and above_rwy < flare_h + 25.0:
 					ac.ap.engage(false, "MANUAL LAND")
@@ -280,6 +282,19 @@ func update(dt: float) -> void:
 				ac.ap.set_thr("SPD")
 
 
+func _hand_fly(dt: float) -> void:
+	## Aircraft without an autopilot: the crew flies the flight director's commands by hand
+	## (attitude and bank through the control laws, throttle by the speed law).
+	ac.ap.fd_on = true
+	if not ac.ap.at_engaged:
+		ac.ap.at_engaged = true
+	ac.laws.target_bank = move_toward(ac.laws.target_bank, ac.ap.out_bank, 12.0 * dt)
+	ac.laws.target_pitch = move_toward(ac.laws.target_pitch, ac.ap.out_pitch, 4.0 * dt)
+	ac.in_pitch = 0.0
+	ac.in_roll = 0.0
+	ac.in_yaw = 0.0
+
+
 func _stable(n: Dictionary) -> bool:
 	var ias: float = n.true_ias_kt
 	var vapp := float(ac.spec.vapp)
@@ -344,7 +359,10 @@ func _approach_config(n: Dictionary, ias: float) -> void:
 		spd = float(spec.vapp)
 	spd = maxf(spd, float(spec.vapp))
 	if spec.category == "trainer":
-		spd = 90.0 if dtg > 5000.0 else float(spec.vapp) + 3.0
+		# light aircraft: gentle turns, flaps only on final, so they never run out of power
+		ac.ap.bank_limit = 18.0
+		spd = 92.0 if dtg > 5000.0 else float(spec.vapp) + 4.0
+		tgt_flap = 0 if dtg > 7000.0 else (1 if dtg > 3500.0 or not gs_alive else nf - 1)
 	var lever := ac.sys.flap_lever
 	if lever < tgt_flap and ias < float(flaps[lever + 1].vfe) - 3.0:
 		ac.set_flaps(lever + 1)

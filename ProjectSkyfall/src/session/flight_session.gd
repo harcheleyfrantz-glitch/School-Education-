@@ -41,6 +41,7 @@ var traffic: TrafficManager = null
 var wreck: WreckPieces = null
 var escorts: Escorts = null
 var hazards: WeatherHazards = null
+var near_misses := 0
 var _tornado_done := false
 var phase := "preflight"
 var dep_icao := ""
@@ -1238,6 +1239,19 @@ static func landing_grade(vs: float) -> Array:
 	return ["F", "Ouch - that will need an inspection."]
 
 
+func _personal_best(vs: float) -> void:
+	## Best (softest) touchdown at each airport, kept across flights.
+	var pb: Dictionary = Game.settings.get("landing_pb", {})
+	var prev := float(pb.get(arr_icao, 99999.0))
+	if vs < prev:
+		pb[arr_icao] = vs
+		Game.settings["landing_pb"] = pb
+		Game.save_settings()
+		if prev < 99999.0:
+			toast.emit("New personal best at %s: %d fpm (was %d)." % [Airports.get_ap(arr_icao).get("short", arr_icao), int(vs), int(prev)], "success")
+			Achievements.unlock("personal_best")
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	# F10: photo (the HUD hides for the shot), saved to the screenshots folder
 	if event is InputEventKey and event.pressed and not event.echo and (event as InputEventKey).keycode == KEY_F10:
@@ -1262,6 +1276,7 @@ func _photo() -> void:
 
 func _on_touchdown(info: Dictionary) -> void:
 	if touchdown.is_empty() and mode == "pilot" and phase in ["final", "approach", "landing", "flare"]:
+		_personal_best(absf(float(info.vs_fpm)))
 		var g := landing_grade(absf(float(info.vs_fpm)))
 		toast.emit("Touchdown %d fpm - Grade %s. %s" % [int(absf(float(info.vs_fpm))), g[0], g[1]], "success" if String(g[0]).begins_with("A") else ("info" if g[0] in ["B", "C"] else "warning"))
 	if touchdown.is_empty() or phase in ["final", "approach"]:
@@ -1534,46 +1549,238 @@ func _update_crash_run(_delta: float) -> void:
 
 
 func skip_ahead() -> void:
-	## Jumps the flight forward to the approach (or to the run-in toward the crash target),
-	## moving the clock on by the time the cruise would have taken.
-	if ac == null or ac.crashed_state or ac.fdm.on_ground:
-		toast.emit("Get airborne first - skipping works once you're in the air.", "caution")
+	## Unlimited skip: every press jumps to the next stage of the flight, wherever you are -
+	## gate -> climbing out, cruise -> 40 km out, approach -> established on a 12 km final,
+	## final -> on the runway after a smooth touchdown, rollout / taxi -> parked at the gate.
+	## The clock moves on by the time each part would have taken.
+	if ac == null or ac.crashed_state or ended:
+		return
+	Achievements.on_skip()
+	if phase in ["arrived", "deboarding"]:
+		_skip_to_gate()
+		return
+	if crash_target != "route" and not ac.fdm.on_ground:
+		_skip_to_target()
+		return
+	if ac.fdm.on_ground:
+		if phase in ["landing_roll", "taxi_in"] or (phase in ["final", "approach", "descent"] and touchdown.size() > 0):
+			_skip_to_gate()
+		else:
+			_skip_departure()
 		return
 	if not autofly and mode != "passenger":
 		set_autofly(true)
 	var here := Vector2(ac.world_x(), ac.world_z())
-	var target := Vector2(float(arr_end.thr_x), float(arr_end.thr_z))
+	var thr := Vector2(float(arr_end.thr_x), float(arr_end.thr_z))
+	var dist := here.distance_to(thr)
+	if dist > 52000.0:
+		_skip_to_approach(here, thr, dist)
+	elif dist > 14500.0:
+		_skip_to_final(dist)
+	else:
+		_skip_landing(dist)
+
+
+func _skip_toast(text: String, mins: float) -> void:
+	recorder.mark("skip", text)
+	toast.emit("Skipped ahead %s. %s" % [("%d min" % maxi(1, int(round(mins)))) if mins >= 0.5 else "a few seconds", text], "info")
+
+
+func _skip_departure() -> void:
+	## From the gate, taxiway or runway straight to climbing out over the departure runway.
+	if not autofly and mode != "passenger":
+		set_autofly(true)
+	var d := Vector2(sin(deg_to_rad(float(dep_end.hdg))), -cos(deg_to_rad(float(dep_end.hdg))))
+	var thr := Vector2(float(dep_end.thr_x), float(dep_end.thr_z))
+	var p := thr + d * (float(dep_end.get("len", 2500.0)) + 6000.0)
+	var alt := maxf(float(dep_end.elev) + 900.0, Geo.ground_height(p.x, p.y) + 700.0)
+	var mins := 12.0 if phase in ["preflight", "boarding", "pushback"] else 4.0
+	WorldSim.advance(mins * 60.0)
+	view.set_time(WorldSim.clock)
+	pushback_done = true
+	ac.sys.parking_brake = false
+	for e in ac.sys.eng:
+		e.running = true
+		e.starting = false
+		e.cutoff = false
+		e.n1 = 85.0
+	ac.place_at(view.world_to_local(p.x, alt, p.y), float(dep_end.hdg), false, minf(float(ac.spec.climb_ias), 230.0) * U.KT)
+	view.rebase(ac.position)
+	ac.set_flaps(0)
+	ac.throttle_lever = 0.85
+	for k in ["landing", "strobe", "beacon", "nav"]:
+		ac.sys.lights[k] = true
+	if ai:
+		ai.pattern_built = false
+		ac.ap.hdg_sel = float(dep_end.hdg)
+		ac.ap.alt_sel = ai.cruise_alt
+		ac.ap.spd_sel = minf(float(ac.spec.climb_ias), 250.0)
+		ac.ap.set_lat("HDG")
+		ac.ap.set_vert("FLCH")
+		ac.ap.at_engaged = true
+		ac.ap.set_thr("CLB")
+		ac.ap.engage(true)
+		ai._set_phase("climb")
+	_set_phase("climb")
+	_skip_toast("Climbing out of %s." % Airports.get_ap(dep_icao).get("short", dep_icao), mins)
+
+
+func _skip_to_approach(here: Vector2, thr: Vector2, dist: float) -> void:
 	var out := 42000.0
-	var alt := float(arr_end.elev) + 2100.0
-	if crash_target != "route":
-		var cp := _crash_point()
-		target = Vector2(cp.x, cp.z)
-		out = 11000.0
-		alt = cp.y + 1100.0
-	var dist := here.distance_to(target)
-	if dist < out + 8000.0:
-		toast.emit("Already close - nothing to skip.", "info")
-		return
-	var dir := (target - here).normalized()
-	var p := target - dir * out
-	alt = maxf(alt, Geo.ground_height(p.x, p.y) + 900.0)
+	var dir := (thr - here).normalized()
+	var p := thr - dir * out
+	var alt := maxf(float(arr_end.elev) + 2100.0, Geo.ground_height(p.x, p.y) + 900.0)
 	var hdg := fposmod(rad_to_deg(atan2(dir.x, -dir.y)), 360.0)
-	var spd := 250.0 * U.KT
 	var skipped := (dist - out) / 230.0
 	WorldSim.advance(skipped)
 	view.set_time(WorldSim.clock)
-	ac.place_at(view.world_to_local(p.x, alt, p.y), hdg, false, spd)
+	ac.place_at(view.world_to_local(p.x, alt, p.y), hdg, false, 250.0 * U.KT)
 	view.rebase(ac.position)
 	view.airports.ensure_loaded(arr_icao)
 	ac.throttle_lever = 0.5
 	ac.ap.spd_sel = 250.0
-	if ai and crash_target == "route":
+	if ai:
 		# resume in level flight; the crew starts down at the right point on its own
 		ai.cruise_alt = alt
 		ai._set_phase("cruise")
 		ai.pattern_built = false
-	recorder.mark("skip", "Skipped %d minutes of cruise" % int(skipped / 60.0))
-	toast.emit("Skipped %d minutes ahead. %s" % [maxi(1, int(round(skipped / 60.0))), "Approaching %s." % Airports.get_ap(arr_icao).get("short", "") if crash_target == "route" else "Target ahead."], "info")
+	if phase in ["climb", "initial_climb", "cruise"]:
+		_set_phase("descent")
+	_skip_toast("Approaching %s." % Airports.get_ap(arr_icao).get("short", ""), skipped / 60.0)
+
+
+func _skip_to_final(dist: float) -> void:
+	## Established on the ILS 12 km out: configured, on speed, on the glideslope.
+	var d := Vector2(sin(deg_to_rad(float(arr_end.hdg))), -cos(deg_to_rad(float(arr_end.hdg))))
+	var thr := Vector2(float(arr_end.thr_x), float(arr_end.thr_z))
+	var out := 12000.0
+	var p := thr - d * out
+	var alt := float(arr_end.elev) + (out + 300.0) * tan(deg_to_rad(3.0)) + float(ac.spec.gear_height)
+	var vapp := float(ac.spec.vapp)
+	var skipped := maxf(dist - out, 0.0) / 110.0 + 60.0
+	WorldSim.advance(skipped)
+	view.set_time(WorldSim.clock)
+	view.airports.ensure_loaded(arr_icao)
+	ac.place_at(view.world_to_local(p.x, alt, p.y), float(arr_end.hdg), false, vapp * U.KT)
+	view.rebase(ac.position)
+	ac.fdm.vel.y = -vapp * U.KT * tan(deg_to_rad(3.0))
+	if bool(ac.spec.gear_retract):
+		ac.sys.gear_down_cmd = true
+		ac.sys.gear_pos = [1.0, 1.0, 1.0]
+	ac.set_flaps(ac.spec.flaps.size() - 1)
+	ac.sys.ground_spoilers_armed = bool(ac.spec.spoilers)
+	ac.sys.autobrake = 2 if ac.spec.category != "trainer" else 0
+	ac.sys.lights.landing = true
+	ac.throttle_lever = 0.45
+	ac.ap.set_approach(arr_end, 3.5 if String(arr_end.get("airport", "")) == "SKHP" else 3.0)
+	ac.ap.spd_sel = vapp
+	ac.ap.at_engaged = true
+	ac.ap.set_thr("SPD")
+	ac.ap.set_lat("LOC")
+	ac.ap.set_vert("GS")
+	ac.ap.arm_loc = false
+	ac.ap.arm_gs = false
+	ac.ap.engage(true)
+	if ai:
+		ai.pattern_built = true
+		ai._set_phase("final")
+	_min_final_agl = 1e9
+	_set_phase("final")
+	_skip_toast("Established on the ILS for runway %s at %s, 12 km out." % [String(arr_end.name), Airports.get_ap(arr_icao).get("short", "")], skipped / 60.0)
+
+
+func _skip_landing(_dist: float) -> void:
+	## Straight to the rollout after a smooth touchdown in the touchdown zone.
+	var d := Vector2(sin(deg_to_rad(float(arr_end.hdg))), -cos(deg_to_rad(float(arr_end.hdg))))
+	var thr := Vector2(float(arr_end.thr_x), float(arr_end.thr_z))
+	var p := thr + d * 450.0
+	var vapp := float(ac.spec.vapp)
+	WorldSim.advance(70.0)
+	view.set_time(WorldSim.clock)
+	view.airports.ensure_loaded(arr_icao)
+	ac.place_at(view.world_to_local(p.x, float(arr_end.elev), p.y), float(arr_end.hdg), true)
+	ac.fdm.vel = Vector3(d.x, 0.0, d.y) * (vapp - 8.0) * U.KT
+	view.rebase(ac.position)
+	ac.set_flaps(ac.spec.flaps.size() - 1)
+	ac.throttle_lever = 0.0
+	ac.sys.spoiler_lever = 1.0 if bool(ac.spec.spoilers) else 0.0
+	ac.sys.autobrake = 2 if ac.spec.category != "trainer" else 0
+	var wx := ac.weather
+	touchdown = {"vs_fpm": -85.0, "ias_kt": vapp - 6.0, "pitch": 2.8, "bank": 0.0, "g": 1.06, "surface": "runway", "x": p.x, "z": p.y,
+		"runway": String(arr_end.name), "dist_from_thr": 450.0, "centerline": 0.3, "airport": arr_icao, "crosswind": 0.0, "gear_down": true, "skipped": true}
+	ac.last_touchdown = touchdown
+	if not autofly and mode != "passenger":
+		set_autofly(true)
+	if ai:
+		ac.ap.set_approach(arr_end)
+		ac.ap.engage(true)
+		ac.ap.set_lat("ROLLOUT")
+		ac.ap.set_vert("ROLLOUT")
+		ai._set_phase("rollout")
+	_set_phase("landing_roll")
+	_skip_toast("Touchdown at %s, runway %s%s." % [Airports.get_ap(arr_icao).get("short", ""), String(arr_end.name), "" if wx.is_empty() else ""], 1.2)
+
+
+func _skip_to_gate() -> void:
+	## Parked at the arrival stand with the engines off: the flight ends as normal from there.
+	if phase in ["arrived", "deboarding"]:
+		if phase == "arrived":
+			for e in ac.sys.eng:
+				e.running = false
+				e.cutoff = true
+		toast.emit("Shutting down - the passengers are getting off.", "info")
+		return
+	var L := AirportLayout.get_layout(arr_icao)
+	var sd := AirportLayout.stand_by_name(L, arr_stand)
+	if sd.is_empty():
+		sd = AirportLayout.free_stand(L, float(ac.spec.span), [], 3)
+	if sd.is_empty():
+		finish_flight("diverted" if diverted else "landed")
+		return
+	if touchdown.is_empty():
+		touchdown = {"vs_fpm": -90.0, "ias_kt": float(ac.spec.vapp), "pitch": 2.5, "bank": 0.0, "g": 1.05, "surface": "runway", "runway": String(arr_end.name),
+			"dist_from_thr": 450.0, "centerline": 0.5, "airport": arr_icao, "crosswind": 0.0, "gear_down": true, "skipped": true}
+	WorldSim.advance(360.0)
+	view.set_time(WorldSim.clock)
+	var ap := Airports.get_ap(arr_icao)
+	var xf := _stand_pose(sd)
+	ac.place_at(view.world_to_local(float(ap.x) + xf.x, float(ap.elev), float(ap.z) + xf.y), xf.z, true)
+	view.rebase(ac.position)
+	ac.set_flaps(0)
+	ac.sys.spoiler_lever = 0.0
+	ac.throttle_lever = 0.0
+	ac.sys.parking_brake = true
+	ac.sys.reverse_cmd = false
+	for e in ac.sys.eng:
+		e.running = false
+		e.cutoff = true
+		e.n1 = 0.0
+	if ai:
+		ai._set_phase("landed")
+	if not _arrival_started:
+		_arrival_started = true
+		ground_ops.begin_arrival(sd, arr_icao)
+	_set_phase("arrived")
+	_skip_toast("Parked at stand %s, %s." % [String(sd.get("name", "")), Airports.get_ap(arr_icao).get("short", "")], 6.0)
+
+
+func _skip_to_target() -> void:
+	var here := Vector2(ac.world_x(), ac.world_z())
+	var cp := _crash_point()
+	var target := Vector2(cp.x, cp.z)
+	var dist := here.distance_to(target)
+	var out := 11000.0 if dist > 14000.0 else 3500.0
+	var dir := (target - here).normalized()
+	var p := target - dir * out
+	var alt := maxf(cp.y + (1100.0 if out > 5000.0 else 450.0), Geo.ground_height(p.x, p.y) + 300.0)
+	var hdg := fposmod(rad_to_deg(atan2(dir.x, -dir.y)), 360.0)
+	var skipped := maxf(dist - out, 0.0) / 230.0
+	WorldSim.advance(skipped)
+	view.set_time(WorldSim.clock)
+	ac.place_at(view.world_to_local(p.x, alt, p.y), hdg, false, 250.0 * U.KT)
+	view.rebase(ac.position)
+	ac.throttle_lever = 0.5
+	_skip_toast("Target ahead.", skipped / 60.0)
 
 
 # ================================================================== end of flight
@@ -1679,7 +1886,7 @@ func finish_flight(outcome: String) -> void:
 		"weather": ac.weather, "fuel_planned": fuel_planned, "fuel_start": fuel_start, "accepted_defects": accepted_defects,
 		"walkaround": walk_frac, "emergency_declared": emergency != "", "phase": phase, "late_min": late,
 		"free_flight": bool(params.get("free_flight", false)), "presidential": bool(params.get("presidential", false)),
-		"escort_intercepts": escorts.intercepts if escorts else 0, "hazards": hazards.summary() if hazards else {},
+		"escort_intercepts": escorts.intercepts if escorts else 0, "hazards": hazards.summary() if hazards else {}, "near_misses": near_misses,
 		"weather_preset": WeatherModel.override_preset, "aircraft_record": WorldSim.aircraft(ac.reg),
 		"autofly_landed": autofly and not (touchdown as Dictionary).is_empty(),
 		"captain": _captain_name()}, true)

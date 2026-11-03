@@ -18,6 +18,10 @@ const LIST := [
 	{"id": "butter_streak", "title": "Butter Streak", "desc": "Make five landings in a row under 150 feet per minute.", "icon": "trophy", "group": "Flying"},
 	{"id": "fresh_off_line", "title": "Fresh Off the Line", "desc": "Fly three of the new types: S319, RJ-100, TP-90, W-280, W-390, BJ-8.", "icon": "plane", "group": "Flying", "goal": 3, "stat": "new_types"},
 	{"id": "five_star", "title": "Five Stars", "desc": "Earn a five-star review from your passengers.", "icon": "star", "group": "Flying"},
+	{"id": "autopilot_ace", "title": "Autopilot Ace", "desc": "Let auto-fly land under 100 feet per minute.", "icon": "user", "group": "Flying"},
+	{"id": "personal_best", "title": "Personal Best", "desc": "Beat your softest landing at an airport.", "icon": "trophy", "group": "Flying"},
+	{"id": "skipper", "title": "Skipper", "desc": "Skip ahead ten times.", "icon": "clock", "group": "Flying", "goal": 10, "stat": "skips"},
+	{"id": "close_call", "title": "Close Call", "desc": "Have a near miss with another airliner.", "icon": "bell", "group": "Drama"},
 	{"id": "shutterbug", "title": "Shutterbug", "desc": "Take a photo in flight (F10).", "icon": "star", "group": "Flying"},
 	# ---------------------------------------------------------------- places
 	{"id": "big_apple", "title": "The Big Apple", "desc": "Land at New York JFK.", "icon": "pin", "group": "Places"},
@@ -231,6 +235,8 @@ static func on_flight_result(res: Dictionary, cons: Dictionary = {}) -> void:
 					unlock("the_pond")
 	if bool(res.get("autofly_landed", false)):
 		unlock("crew_rest")
+		if vs < 100.0 and not td.is_empty() and not bool(td.get("skipped", false)):
+			unlock("autopilot_ace")
 	if hz.has("earthquake"):
 		unlock("solid_ground")
 	if hz.has("ash"):
@@ -283,3 +289,8 @@ static func has_daily(key: String) -> bool:
 
 static func on_photo() -> void:
 	unlock("shutterbug")
+
+
+static func on_skip() -> void:
+	_add("skips", 1.0)
+	_check_goals()
