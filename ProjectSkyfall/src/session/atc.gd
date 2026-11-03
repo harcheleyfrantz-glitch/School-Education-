@@ -692,6 +692,11 @@ func _on_active_runway(n: Dictionary) -> bool:
 const OTHER_CALLS := ["Coastal", "Lumen", "Northwind", "Westmark", "Apex", "Skyfall", "Horizon"]
 
 
+func traffic_advisory(text: String, spoken_text: String) -> void:
+	## A traffic information call to us on whatever frequency we are on.
+	_emit(station, "atc", text, spoken_text)
+
+
 func traffic_call(icao: String, cs: String, atc_text: String, reply: String) -> void:
 	## A tower exchange with AI traffic, heard when we are on that tower's frequency.
 	var st := "TWR" if icao == dep else "ATWR"

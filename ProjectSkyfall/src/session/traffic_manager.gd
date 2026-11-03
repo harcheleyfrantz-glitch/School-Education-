@@ -15,7 +15,7 @@ var parked: Array = []
 var airborne: Array = []         # distant traffic for TCAS only: {callsign, x, z, alt, vs, hdg, spd}
 var _rng := RandomNumberGenerator.new()
 var _spawn_t := 25.0
-var _cross_t := 200.0
+var _cross_t := 75.0
 var _queue: Array = []           # deferred model builds: {item, kind}
 var _next_id := 0
 var evacuee_sink: Callable
@@ -229,26 +229,172 @@ func _spawn_airborne() -> void:
 		"hdg": _rng.randf_range(0.0, 360.0), "spd": _rng.randf_range(200.0, 250.0), "type": t, "airline": al, "model": null, "phase": "airborne"})
 
 
-func _spawn_crossing() -> void:
-	## Traffic on a converging course that passes close to the player (a near miss on TCAS,
-	## visible out of the window). It is set up to miss; flying into it is the player's doing.
+const DENSITY := {"off": [0.0, 0.0], "low": [300.0, 600.0], "normal": [110.0, 260.0], "busy": [45.0, 110.0]}
+
+
+func _density() -> String:
+	return String(Game.settings.get("air_traffic", "normal"))
+
+
+func _spawn_encounter() -> void:
+	## Another airliner on a course that brings it near the player: crossing, head-on, overtaking,
+	## or (sometimes) a genuine collision course. Its crew usually reacts to TCAS and dodges, but
+	## not always; the player can always steer into it.
 	var ac: Aircraft = session.get("ac")
-	if ac == null or ac.crashed_state or ac.fdm.on_ground or float(ac.ra) < 900.0:
+	if ac == null or ac.crashed_state or ac.fdm.on_ground or float(ac.ra) < 600.0:
 		return
 	var t := _type_for_span(80.0, ["narrowbody", "regional", "widebody"])
-	var al := _airline_for(t)
-	var lead := 70.0
+	var al := _airline_for(t, Airports.nearest(ac.world_x(), ac.world_z()))
+	var lead := _rng.randf_range(60.0, 90.0)
 	var my_v := ac.fdm.vel
+	var my_hdg := fposmod(rad_to_deg(atan2(my_v.x, -my_v.z)), 360.0)
 	var meet := Vector2(ac.world_x() + my_v.x * lead, ac.world_z() + my_v.z * lead)
-	var spd := _rng.randf_range(210.0, 250.0)
-	var hdg := _rng.randf_range(0.0, 360.0)
+	var spd := _rng.randf_range(220.0, 260.0)
+	var roll := _rng.randf()
+	var kind := "crossing"
+	var hdg := fposmod(my_hdg + _rng.randf_range(55.0, 125.0) * (1.0 if _rng.randf() < 0.5 else -1.0), 360.0)
+	var miss_m := _rng.randf_range(250.0, 1100.0)
+	var dalt := _rng.randf_range(-250.0, 250.0)
+	if roll < 0.3:
+		kind = "head_on"
+		hdg = fposmod(my_hdg + 180.0 + _rng.randf_range(-6.0, 6.0), 360.0)
+		miss_m = _rng.randf_range(300.0, 900.0)
+		dalt = _rng.randf_range(250.0, 330.0) * (1.0 if _rng.randf() < 0.5 else -1.0)
+	elif roll < 0.45:
+		kind = "overtake"
+		hdg = fposmod(my_hdg + _rng.randf_range(-4.0, 4.0), 360.0)
+		spd = my_v.length() / U.KT + _rng.randf_range(45.0, 80.0)
+		miss_m = _rng.randf_range(150.0, 500.0)
+		dalt = _rng.randf_range(-120.0, 120.0)
+		lead = 80.0
+	if _rng.randf() < (0.3 if _density() == "busy" else 0.18):
+		kind += "_conflict"
+		miss_m = _rng.randf_range(0.0, 60.0)
+		dalt = _rng.randf_range(-40.0, 40.0)
 	var d := Vector2(sin(deg_to_rad(hdg)), -cos(deg_to_rad(hdg)))
-	var miss := Vector2(-d.y, d.x) * _rng.randf_range(350.0, 1200.0) * (1.0 if _rng.randf() < 0.5 else -1.0)
-	var start := meet + miss - d * spd * U.KT * lead
-	airborne.append({"callsign": _callsign(al), "x": start.x, "z": start.y, "alt": ac.fdm.pos.y + _rng.randf_range(-150.0, 150.0), "vs": 0.0,
-		"hdg": hdg, "spd": spd, "type": t, "airline": al, "model": null, "phase": "airborne"})
-	if airborne.size() > 14:
+	var start: Vector2
+	if kind.begins_with("overtake"):
+		# comes up from behind, faster, and passes alongside
+		var meet2 := Vector2(ac.world_x() + my_v.x * lead, ac.world_z() + my_v.z * lead)
+		start = meet2 + Vector2(-d.y, d.x) * miss_m - d * spd * U.KT * lead
+	else:
+		start = meet + Vector2(-d.y, d.x) * miss_m * (1.0 if _rng.randf() < 0.5 else -1.0) - d * spd * U.KT * lead
+	var alt := ac.fdm.pos.y + dalt
+	var cs := _callsign(al)
+	var item := {"callsign": cs, "x": start.x, "z": start.y, "alt": alt, "vs": 0.0, "hdg": hdg, "spd": spd, "type": t, "airline": al, "model": null,
+		"phase": "airborne", "hdg_t": hdg, "alt_t": alt, "bank": 0.0, "react": _rng.randf() < 0.75, "tcas": false, "kind": kind, "called": false, "man_t": 400.0}
+	airborne.append(item)
+	if airborne.size() > 16:
 		_drop_airborne(airborne[0])
+
+
+func _advise(a: Dictionary, me: Aircraft) -> void:
+	## "Traffic, two o'clock, five miles, crossing left to right, one thousand feet above."
+	a.called = true
+	var rel := Vector2(float(a.x) - me.world_x(), float(a.z) - me.world_z())
+	var brg := rad_to_deg(atan2(rel.x, -rel.y))
+	var clock := int(round(fposmod(brg - me.fdm.heading_deg(), 360.0) / 30.0)) % 12
+	if clock == 0:
+		clock = 12
+	var nm := rel.length() / 1852.0
+	var dft := (float(a.alt) - me.fdm.pos.y) / U.FT
+	var vert := "same altitude" if absf(dft) < 300.0 else ("%s feet %s" % [U.fmt_int(int(round(absf(dft) / 100.0) * 100)), "above" if dft > 0.0 else "below"])
+	var dh := wrapf(float(a.hdg) - me.fdm.heading_deg(), -180.0, 180.0)
+	var motion := "opposite direction" if absf(dh) > 150.0 else ("same direction" if absf(dh) < 30.0 else ("crossing right to left" if dh < 0.0 else "crossing left to right"))
+	var spec := AircraftTypes.get_type(String(a.type))
+	var my_cs := String(session.get("callsign")) if session.get("callsign") != null else "Skyfall"
+	var txt := "%s, traffic, %d o'clock, %d miles, %s, %s, a %s." % [my_cs, clock, maxi(int(round(nm)), 1), motion, vert, String(spec.get("short", "jet"))]
+	var atc: Node = session.get("atc")
+	if atc and atc.has_method("traffic_advisory"):
+		atc.call("traffic_advisory", txt, txt)
+	if session.has_signal("toast"):
+		session.toast.emit("ATC: " + txt, "caution")
+
+
+func _fly_airborne(a: Dictionary, me: Aircraft, delta: float) -> void:
+	## Simple AI pilots: hold course and level, occasionally turn or change level, and answer a
+	## TCAS resolution advisory by climbing or descending away from the player.
+	if not a.has("hdg_t"):
+		a.hdg_t = float(a.hdg)
+		a.alt_t = float(a.alt)
+		a.bank = 0.0
+		a.react = _rng.randf() < 0.75
+		a.tcas = false
+		a.man_t = _rng.randf_range(60.0, 240.0)
+	var dist := 1e9
+	if me != null and not me.crashed_state:
+		var rel := Vector3(float(a.x) - me.world_x(), float(a.alt) - me.fdm.pos.y, float(a.z) - me.world_z())
+		dist = rel.length()
+		var av := item_velocity(a)
+		var closing := rel.dot(av - me.fdm.vel) < 0.0
+		if not bool(a.get("called", true)) and closing and dist < 14000.0 and dist > 3000.0:
+			_advise(a, me)
+		if bool(a.react) and not bool(a.tcas) and closing and dist < 2800.0 and absf(rel.y) < 320.0:
+			a.tcas = true
+			var up := rel.y > 0.0 or (absf(rel.y) < 30.0 and _rng.randf() < 0.5)
+			a.alt_t = float(a.alt) + (350.0 if up else -350.0)
+			a.vs = 4.0 if up else -4.0
+	a.man_t = float(a.man_t) - delta
+	if float(a.man_t) <= 0.0 and dist > 9000.0:
+		a.man_t = _rng.randf_range(90.0, 300.0)
+		if _rng.randf() < 0.6:
+			a.hdg_t = fposmod(float(a.hdg) + _rng.randf_range(-45.0, 45.0), 360.0)
+		else:
+			a.alt_t = clampf(float(a.alt) + _rng.randf_range(-900.0, 900.0), 1500.0, 12000.0)
+	var dh := wrapf(float(a.hdg_t) - float(a.hdg), -180.0, 180.0)
+	var rate := 2.0
+	a.hdg = fposmod(float(a.hdg) + clampf(dh, -rate * delta, rate * delta), 360.0)
+	a.bank = move_toward(float(a.bank), clampf(dh * 1.5, -25.0, 25.0), delta * 6.0)
+	var vs_t := clampf((float(a.alt_t) - float(a.alt)) * 0.06, -12.0 if bool(a.tcas) else -9.0, 12.0 if bool(a.tcas) else 9.0)
+	a.vs = move_toward(float(a.vs), vs_t, delta * (3.0 if bool(a.tcas) else 1.2))
+	var d := Vector2(sin(deg_to_rad(float(a.hdg))), -cos(deg_to_rad(float(a.hdg))))
+	a.x = float(a.x) + d.x * float(a.spd) * U.KT * delta
+	a.z = float(a.z) + d.y * float(a.spd) * U.KT * delta
+	a.alt = clampf(float(a.alt) + float(a.vs) * delta, 600.0, 12500.0)
+
+
+func _contrail() -> GPUParticles3D:
+	var p := GPUParticles3D.new()
+	p.name = "Contrail"
+	p.amount = 160
+	p.lifetime = 14.0
+	p.local_coords = false
+	p.visibility_aabb = AABB(Vector3(-4000, -400, -4000), Vector3(8000, 800, 8000))
+	var pm := ParticleProcessMaterial.new()
+	pm.direction = Vector3(0, 0, 1)
+	pm.spread = 3.0
+	pm.initial_velocity_min = 0.0
+	pm.initial_velocity_max = 1.0
+	pm.gravity = Vector3.ZERO
+	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	pm.emission_box_extents = Vector3(8.0, 0.5, 1.0)
+	pm.scale_min = 3.0
+	pm.scale_max = 4.0
+	var curve := Curve.new()
+	curve.add_point(Vector2(0, 0.6))
+	curve.add_point(Vector2(1, 3.0))
+	var ct := CurveTexture.new()
+	ct.curve = curve
+	pm.scale_curve = ct
+	var grad := Gradient.new()
+	grad.set_color(0, Color(1, 1, 1, 0.75))
+	grad.set_color(grad.get_point_count() - 1, Color(1, 1, 1, 0.0))
+	var gt := GradientTexture1D.new()
+	gt.gradient = grad
+	pm.color_ramp = gt
+	p.process_material = pm
+	var q := QuadMesh.new()
+	q.size = Vector2(3.0, 3.0)
+	var m := StandardMaterial3D.new()
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	m.vertex_color_use_as_albedo = true
+	m.albedo_texture = GroundOps._soft_dot()
+	q.material = m
+	p.draw_pass_1 = q
+	p.position = Vector3(0, 0, 8.0)
+	return p
 
 
 func _drop_airborne(a: Dictionary) -> void:
@@ -339,34 +485,37 @@ func _process(delta: float) -> void:
 				_update_departure(item, delta)
 			"taxi_in":
 				_update_taxi(item, delta, 8.0)
+	var dens: Array = DENSITY.get(_density(), DENSITY.normal)
 	_cross_t -= delta
 	if _cross_t <= 0.0:
-		_cross_t = _rng.randf_range(240.0, 480.0)
-		_spawn_crossing()
+		_cross_t = _rng.randf_range(float(dens[0]), float(dens[1])) if float(dens[1]) > 0.0 else 1e9
+		if float(dens[1]) > 0.0:
+			_spawn_encounter()
 	var me: Aircraft = session.get("ac")
 	var built_one := false
 	for a in airborne.duplicate():
-		var d := Vector2(sin(deg_to_rad(float(a.hdg))), -cos(deg_to_rad(float(a.hdg))))
-		a.x = float(a.x) + d.x * float(a.spd) * U.KT * delta
-		a.z = float(a.z) + d.y * float(a.spd) * U.KT * delta
-		a.alt = clampf(float(a.alt) + float(a.vs) * delta, 600.0, 12500.0)
+		_fly_airborne(a, me, delta)
 		# draw the ones close to the player (one new model per frame at most)
 		if me == null:
 			continue
 		var dist := Vector3(float(a.x) - me.world_x(), float(a.alt) - me.fdm.pos.y, float(a.z) - me.world_z()).length()
 		var m = a.get("model")
-		if m == null and dist < 6000.0 and not built_one and a.has("type"):
+		if m == null and dist < 9000.0 and not built_one and a.has("type"):
 			a.model = _make_model(String(a.type), String(a.airline))
+			(a.model as Node3D).add_child(_contrail())
 			built_one = true
 			m = a.model
-		elif m != null and dist > 8000.0:
+		elif m != null and dist > 11000.0:
 			(m as Node).queue_free()
 			a.model = null
 			continue
 		if m != null and is_instance_valid(m):
 			var am: AircraftModel = m
 			am.position = view.world_to_local(float(a.x), float(a.alt), float(a.z))
-			am.basis = _basis(float(a.hdg), clampf(float(a.vs) * 0.4, -3.0, 6.0) + 2.0)
+			am.basis = _basis(float(a.hdg), clampf(float(a.vs) * 0.5, -4.0, 8.0) + 2.0, float(a.bank))
+			var cn := am.get_node_or_null("Contrail") as GPUParticles3D
+			if cn:
+				cn.emitting = float(a.alt) > 7600.0
 			am.animate_simple(0.0, 0.0, 60.0, {"nav": true, "beacon": true, "strobe": true}, view.night, delta)
 
 

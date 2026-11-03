@@ -170,6 +170,9 @@ func _show(key: String) -> void:
 				lv.find(String(Game.settings.get("npc_crashes", "normal"))), func(i): Game.set_setting("npc_crashes", lv[i])))
 			_row("Crashes at the same site", "Chance a new crash comes down where an earlier one did", option(lv_names,
 				lv.find(String(Game.settings.get("repeat_crashes", "normal"))), func(i): Game.set_setting("repeat_crashes", lv[i])))
+			var dens := ["off", "low", "normal", "busy"]
+			_row("Air traffic around you", "Other airliners you meet in flight: crossing, head-on and overtaking. Their crews usually dodge on TCAS - not always. You can collide with them.",
+				option(["Off", "Quiet", "Normal", "Busy"], dens.find(String(Game.settings.get("air_traffic", "normal"))), func(i): Game.set_setting("air_traffic", dens[i])))
 			_check("Realistic crash consequences", "A fatal accident ends the character's story for good", "crash_realism")
 			_check("Metric units", "", "units_metric")
 		"controls":
