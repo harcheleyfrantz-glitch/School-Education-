@@ -80,51 +80,46 @@ static func evaluate_progression(p: Dictionary) -> Array:
 
 
 ## Airlines willing to hire this pilot (for the career hub job board).
+## Hours needed to be hired onto each kind of aircraft (first officer; captains need more).
+const NEED_HOURS := {"trainer": 0.0, "turboprop": 250.0, "regional": 600.0, "narrowbody": 1200.0, "bizjet": 1500.0,
+	"cargo": 1800.0, "widebody": 3000.0}
+
+
 static func hiring_offers(p: Dictionary) -> Array:
+	## Every airline hires for every aircraft in its fleet: first officer jobs once you have the
+	## hours, captain jobs once you have a lot more (or already fly the type). The airline pays
+	## for the type rating on a new aircraft.
 	var out := []
 	var hrs: float = p.hours
 	var rep: float = p.reputation
 	var safety: float = p.safety
+	var ratings: Array = p.get("ratings", [])
 	for code in Airlines.ORDER:
-		if code == p.airline:
-			continue
 		var al: Dictionary = Airlines.get_al(code)
-		var need_hours := 0.0
-		var need_rep := 40.0
-		var type_id := ""
-		match code:
-			"HFA":
-				need_hours = 0.0
-				type_id = "t172"
-			"CLK":
-				need_hours = 250.0
-				need_rep = 45.0
-				type_id = "tp72"
-			"LMN":
-				need_hours = 1200.0
-				need_rep = 50.0
-				type_id = "s320"
-			"NWC":
-				need_hours = 1800.0
-				need_rep = 50.0
-				type_id = "f4"
-			"APX":
-				need_hours = 2000.0
-				need_rep = 62.0
-				type_id = "bj6"
-			"SKF":
-				need_hours = 2500.0
-				need_rep = 65.0
-				type_id = "s320"
-			"WMA":
-				need_hours = 2200.0
-				need_rep = 60.0
-				type_id = "s320"
-		if code == "HFA" and p.rank != "Commercial Pilot" and p.rank != "Flight Instructor":
+		var need_rep := clampf(float(al.get("reputation", 60.0)) - 22.0, 30.0, 70.0)
+		if rep < need_rep or safety < 55.0:
 			continue
-		if hrs >= need_hours and rep >= need_rep and safety >= 60.0:
-			out.append({"airline": code, "type": type_id, "rank": "First Officer" if code != "HFA" else "Flight Instructor",
-				"base": al.hubs[0], "pay": pay_rate("First Officer", code)})
+		var base := String((al.get("hubs", ["SKPC"]) as Array)[0])
+		var region := "Real world" if String(Airports.get_ap(base).get("region", "")) == "world" else "Calderra"
+		if code == "HFA":
+			if p.rank in ["Commercial Pilot", "Flight Instructor", "Student Pilot"]:
+				out.append({"airline": code, "type": "t172", "rank": "Flight Instructor", "base": base, "pay": pay_rate("Flight Instructor", code),
+					"need": 0.0, "region": region})
+			continue
+		var types: Array = (al.get("fleet", {}) as Dictionary).keys()
+		for t in types:
+			var spec := AircraftTypes.get_type(String(t))
+			var need := float(NEED_HOURS.get(String(spec.category), 1500.0))
+			if hrs >= need:
+				if not (code == p.airline and String(t) in ratings and p.rank == "First Officer"):
+					out.append({"airline": code, "type": String(t), "rank": "First Officer", "base": base, "pay": pay_rate("First Officer", code),
+						"need": need, "region": region})
+			var cap_need := need * 2.5 + 1000.0
+			if hrs >= cap_need or (String(t) in ratings and hrs >= need * 2.0 + 500.0):
+				if not (code == p.airline and p.rank == "Captain" and String(t) in ratings):
+					out.append({"airline": code, "type": String(t), "rank": "Captain", "base": base, "pay": pay_rate("Captain", code),
+						"need": cap_need, "region": region})
+	out.sort_custom(func(x, y): return float(x.pay) > float(y.pay) if x.rank == y.rank else x.rank == "Captain")
 	return out
 
 

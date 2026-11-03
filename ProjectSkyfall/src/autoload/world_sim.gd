@@ -174,7 +174,7 @@ const ROUTES := {
 	"IHA": [["TXKF", "KJFK", "rj70", 2], ["TXKF", "LPPD", "tp72", 1], ["LPPD", "LPMA", "tp72", 2], ["LPPD", "LEMD", "rj70", 1], ["LPMA", "LEMD", "rj70", 1], ["TXKF", "KMIA", "tp72", 1]],
 	"SOL": [["LEMD", "LIRF", "s320", 3], ["LEMD", "LFPG", "s320", 3], ["LEMD", "EGLL", "s321", 3], ["LEMD", "EHAM", "s320", 2], ["LEMD", "LPMA", "s320", 2],
 		["LEMD", "EIDW", "s320", 1], ["LEMD", "KMIA", "s321", 1], ["LEBL", "LEMD", "s319", 5], ["LEBL", "LIRF", "s320", 2], ["LEBL", "LPPT", "s319", 2], ["LEBL", "EGCC", "s321", 2]],
-	"LSA": [["KDFW", "KATL", "s321", 4], ["KDFW", "KDEN", "s320", 3], ["KDFW", "KLAS", "s320", 3], ["KDFW", "KJFK", "s321", 2], ["KATL", "KMCO", "rj100", 4],
+	"LSA": [["KDFW", "KMSY", "tp90", 3], ["KATL", "KMCO", "tp90", 3], ["KDFW", "KDEN", "tp90", 1], ["KDFW", "KATL", "s321", 4], ["KDFW", "KDEN", "s320", 3], ["KDFW", "KLAS", "s320", 3], ["KDFW", "KJFK", "s321", 2], ["KATL", "KMCO", "rj100", 4],
 		["KATL", "KMSY", "rj100", 3], ["KATL", "KMIA", "s320", 2], ["KDFW", "KLAX", "s320", 2], ["KDFW", "KMSY", "rj100", 2], ["KATL", "EGLL", "w280", 1], ["KDEN", "KSEA", "s320", 2]],
 	"RHA": [["EDDF", "KJFK", "w390", 1], ["EDDF", "EGLL", "s320", 3], ["EDDF", "LFPG", "s319", 3], ["EDDM", "LIRF", "s320", 2], ["EDDF", "EDDM", "s319", 4],
 		["EDDF", "EDDB", "s320", 4], ["EDDM", "LEBL", "s320", 2], ["EDDF", "KATL", "w350", 1], ["EDDM", "KORD", "w350", 1], ["EDDF", "LPPT", "s321", 1], ["EDDF", "EKCH", "s319", 2]],

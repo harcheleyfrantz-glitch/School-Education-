@@ -9,11 +9,14 @@ func setup(_params: Dictionary) -> void:
 	var offers := CareerRules.hiring_offers(p)
 	if offers.is_empty():
 		c.add_child(UIStyle.label("Nobody is hiring someone with your experience and record right now.", 14, UIStyle.DIM))
+	c.add_child(UIStyle.label("%d jobs open to you. Jobs on a new aircraft include the type rating, paid by the airline." % offers.size(), 13, UIStyle.DIM))
 	for o in offers:
 		var al := Airlines.get_al(String(o.airline))
 		var h := UIStyle.hbox(10)
-		h.add_child(UIStyle.rich("[b]%s[/b] — %s on the %s, based at %s. %s/h\n[color=#9fb1c2]%s[/color]" % [al.name, o.rank,
-			AircraftTypes.get_type(String(o.type)).name, o.base, U.fmt_money(float(o.pay)), al.get("desc", "")], 14))
+		var newtype: bool = not String(o.type) in p.get("ratings", [])
+		h.add_child(UIStyle.rich("[b]%s[/b] — %s on the %s%s, based at %s (%s). %s/h\n[color=#9fb1c2]%s · Safety %s[/color]" % [al.name, o.rank,
+			AircraftTypes.get_type(String(o.type)).name, " [color=#5fd38a](new type)[/color]" if newtype else "", Airports.get_ap(String(o.base)).get("short", o.base),
+			String(o.get("region", "")), U.fmt_money(float(o.pay)), al.get("desc", ""), Airlines.safety_label(String(o.airline))], 14))
 		h.add_child(UIStyle.button("Accept", func():
 			p.airline = o.airline
 			p.rank = o.rank

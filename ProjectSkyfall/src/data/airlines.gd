@@ -223,7 +223,7 @@ const DATA := {
 	"LSA": {
 		"name": "Lone Star Airways", "callsign": "LONE STAR", "iata": "LS", "kind": "mainline",
 		"hubs": ["KDFW", "KATL"], "country": "United States", "reg_prefix": "N",
-		"fleet": {"s320": 8, "s321": 6, "w280": 3, "rj100": 6},
+		"fleet": {"s320": 8, "s321": 6, "w280": 3, "rj100": 6, "tp90": 5},
 		"livery": {"body": "f6f4ef", "belly": "8c1d18", "stripe": "1f3b73", "stripe2": "c8a24a", "tail": "8c1d18", "tail2": "f6f4ef", "logo": "f6f4ef", "logo_shape": 7,
 			"art": "c8a24a", "engine": "1f3b73", "engine2": "c8a24a", "engine_style": 1, "tip": "8c1d18", "text": "1f3b73",
 			"belly_h": -0.7, "stripes": [0.06, 0.02, 0.11, 0.008], "title": "LONE STAR", "title_style": "wide", "title_size": 1.1},
