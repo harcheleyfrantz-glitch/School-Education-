@@ -7,7 +7,7 @@ extends RefCounted
 ## Placeholders are the same as CommentBank ({airline}, {num}, {short}, {place}, {from}, {to}...).
 
 ## Tones that exist only here (CommentThreads always draws them from this bank).
-const NEW_TONES := ["controller", "disaster", "stranded", "president", "safety", "celebrity", "feelgood", "spotter", "frequent_flyer", "geography",
+const NEW_TONES := ["asia_travel", "longhaul", "controller", "disaster", "stranded", "president", "safety", "celebrity", "feelgood", "spotter", "frequent_flyer", "geography",
 	"conspiracy", "extreme_weather", "newtype", "airline_fan", "local", "travel_tip"]
 
 const LINES := {
@@ -187,6 +187,46 @@ const LINES := {
 		"Winter travel tip: leave a full day buffer before anything important.", "Stay hydrated on long-haul. Your skin and your jet lag will thank you.",
 		"Volcanic ash closures can last days. Have a plan B if you're flying around Iceland.", "Earthquake zones: the safest place in an airport is away from the big windows.",
 	],
+	"asia_travel": [
+		"Tokyo in cherry blossom season is worth every yen.", "Changi airport is better than most shopping malls. I missed my flight on purpose once.",
+		"The approach into Hong Kong between the mountains is the most beautiful in the world.", "Landed in Dubai at 3am and the airport was busier than a city centre.",
+		"Bangkok street food straight after a long-haul flight. Nothing better.", "Seoul's airport has a free shower and a skating rink. Respect.",
+		"Flew into Delhi in the winter smog. Couldn't see the runway until we were on it.", "Monsoon landings in Mumbai are not for the faint-hearted.",
+		"The Petronas Towers lit up at night from the window seat. Unreal.", "Shanghai Pudong at night looks like a sci-fi film.",
+		"Taipei 101 from the air looks like a giant bamboo shoot.", "The Burj Khalifa is taller than our cruising altitude on approach, it feels like.",
+		"Jakarta in thunderstorm season - the pilots earn every penny.", "Istanbul's new airport is so big you need a map to find your gate.",
+		"Flying over the Himalaya at sunrise is the most beautiful thing I've ever seen.", "Asian airlines' economy class is better than some business classes in the West.",
+		"Haneda is so close to the city you can see Tokyo Tower from the runway.", "Typhoon season in Manila is no joke. Check before you book.",
+		"Pyramids from the window on approach to Cairo. Goosebumps.", "Doha's terminal has a giant yellow teddy bear and I love it.",
+		"Moscow in January: de-icing, de-icing and more de-icing.", "Athens approach over the islands is pure postcard.",
+		"Landing at Haneda at night, the whole of Tokyo is lit up to the horizon. Nothing like it.", "The Japanese bow to the plane as it pushes back. Gets me every time.",
+		"Changi has a butterfly garden, a waterfall and a cinema. I've missed flights on purpose.", "Hong Kong's old airport landing with the checkerboard turn was legendary.",
+		"Dubai at 3am is busier than most airports at noon.", "The Burj Khalifa from the window looks fake. It's so much taller than everything else.",
+		"Incheon has a skating rink and a free shower. Best transit airport, easy.", "Mount Fuji out of the right-hand window on the way into Tokyo. Book seat K.",
+		"Doha's airport has a giant yellow teddy bear and somehow that's the most comforting thing.", "Flying over the Himalaya in daylight is worth every hour of the trip.",
+		"The monsoon approach into Mumbai is no joke. Respect to the crews.", "Bangkok to Tokyo on the red-eye, then straight to ramen. Perfect day.",
+		"Shanghai's maglev to the airport hit 300 km/h and my coffee didn't even move.", "Taipei 101 has a giant ball inside it to stop it swaying in typhoons.",
+		"The Petronas Towers at night look like two rockets about to launch.", "Delhi in the winter smog: you see the runway lights about a second before touchdown.",
+		"Singapore Changi has been voted best airport so many times they should retire the trophy.", "Cairo approach over the pyramids is a bucket-list window seat.",
+		"Istanbul is literally where Europe meets Asia. You can see both continents on the approach.", "Moscow in January: de-icing takes longer than the flight to St Petersburg.",
+		"Kansai airport is on an artificial island. It's sinking a few centimetres a year.", "Manila traffic is so bad people check in six hours early.",
+		"The Gulf carriers' business class has a bar on board. A bar. On a plane.", "Typhoon season in Hong Kong means every flight is a coin toss.",
+		"Jakarta from the air goes on forever. Thirty million people.", "Tokyo to Osaka by plane is silly when the bullet train exists, but the view is better.",
+		"Seoul to Tokyo is one of the busiest routes in the world and nobody in the West knows it.", "The Kuala Lumpur approach over palm plantations is so green it hurts.",
+		"Athens on approach: blue sea, white houses and the Acropolis glowing. Unreal.", "Every time I fly to Asia I promise to beat jet lag. Every time I fail.",
+		"The sandstorms in Dubai turn the whole sky orange. Flights just stop.", "Hong Kong egg tarts at the gate are the best airport food in the world.",
+		"The Philippines has seven thousand islands and I want to fly to all of them.", "Beijing's new terminal is shaped like a starfish so no gate is too far.",
+		"Fourteen hours to Singapore and the crew still smiled at the end. Heroes.", "If you've never landed in Tokyo during cherry blossom season, add it to your list.",
+		"The Persian Gulf at night is lit up by oil platforms like a second city.", "Nothing prepares you for the heat when the doors open in Dubai in August."
+	],
+	"longhaul": [
+		"Seventeen hours in economy. My legs have filed for divorce.", "Pro tip for ultra-long flights: walk every two hours and drink water, not wine.",
+		"The crew rest bunks on these jets are hidden above the cabin. Fascinating.", "Watched nine films and still had four hours to go.",
+		"The longest flights are the best. No emails, no calls, just clouds.", "Jet lag after a twelve-hour time difference is a full-body experience.",
+		"Business class on an ultra-long haul is the best sleep I've ever had.", "Imagine being the pilot on the last hour of an 18-hour flight. Respect.",
+		"Book the seat by the galley: free snacks and room to stretch.", "Noise-cancelling headphones are not optional on a long-haul.",
+		"The sunrise somewhere over the ocean halfway through a long flight is magic.", "Flew New York to Singapore nonstop. Never again. Also, would do it again.",
+	],
 	"controller": [
 		"Retired controller here. Forty aircraft an hour on one runway, and you're only as good as your last clearance.",
 		"Controllers are human. Understaffed, overworked, and still the reason flying is so safe.", "This is why pilots look out of the window even when they've been cleared.",
@@ -348,7 +388,7 @@ const TO_PLAYER := {
 
 ## Reply tones for the new comment tones.
 const REPLIES := {
-	"controller": ["agree", "thanks_pilot", "pushback"], "disaster": ["amen", "reassure", "agree"], "stranded": ["complaint_reply", "agree", "lol"], "president": ["agree", "defend", "agree_anger"],
+	"asia_travel": ["agree", "lol"], "longhaul": ["agree", "lol", "complaint_reply"], "controller": ["agree", "thanks_pilot", "pushback"], "disaster": ["amen", "reassure", "agree"], "stranded": ["complaint_reply", "agree", "lol"], "president": ["agree", "defend", "agree_anger"],
 	"safety": ["agree", "defend", "airline"], "celebrity": ["lol", "agree"], "feelgood": ["agree", "amen", "lol"], "spotter": ["agree", "tech_more", "lol"],
 	"frequent_flyer": ["agree", "lol", "complaint_reply"], "geography": ["agree", "correction"], "conspiracy": ["correction", "correction", "double_down"],
 	"extreme_weather": ["agree", "reassure", "lol"], "newtype": ["agree", "tech_more"], "airline_fan": ["agree", "lol", "complaint_reply"],
@@ -357,6 +397,7 @@ const REPLIES := {
 
 ## Thread moods for the new story topics and how often each tone appears in them.
 const MIX := {
+	"asia": {"asia_travel": 60, "longhaul": 12, "frequent_flyer": 6, "general": 5, "joke": 5, "travel_tip": 5, "spotter": 5},
 	"atc": {"controller": 45, "pilot": 12, "technical": 12, "anger": 8, "nervous": 8, "frequent_flyer": 7, "joke": 4, "question": 4},
 	"disaster": {"disaster": 34, "stranded": 14, "extreme_weather": 12, "question": 10, "nervous": 6, "travel_tip": 6, "local": 8, "conspiracy": 3, "joke": 3, "relief": 4},
 	"president": {"president": 45, "technical": 10, "anger": 10, "conspiracy": 8, "condolence": 10, "pilot": 7, "joke": 3, "question": 7},

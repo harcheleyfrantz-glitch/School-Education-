@@ -10,11 +10,11 @@ const KZ := 22114.80        # metres per degree of latitude
 const ORIGIN_Z := 1300000.0
 const GRID_X0 := -1360000.0
 const GRID_Z0 := 696000.0
-const GRID_NX := 289
-const GRID_NZ := 142
+const GRID_NX := 551
+const GRID_NZ := 233
 const CELL := 8000.0
 
-const POLY_NAMES := ["North America", "Baffin Island", "Greenland", "Iceland", "Newfoundland", "Cuba", "Great Britain", "Ireland", "Europe", "Africa"]
+const POLY_NAMES := ["North America", "Baffin Island", "Greenland", "Iceland", "Newfoundland", "Cuba", "Great Britain", "Ireland", "Europe", "Africa", "Asia"]
 const POLYS := [
 	[  # North America
 		Vector2(-1495.6, 747.1), Vector2(-1464.1, 1012.5), Vector2(-1424.7, 1089.9), Vector2(-1393.3, 1156.3), Vector2(-1346.0, 1200.5), Vector2(-1333.4, 1224.8), Vector2(-1324.0, 1273.5), Vector2(-1322.4, 1337.6),
@@ -113,15 +113,67 @@ const POLYS := [
 	[  # Africa
 		Vector2(536.8, 1503.5), Vector2(532.1, 1518.9), Vector2(522.7, 1543.3), Vector2(510.1, 1552.1), Vector2(495.9, 1561.0), Vector2(484.1, 1580.9), Vector2(475.4, 1600.8), Vector2(478.6, 1622.9),
 		Vector2(469.1, 1645.0), Vector2(448.7, 1671.5), Vector2(425.1, 1684.8), Vector2(401.4, 1718.0), Vector2(379.4, 1768.8), Vector2(363.7, 1824.1), Vector2(370.0, 1875.0), Vector2(362.1, 1970.1),
-		Vector2(393.6, 2074.0), Vector2(1259.4, 2074.0), Vector2(1138.2, 1603.0), Vector2(1102.0, 1600.8), Vector2(1023.3, 1596.3), Vector2(991.8, 1576.4), Vector2(968.2, 1567.6), Vector2(944.6, 1585.3),
-		Vector2(936.7, 1620.7), Vector2(913.1, 1614.0), Vector2(889.5, 1605.2), Vector2(869.0, 1580.9), Vector2(837.5, 1567.6), Vector2(810.8, 1561.0), Vector2(799.7, 1547.7), Vector2(788.7, 1538.8),
-		Vector2(799.7, 1525.6), Vector2(804.5, 1510.1), Vector2(796.6, 1501.2), Vector2(803.7, 1480.2), Vector2(791.9, 1480.2), Vector2(784.0, 1469.2), Vector2(765.1, 1478.0), Vector2(752.5, 1479.1),
-		Vector2(732.1, 1474.7), Vector2(710.0, 1481.3), Vector2(678.5, 1481.3), Vector2(650.2, 1488.0), Vector2(619.5, 1504.6), Vector2(599.8, 1517.8), Vector2(582.5, 1514.5), Vector2(560.5, 1515.6),
-		Vector2(546.3, 1501.2),
+		Vector2(366.8, 2018.7), Vector2(393.6, 2051.9), Vector2(420.3, 2089.5), Vector2(450.3, 2144.8), Vector2(511.6, 2197.9), Vector2(566.7, 2180.2), Vector2(645.5, 2162.5), Vector2(700.6, 2155.8),
+		Vector2(763.5, 2195.6), Vector2(780.9, 2217.8), Vector2(784.0, 2273.1), Vector2(776.1, 2328.3), Vector2(815.5, 2405.7), Vector2(834.4, 2483.1), Vector2(843.8, 2571.6), Vector2(1267.3, 2571.6),
+		Vector2(1253.1, 2516.3), Vector2(1246.8, 2438.9), Vector2(1259.4, 2372.6), Vector2(1275.2, 2341.6), Vector2(1306.7, 2306.2), Vector2(1349.2, 2250.9), Vector2(1383.8, 2191.2), Vector2(1413.7, 2129.3),
+		Vector2(1432.6, 2065.2), Vector2(1435.8, 2034.2), Vector2(1330.3, 2065.2), Vector2(1311.4, 2032.0), Vector2(1284.6, 1996.6), Vector2(1254.7, 1950.2), Vector2(1235.8, 1897.1), Vector2(1216.9, 1830.8),
+		Vector2(1188.6, 1764.4), Vector2(1157.1, 1676.0), Vector2(1142.9, 1631.7), Vector2(1138.2, 1603.0), Vector2(1102.0, 1600.8), Vector2(1023.3, 1596.3), Vector2(991.8, 1576.4), Vector2(968.2, 1567.6),
+		Vector2(944.6, 1585.3), Vector2(936.7, 1620.7), Vector2(913.1, 1614.0), Vector2(889.5, 1605.2), Vector2(869.0, 1580.9), Vector2(837.5, 1567.6), Vector2(810.8, 1561.0), Vector2(799.7, 1547.7),
+		Vector2(788.7, 1538.8), Vector2(799.7, 1525.6), Vector2(804.5, 1510.1), Vector2(796.6, 1501.2), Vector2(803.7, 1480.2), Vector2(791.9, 1480.2), Vector2(784.0, 1469.2), Vector2(765.1, 1478.0),
+		Vector2(752.5, 1479.1), Vector2(732.1, 1474.7), Vector2(710.0, 1481.3), Vector2(678.5, 1481.3), Vector2(650.2, 1488.0), Vector2(619.5, 1504.6), Vector2(599.8, 1517.8), Vector2(582.5, 1514.5),
+		Vector2(560.5, 1515.6), Vector2(546.3, 1501.2),
+	],
+	[  # Asia
+		Vector2(1259.4, 791.4), Vector2(1416.9, 780.3), Vector2(1574.3, 758.2), Vector2(1731.7, 725.0), Vector2(2046.6, 714.0), Vector2(2361.5, 702.9), Vector2(2676.3, 714.0), Vector2(2991.2, 725.0),
+		Vector2(3069.9, 747.1), Vector2(3069.9, 990.4), Vector2(2881.0, 983.8), Vector2(2833.7, 1101.0), Vector2(2849.5, 1145.2), Vector2(2841.6, 1222.6), Vector2(2802.3, 1277.9), Vector2(2755.0, 1337.6),
+		Vector2(2699.9, 1355.3), Vector2(2676.3, 1359.7), Vector2(2666.9, 1395.1), Vector2(2644.8, 1432.7), Vector2(2666.9, 1499.0), Vector2(2660.6, 1518.9), Vector2(2629.1, 1530.0), Vector2(2618.1, 1534.4),
+		Vector2(2621.2, 1503.5), Vector2(2614.9, 1476.9), Vector2(2622.8, 1463.6), Vector2(2597.6, 1454.8), Vector2(2592.9, 1419.4), Vector2(2542.5, 1432.7), Vector2(2544.1, 1390.7), Vector2(2511.0, 1415.0),
+		Vector2(2484.2, 1432.7), Vector2(2500.0, 1468.1), Vector2(2556.7, 1470.3), Vector2(2511.0, 1521.1), Vector2(2533.1, 1585.3), Vector2(2548.8, 1611.8), Vector2(2539.3, 1669.3), Vector2(2525.2, 1702.5),
+		Vector2(2511.0, 1735.7), Vector2(2482.7, 1766.6), Vector2(2430.7, 1799.8), Vector2(2416.6, 1804.2), Vector2(2377.2, 1819.7), Vector2(2355.2, 1817.5), Vector2(2330.0, 1819.7), Vector2(2307.9, 1841.8),
+		Vector2(2293.8, 1877.2), Vector2(2309.5, 1912.6), Vector2(2342.6, 1954.6), Vector2(2350.4, 2007.7), Vector2(2345.7, 2043.1), Vector2(2322.1, 2063.0), Vector2(2303.2, 2082.9), Vector2(2279.6, 2105.0),
+		Vector2(2281.2, 2069.6), Vector2(2259.1, 2060.7), Vector2(2243.4, 2025.4), Vector2(2218.2, 2014.3), Vector2(2204.0, 1998.8), Vector2(2204.0, 2029.8), Vector2(2193.0, 2069.6), Vector2(2208.7, 2118.2),
+		Vector2(2224.5, 2142.6), Vector2(2257.5, 2195.6), Vector2(2257.5, 2237.7), Vector2(2271.7, 2262.0), Vector2(2259.1, 2268.6), Vector2(2224.5, 2231.0), Vector2(2210.3, 2195.6), Vector2(2207.2, 2158.1),
+		Vector2(2178.8, 2118.2), Vector2(2177.3, 2063.0), Vector2(2183.6, 2007.7), Vector2(2167.8, 1932.5), Vector2(2159.9, 1919.2), Vector2(2114.3, 1939.1), Vector2(2119.0, 1881.6), Vector2(2084.4, 1837.4),
+		Vector2(2074.9, 1802.0), Vector2(2054.5, 1806.4), Vector2(2032.4, 1817.5), Vector2(1999.4, 1821.9), Vector2(1996.2, 1844.0), Vector2(1966.3, 1870.6), Vector2(1926.9, 1928.1), Vector2(1893.9, 1948.0),
+		Vector2(1892.3, 2003.3), Vector2(1887.6, 2067.4), Vector2(1860.8, 2098.3), Vector2(1849.8, 2116.0), Vector2(1832.5, 2087.3), Vector2(1821.5, 2045.3), Vector2(1807.3, 2009.9), Vector2(1791.6, 1948.0),
+		Vector2(1777.4, 1877.2), Vector2(1772.7, 1821.9), Vector2(1739.6, 1833.0), Vector2(1712.8, 1799.8), Vector2(1706.5, 1773.3), Vector2(1686.1, 1746.7), Vector2(1678.2, 1733.5), Vector2(1637.3, 1735.7),
+		Vector2(1599.5, 1737.9), Vector2(1555.4, 1729.0), Vector2(1531.8, 1724.6), Vector2(1517.6, 1695.9), Vector2(1490.9, 1709.1), Vector2(1448.4, 1680.4), Vector2(1426.3, 1649.4), Vector2(1398.0, 1633.9),
+		Vector2(1388.5, 1662.7), Vector2(1409.0, 1695.9), Vector2(1420.0, 1715.8), Vector2(1429.5, 1748.9), Vector2(1442.1, 1760.0), Vector2(1457.8, 1760.0), Vector2(1489.3, 1757.8), Vector2(1505.0, 1729.0),
+		Vector2(1516.1, 1713.5), Vector2(1517.6, 1744.5), Vector2(1538.1, 1768.8), Vector2(1571.2, 1797.6), Vector2(1550.7, 1844.0), Vector2(1539.7, 1875.0), Vector2(1520.8, 1897.1), Vector2(1495.6, 1919.2),
+		Vector2(1451.5, 1936.9), Vector2(1401.1, 1983.3), Vector2(1338.2, 2012.1), Vector2(1314.5, 2014.3), Vector2(1300.4, 1952.4), Vector2(1301.9, 1923.6), Vector2(1278.3, 1875.0), Vector2(1243.7, 1819.7),
+		Vector2(1234.3, 1771.0), Vector2(1204.3, 1720.2), Vector2(1180.7, 1673.7), Vector2(1179.2, 1642.8), Vector2(1168.1, 1603.0), Vector2(1179.2, 1569.8), Vector2(1190.2, 1532.2), Vector2(1194.9, 1501.2),
+		Vector2(1199.6, 1485.8), Vector2(1172.9, 1481.3), Vector2(1141.4, 1496.8), Vector2(1109.9, 1492.4), Vector2(1073.7, 1481.3), Vector2(1059.5, 1465.9), Vector2(1048.5, 1446.0), Vector2(1042.2, 1421.6),
+		Vector2(1086.3, 1388.5), Vector2(1259.4, 1366.3),
 	],
 ]
 const ISLANDS := [
 	[Vector2(817.9, 1067.8), Vector2(13.0, 9.0)],
+	[Vector2(2689.7, 1577.5), Vector2(18.0, 32.0)],
+	[Vector2(2729.8, 1553.2), Vector2(22.0, 19.0)],
+	[Vector2(2710.9, 1526.7), Vector2(20.0, 19.0)],
+	[Vector2(2757.4, 1528.9), Vector2(26.0, 25.0)],
+	[Vector2(2808.6, 1497.9), Vector2(25.0, 32.0)],
+	[Vector2(2845.6, 1454.8), Vector2(20.0, 33.0)],
+	[Vector2(2844.8, 1399.5), Vector2(14.0, 22.0)],
+	[Vector2(2877.8, 1334.3), Vector2(47.0, 45.0)],
+	[Vector2(2534.6, 1773.3), Vector2(18.0, 42.0)],
+	[Vector2(2358.3, 1871.7), Vector2(19.0, 21.0)],
+	[Vector2(1901.8, 2121.6), Vector2(17.0, 43.0)],
+	[Vector2(2548.8, 1936.9), Vector2(33.0, 53.0)],
+	[Vector2(2581.9, 2051.9), Vector2(31.0, 33.0)],
+	[Vector2(2585.8, 2126.0), Vector2(37.0, 47.0)],
+	[Vector2(2426.8, 2264.2), Vector2(81.0, 124.0)],
+	[Vector2(2164.7, 2217.8), Vector2(30.0, 35.0)],
+	[Vector2(2211.9, 2295.2), Vector2(35.0, 40.0)],
+	[Vector2(2259.1, 2372.6), Vector2(35.0, 40.0)],
+	[Vector2(2359.9, 2457.7), Vector2(74.0, 32.0)],
+	[Vector2(2311.1, 2441.1), Vector2(25.0, 18.0)],
+	[Vector2(2526.8, 2328.3), Vector2(35.0, 55.0)],
+	[Vector2(2833.7, 2405.7), Vector2(120.0, 50.0)],
+	[Vector2(2884.1, 1185.0), Vector2(24.0, 93.0)],
+	[Vector2(1152.4, 1518.9), Vector2(18.0, 7.0)],
+	[Vector2(1435.8, 1735.7), Vector2(8.0, 18.0)],
+	[Vector2(2832.2, 1507.9), Vector2(6.0, 6.0)],
 	[Vector2(793.4, 1072.2), Vector2(5.0, 5.0)],
 	[Vector2(676.2, 1419.4), Vector2(10.0, 7.5)],
 	[Vector2(772.2, 1363.0), Vector2(8.3, 18.3)],
@@ -157,6 +209,17 @@ const ISLANDS := [
 ]
 const RISES := [
 	[Vector2(-960.3, 1410.6), Vector2(90.0, 140.0), 950.0],
+	[Vector2(2015.1, 1565.4), Vector2(170.0, 100.0), 4200.0],
+	[Vector2(1495.6, 1587.5), Vector2(110.0, 80.0), 1200.0],
+	[Vector2(2251.3, 1277.9), Vector2(180.0, 70.0), 1400.0],
+	[Vector2(1841.9, 1919.2), Vector2(70.0, 90.0), 550.0],
+	[Vector2(2235.5, 1676.0), Vector2(100.0, 90.0), 1900.0],
+	[Vector2(2330.0, 1476.9), Vector2(80.0, 60.0), 1100.0],
+	[Vector2(1243.7, 2096.1), Vector2(70.0, 90.0), 2100.0],
+	[Vector2(1212.2, 2295.2), Vector2(50.0, 60.0), 1500.0],
+	[Vector2(2813.8, 1513.2), Vector2(6.0, 6.0), 3600.0],
+	[Vector2(1180.7, 1432.7), Vector2(90.0, 40.0), 1000.0],
+	[Vector2(2462.2, 1403.9), Vector2(25.0, 20.0), 200.0],
 	[Vector2(-1183.9, 1496.8), Vector2(30.0, 30.0), 620.0],
 	[Vector2(812.3, 1227.0), Vector2(35.0, 25.0), 420.0],
 	[Vector2(760.4, 1249.1), Vector2(22.0, 14.0), 380.0],
@@ -202,6 +265,23 @@ const RISES := [
 ]
 const RANGES := [
 	[Vector2(-1039.0, 1565.4), Vector2(-1046.9, 1421.6), 45.0, 2600.0],
+	[Vector2(1779.0, 1521.1), Vector2(1889.2, 1620.7), 45.0, 5200.0],
+	[Vector2(1889.2, 1620.7), Vector2(2015.1, 1680.4), 45.0, 6000.0],
+	[Vector2(2015.1, 1680.4), Vector2(2125.3, 1653.8), 40.0, 5000.0],
+	[Vector2(1385.4, 1554.3), Vector2(1511.3, 1676.0), 25.0, 2800.0],
+	[Vector2(1416.9, 1492.4), Vector2(1511.3, 1476.9), 12.0, 3500.0],
+	[Vector2(1700.2, 1521.1), Vector2(1779.0, 1488.0), 30.0, 4500.0],
+	[Vector2(1779.0, 1377.4), Vector2(2015.1, 1344.2), 35.0, 4000.0],
+	[Vector2(1983.6, 1189.4), Vector2(2078.1, 1255.8), 30.0, 3200.0],
+	[Vector2(1786.8, 1852.9), Vector2(1834.1, 2085.1), 12.0, 1300.0],
+	[Vector2(2791.2, 1510.1), Vector2(2799.1, 1481.3), 12.0, 2800.0],
+	[Vector2(2534.6, 1797.6), Vector2(2542.5, 1746.7), 10.0, 3200.0],
+	[Vector2(2652.7, 1443.7), Vector2(2652.7, 1499.0), 15.0, 1400.0],
+	[Vector2(1558.6, 791.4), Vector2(1550.7, 1145.2), 25.0, 1500.0],
+	[Vector2(1259.4, 1335.4), Vector2(1385.4, 1377.4), 18.0, 4500.0],
+	[Vector2(1196.5, 1676.0), Vector2(1306.7, 1919.2), 20.0, 2000.0],
+	[Vector2(2133.2, 2184.6), Vector2(2267.0, 2405.7), 12.0, 2400.0],
+	[Vector2(2463.8, 2162.5), Vector2(2424.4, 2250.9), 15.0, 2000.0],
 	[Vector2(-1046.9, 1421.6), Vector2(-1109.9, 1311.1), 45.0, 2600.0],
 	[Vector2(-1109.9, 1311.1), Vector2(-1188.6, 1200.5), 45.0, 2400.0],
 	[Vector2(-1188.6, 1200.5), Vector2(-1259.4, 1089.9), 40.0, 2400.0],
@@ -236,6 +316,10 @@ const RANGES := [
 	[Vector2(677.0, 1521.1), Vector2(771.4, 1503.5), 15.0, 1500.0],
 ]
 const LAKES := [
+	{"x": 1426318.1, "z": 1370767.4, "rx": 63000.0, "rz": 116000.0, "level": 0.0, "name": "Caspian Sea"},
+	{"x": 1177578.3, "z": 1333172.2, "rx": 100000.0, "rz": 55000.0, "level": 0.0, "name": "Black Sea"},
+	{"x": 1810447.9, "z": 1266827.8, "rx": 30000.0, "rz": 8000.0, "level": 340.0, "name": "Lake Balkhash"},
+	{"x": 1574302.5, "z": 1300000.0, "rx": 15000.0, "rz": 25000.0, "level": 30.0, "name": "Aral Sea"},
 	{"x": -749368.0, "z": 1241395.8, "rx": 54000.0, "rz": 22000.0, "level": 183.0, "name": "Lake Superior"},
 	{"x": -739922.2, "z": 1322114.8, "rx": 17000.0, "rz": 47000.0, "level": 176.0, "name": "Lake Michigan"},
 	{"x": -667504.3, "z": 1303317.2, "rx": 27000.0, "rz": 22000.0, "level": 176.0, "name": "Lake Huron"},
@@ -340,6 +424,33 @@ const LANDMARKS := [
 	{"id": "sagrada", "name": "Sagrada Familia", "kind": "sagrada", "x": 666970.0, "z": 1372420.0, "yaw": 0.0, "icao": "LEBL", "city": "Barcelona"},
 	{"id": "atomium", "name": "Atomium", "kind": "atomium", "x": 693750.0, "z": 1170520.0, "yaw": 0.0, "icao": "EBBR", "city": "Brussels"},
 	{"id": "edcastle", "name": "Edinburgh Castle", "kind": "castle", "x": 582570.0, "z": 1058340.0, "yaw": 0.0, "icao": "EGPH", "city": "Edinburgh"},
+	{"id": "tokyodt", "name": "Tokyo skyline", "kind": "skyline_tokyo", "x": 2825780.0, "z": 1500480.0, "yaw": 0.0, "icao": "RJTT", "city": "Tokyo"},
+	{"id": "skytree", "name": "Tokyo Skytree", "kind": "tv_tower", "x": 2828780.0, "z": 1498480.0, "yaw": 0.0, "icao": "RJTT", "city": "Tokyo"},
+	{"id": "ttower", "name": "Tokyo Tower", "kind": "eiffel", "x": 2824280.0, "z": 1501980.0, "yaw": 0.0, "icao": "RJTT", "city": "Tokyo"},
+	{"id": "osakacastle", "name": "Osaka Castle", "kind": "pagoda", "x": 2763310.0, "z": 1524250.0, "yaw": 0.0, "icao": "RJBB", "city": "Osaka"},
+	{"id": "seouldt", "name": "Seoul skyline", "kind": "skyline_seoul", "x": 2635430.0, "z": 1463750.0, "yaw": 0.0, "icao": "RKSI", "city": "Seoul"},
+	{"id": "ntower", "name": "N Seoul Tower", "kind": "tv_tower", "x": 2635430.0, "z": 1465250.0, "yaw": 0.0, "icao": "RKSI", "city": "Seoul"},
+	{"id": "bjdt", "name": "Beijing CBD", "kind": "skyline_beijing", "x": 2461860.0, "z": 1415800.0, "yaw": 0.0, "icao": "ZBAA", "city": "Beijing"},
+	{"id": "forbidden", "name": "Forbidden City", "kind": "pagoda", "x": 2458360.0, "z": 1416300.0, "yaw": 0.0, "icao": "ZBAA", "city": "Beijing"},
+	{"id": "pudong", "name": "Pudong skyline", "kind": "skyline_shanghai", "x": 2534220.0, "z": 1603510.0, "yaw": 0.0, "icao": "ZSPD", "city": "Shanghai"},
+	{"id": "pearl", "name": "Oriental Pearl Tower", "kind": "tv_tower", "x": 2533220.0, "z": 1602910.0, "yaw": 0.0, "icao": "ZSPD", "city": "Shanghai"},
+	{"id": "hkdt", "name": "Victoria Harbour skyline", "kind": "skyline_hongkong", "x": 2427670.0, "z": 1794280.0, "yaw": 0.0, "icao": "VHHH", "city": "Hong Kong"},
+	{"id": "t101", "name": "Taipei 101", "kind": "taipei101", "x": 2543250.0, "z": 1746030.0, "yaw": 0.0, "icao": "RCTP", "city": "Taipei"},
+	{"id": "mbs", "name": "Marina Bay Sands", "kind": "mbs", "x": 2259140.0, "z": 2262090.0, "yaw": 0.0, "icao": "WSSS", "city": "Singapore"},
+	{"id": "sgdt", "name": "Singapore skyline", "kind": "skyline_singapore", "x": 2258340.0, "z": 2260590.0, "yaw": 0.0, "icao": "WSSS", "city": "Singapore"},
+	{"id": "petronas", "name": "Petronas Twin Towers", "kind": "petronas", "x": 2233940.0, "z": 2225350.0, "yaw": 0.0, "icao": "WMKK", "city": "Kuala Lumpur"},
+	{"id": "kldt", "name": "Kuala Lumpur skyline", "kind": "skyline_kl", "x": 2234740.0, "z": 2225950.0, "yaw": 0.0, "icao": "WMKK", "city": "Kuala Lumpur"},
+	{"id": "bkkdt", "name": "Bangkok skyline", "kind": "skyline_bangkok", "x": 2209330.0, "z": 1987910.0, "yaw": 0.0, "icao": "VTBS", "city": "Bangkok"},
+	{"id": "wat", "name": "Temple of Dawn", "kind": "pagoda", "x": 2206830.0, "z": 1989410.0, "yaw": 0.0, "icao": "VTBS", "city": "Bangkok"},
+	{"id": "indiagate", "name": "India Gate", "kind": "arc", "x": 1848510.0, "z": 1660850.0, "yaw": 0.0, "icao": "VIDP", "city": "Delhi"},
+	{"id": "bomdt", "name": "Mumbai skyline", "kind": "skyline_mumbai", "x": 1779420.0, "z": 1878490.0, "yaw": 0.0, "icao": "VABB", "city": "Mumbai"},
+	{"id": "burj", "name": "Burj Khalifa", "kind": "burj", "x": 1499250.0, "z": 1741270.0, "yaw": 0.0, "icao": "OMDB", "city": "Dubai"},
+	{"id": "dxbdt", "name": "Dubai skyline", "kind": "skyline_dubai", "x": 1500750.0, "z": 1740270.0, "yaw": 0.0, "icao": "OMDB", "city": "Dubai"},
+	{"id": "dohadt", "name": "West Bay skyline", "kind": "skyline_doha", "x": 1435720.0, "z": 1730830.0, "yaw": 0.0, "icao": "OTHH", "city": "Doha"},
+	{"id": "hagia", "name": "Hagia Sophia", "kind": "dome_church", "x": 1087330.0, "z": 1388710.0, "yaw": 0.0, "icao": "LTFM", "city": "Istanbul"},
+	{"id": "pyramids", "name": "Pyramids of Giza", "kind": "pyramids", "x": 1110550.0, "z": 1633570.0, "yaw": 0.0, "icao": "HECA", "city": "Cairo"},
+	{"id": "acropolis", "name": "Acropolis", "kind": "parthenon", "x": 992610.0, "z": 1453130.0, "yaw": 0.0, "icao": "LGAV", "city": "Athens"},
+	{"id": "kremlin", "name": "St Basil's Cathedral", "kind": "onion_domes", "x": 1221670.0, "z": 1065400.0, "yaw": 0.0, "icao": "UUEE", "city": "Moscow"},
 ]
 const LABELS := [
 	["NORTH AMERICA", Vector2(-913.1, 1255.8)],
@@ -359,6 +470,26 @@ const LABELS := [
 	["ITALY", Vector2(826.5, 1344.2)],
 	["IRELAND", Vector2(503.8, 1118.7)],
 	["AFRICA", Vector2(629.7, 1676.0)],
+	["ASIA", Vector2(2125.3, 1189.4)],
+	["CHINA", Vector2(2267.0, 1565.4)],
+	["INDIA", Vector2(1873.4, 1808.6)],
+	["JAPAN", Vector2(2802.3, 1465.9)],
+	["KOREA", Vector2(2641.7, 1488.0)],
+	["ARABIA", Vector2(1338.2, 1786.5)],
+	["RUSSIA", Vector2(1889.2, 968.3)],
+	["INDIAN OCEAN", Vector2(1810.4, 2250.9)],
+	["ARABIAN SEA", Vector2(1637.3, 1941.3)],
+	["BAY OF BENGAL", Vector2(2015.1, 1963.4)],
+	["SOUTH CHINA SEA", Vector2(2424.4, 1985.6)],
+	["SEA OF JAPAN", Vector2(2739.3, 1410.6)],
+	["INDONESIA", Vector2(2392.9, 2361.5)],
+	["THAILAND", Vector2(2219.8, 1941.3)],
+	["PERSIAN GULF", Vector2(1440.5, 1693.6)],
+	["TURKEY", Vector2(1165.0, 1432.7)],
+	["EGYPT", Vector2(1102.0, 1720.2)],
+	["IRAN", Vector2(1479.8, 1587.5)],
+	["MONGOLIA", Vector2(2251.3, 1266.8)],
+	["PHILIPPINES", Vector2(2566.1, 2018.7)],
 	["GERMANY", Vector2(793.4, 1162.9)],
 	["NORWAY", Vector2(771.4, 932.9)],
 	["SWEDEN", Vector2(875.3, 928.5)],
@@ -396,6 +527,30 @@ static func sea_name(x: float, z: float) -> String:
 	var lat := ll.y
 	if lon < -100.0 and lat < 52.0:
 		return "the Pacific Ocean"
+	if lon > 26.0 and lon < 42.0 and lat > 40.5 and lat < 47.0:
+		return "the Black Sea"
+	if lon > 46.0 and lon < 55.0 and lat > 36.0 and lat < 47.5:
+		return "the Caspian Sea"
+	if lon > 32.0 and lon < 44.0 and lat > 12.0 and lat < 30.0:
+		return "the Red Sea"
+	if lon > 47.5 and lon < 57.0 and lat > 23.5 and lat < 30.5:
+		return "the Persian Gulf"
+	if lon > 50.0 and lon < 77.0 and lat > 5.0 and lat < 26.0:
+		return "the Arabian Sea"
+	if lon > 78.0 and lon < 99.0 and lat > 5.0 and lat < 23.0:
+		return "the Bay of Bengal"
+	if lon > 99.0 and lon < 121.0 and lat > 0.0 and lat < 23.0:
+		return "the South China Sea"
+	if lon > 105.0 and lon < 120.0 and lat > -8.0 and lat <= 0.0:
+		return "the Java Sea"
+	if lon > 117.0 and lon < 131.0 and lat > 23.0 and lat < 41.0:
+		return "the East China Sea" if lat < 33.0 else "the Yellow Sea"
+	if lon > 127.0 and lon < 142.0 and lat > 33.0 and lat < 52.0:
+		return "the Sea of Japan"
+	if lon > 121.0 and lat < 33.0:
+		return "the Philippine Sea"
+	if lon > 40.0 and lat < 10.0:
+		return "the Indian Ocean"
 	if lat > 18.0 and lat < 30.8 and lon > -98.0 and lon < -81.2:
 		return "the Gulf of Mexico"
 	if lat > 51.0 and lat < 64.5 and lon > -95.5 and lon < -76.5:
@@ -479,6 +634,40 @@ static func center_name(x: float, z: float, country: String) -> String:
 			return "Stockholm Control"
 		"Belgium":
 			return "Brussels Control"
+		"Japan":
+			return "Tokyo Control" if ll.x > 137.0 else "Fukuoka Control"
+		"South Korea":
+			return "Incheon Control"
+		"China":
+			return "Beijing Control" if ll.y > 35.0 else "Shanghai Control"
+		"Hong Kong":
+			return "Hong Kong Radar"
+		"Taiwan":
+			return "Taipei Control"
+		"Singapore":
+			return "Singapore Radar"
+		"Malaysia":
+			return "Lumpur Radar"
+		"Thailand":
+			return "Bangkok Control"
+		"Philippines":
+			return "Manila Control"
+		"Indonesia":
+			return "Jakarta Control"
+		"India":
+			return "Delhi Control" if ll.y > 23.0 else "Mumbai Control"
+		"United Arab Emirates":
+			return "Emirates Radar"
+		"Qatar":
+			return "Doha Control"
+		"Turkey":
+			return "Istanbul Control"
+		"Egypt":
+			return "Cairo Control"
+		"Greece":
+			return "Athinai Control"
+		"Russia":
+			return "Moscow Control"
 		"Bermuda":
 			return "New York Oceanic"
 		"Faroe Islands":

@@ -77,8 +77,10 @@ func frame_region(name: String, left_pad: float = 380.0) -> void:
 			r = _rect_ll(-26.0, 35.0, 20.0, 66.0)
 		"atlantic":
 			r = _rect_ll(-100.0, 22.0, 20.0, 70.0)
+		"asia":
+			r = _rect_ll(25.0, -10.0, 150.0, 58.0)
 		_:
-			r = Rect2(-1360, -520, 2320, 2360)
+			r = Rect2(-1360, -520, 4410, 3080)
 	var avail := Vector2(maxf(size.x - left_pad - 40.0, 200.0), maxf(size.y - 120.0, 200.0))
 	px_per_km = minf(avail.x / r.size.x, avail.y / r.size.y)
 	_min_scale = minf(_min_scale, px_per_km * 0.7)

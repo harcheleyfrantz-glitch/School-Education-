@@ -14,8 +14,8 @@ def km(lon, lat):
     x, z = ll(lon, lat)
     return (x / 1000.0, z / 1000.0)
 
-GRID_X0, GRID_X1 = -1360000.0, 952000.0
-GRID_Z0, GRID_Z1 = 696000.0, 1832000.0
+GRID_X0, GRID_X1 = -1360000.0, 3048000.0
+GRID_Z0, GRID_Z1 = 696000.0, 2560000.0
 CELL = 8000.0
 
 # ------------------------------------------------------------------ coastlines (lon, lat)
@@ -90,23 +90,37 @@ EUROPE = [(-5.6,36.0),(-6.3,36.5),(-7.4,37.2),(-8.0,37.0),(-8.95,37.0),(-8.8,38.
  (6.2,43.1),(5.35,43.3),(4.6,43.4),(3.6,43.3),(3.05,42.55),(3.25,41.95),(2.2,41.35),(1.1,41.05),(0.85,40.7),(-0.3,39.45),
  (0.2,38.75),(-0.5,38.3),(-0.75,37.6),(-1.6,37.25),(-2.2,36.7),(-3.5,36.7),(-4.4,36.7),(-5.35,36.15)]
 AFRICA = [(-5.9,35.8),(-6.2,35.1),(-6.8,34.0),(-7.6,33.6),(-8.5,33.2),(-9.25,32.3),(-9.8,31.4),(-9.6,30.4),(-10.2,29.4),
- (-11.5,28.2),(-13.0,27.6),(-14.5,26.1),(-15.9,23.8),(-16.9,21.3),(-16.5,19.0),(-17.0,14.7),(-15.0,10.0),(40.0,10.0),
+ (-11.5,28.2),(-13.0,27.6),(-14.5,26.1),(-15.9,23.8),(-16.9,21.3),(-16.5,19.0),(-17.0,14.7),(-16.7,12.5),(-15.0,11.0),(-13.3,9.3),(-11.4,6.8),(-7.5,4.4),(-4.0,5.2),(1.0,6.0),(4.5,6.3),(8.5,4.5),(9.6,3.5),(9.8,1.0),(9.3,-1.5),(11.8,-5.0),(13.0,-8.5),(13.6,-12.5),(40.5,-12.5),(39.6,-10.0),(39.2,-6.5),(40.0,-3.5),(41.0,-2.1),(43.0,-0.5),(45.7,2.0),(47.9,4.7),(49.8,7.5),(51.0,10.4),(51.2,11.8),(44.5,10.4),(43.3,11.9),(41.6,13.5),(39.7,15.6),(38.5,18.0),(37.3,21.0),(35.5,24.0),(33.5,28.0),(32.6,30.0),
  (32.3,31.3),(30.0,31.4),(25.0,31.6),(23.0,32.5),(21.5,32.9),(20.0,32.1),(19.5,30.5),(18.0,30.8),(16.5,31.2),(15.2,32.3),
  (13.2,32.9),(11.5,33.2),(10.8,33.8),(10.1,34.2),(10.8,34.8),(11.1,35.5),(10.6,35.9),(11.05,36.85),(10.3,36.85),(9.8,37.35),
  (8.6,36.95),(7.8,36.9),(6.5,37.1),(5.1,36.8),(3.1,36.8),(1.3,36.5),(-0.65,35.75),(-1.9,35.15),(-3.0,35.3),(-4.4,35.25),(-5.3,35.9)]
+ASIA = [(40.0,68.0),(50.0,68.5),(60.0,69.5),(70.0,71.0),(90.0,71.5),(110.0,72.0),(130.0,71.5),(150.0,71.0),(155.0,70.0),(155.0,59.0),
+ (143.0,59.3),(140.0,54.0),(141.0,52.0),(140.5,48.5),(138.0,46.0),(135.0,43.3),(131.5,42.5),(130.0,42.3),(129.4,40.7),(128.0,39.0),(129.4,36.0),
+ (129.0,35.1),(127.0,34.6),(126.3,34.4),(126.5,35.8),(126.1,37.0),(126.6,37.6),(125.0,38.0),(124.7,39.6),(121.5,39.0),(121.6,40.9),(119.5,39.8),
+ (117.8,39.0),(118.8,37.4),(122.4,37.3),(119.5,35.0),(120.9,32.1),(121.9,30.9),(121.3,28.3),(120.4,26.8),(119.5,25.3),(117.7,23.9),(114.4,22.4),
+ (113.5,22.2),(111.0,21.5),(109.6,21.6),(108.0,21.5),(106.6,20.5),(105.7,18.9),(106.7,17.3),(108.8,15.4),(109.3,13.0),(109.0,11.4),(107.5,10.5),
+ (106.3,9.6),(104.8,8.6),(104.9,10.2),(103.5,10.6),(102.5,12.2),(100.9,12.7),(100.0,13.4),(100.0,12.0),(99.3,10.2),(100.3,8.0),(101.3,6.9),
+ (103.4,4.5),(103.4,2.6),(104.3,1.5),(103.5,1.2),(101.3,2.9),(100.4,4.5),(100.2,6.2),(98.4,8.0),(98.3,10.5),(98.7,13.0),(97.7,16.4),(97.2,17.0),
+ (94.3,16.1),(94.6,18.7),(92.4,20.7),(91.8,22.3),(90.5,22.1),(89.1,21.6),(87.0,21.4),(86.8,20.4),(84.9,19.2),(82.4,16.6),(80.3,15.7),(80.2,13.2),
+ (79.9,10.3),(78.2,8.9),(77.5,8.1),(76.4,9.4),(75.7,11.3),(74.8,12.9),(73.8,15.7),(72.9,18.9),(72.6,21.4),(70.5,20.9),(68.8,22.4),(68.4,23.6),
+ (67.1,24.8),(66.6,25.4),(64.0,25.3),(61.6,25.2),(58.8,25.6),(57.3,25.8),(56.4,27.1),(54.7,26.5),(52.0,27.8),(50.6,29.2),(48.8,29.9),(48.2,28.6),
+ (49.5,27.1),(50.2,26.2),(50.8,24.7),(51.6,24.2),(52.6,24.2),(54.6,24.3),(55.6,25.6),(56.3,26.3),(56.4,24.9),(57.7,23.8),(59.8,22.5),(58.5,20.4),
+ (57.8,19.0),(56.6,18.0),(55.0,17.0),(52.2,16.2),(49.0,14.1),(45.0,12.8),(43.5,12.7),(42.6,15.5),(42.7,16.8),(41.2,19.0),(39.0,21.5),(38.4,23.7),
+ (36.5,26.0),(35.0,28.1),(34.9,29.5),(34.2,31.3),(34.9,32.8),(35.6,34.5),(35.9,35.9),(36.2,36.6),(34.5,36.8),(32.5,36.1),(30.5,36.3),(28.2,36.8),
+ (27.3,37.5),(26.6,38.4),(26.2,39.5),(29.0,41.0),(40.0,42.0)]
 POLYS = [("North America", NORTH_AMERICA), ("Baffin Island", BAFFIN), ("Greenland", GREENLAND), ("Iceland", ICELAND),
          ("Newfoundland", NEWFOUNDLAND), ("Cuba", CUBA), ("Great Britain", BRITAIN), ("Ireland", IRELAND),
-         ("Europe", EUROPE), ("Africa", AFRICA)]
+         ("Europe", EUROPE), ("Africa", AFRICA), ("Asia", ASIA)]
 
 # [lon, lat, rx_km, rz_km]  (game km radii)
-ISLANDS = [(11.95,55.5,13,9),(10.4,55.3,5,5),(2.95,39.6,10,7.5),(9.05,42.15,8.3,18.3),(9.0,40.05,12,27),(14.1,37.55,28,19),(-16.6,28.3,6,5),(-15.55,27.95,5,5),
+ISLANDS = [(11.95,55.5,13,9),(130.85,32.45,18,32),(133.4,33.55,22,19),(132.2,34.75,20,19),(135.15,34.65,26,25),(138.4,36.05,25,32),(140.75,38.0,20,33),(140.7,40.5,14,22),(142.8,43.45,47,45),(121.0,23.6,18,42),(109.8,19.15,19,21),(80.8,7.85,17,43),(121.9,16.2,33,53),(124.0,11.0,31,33),(124.25,7.65,37,47),(114.15,1.4,81,124),(97.5,3.5,30,35),(100.5,0.0,35,40),(103.5,-3.5,35,40),(109.9,-7.35,74,32),(106.8,-6.6,25,18),(120.5,-1.5,35,55),(140.0,-5.0,120,50),(143.2,50.2,24,93),(33.2,35.1,18,7),(51.2,25.3,8,18),(139.9,35.6,6,6),(10.4,55.3,5,5),(2.95,39.6,10,7.5),(9.05,42.15,8.3,18.3),(9.0,40.05,12,27),(14.1,37.55,28,19),(-16.6,28.3,6,5),(-15.55,27.95,5,5),
  (-14.0,28.4,5,10),(-25.45,37.78,13,3.2),(-27.2,38.7,3.5,2.5),(-28.4,38.5,5,2.5),(-16.95,32.72,11,4.6),(-64.75,32.32,7.5,3.2),
  (-6.9,62.05,7.5,11),(-1.25,60.3,3,14),(-3.0,59.0,5,4),(-7.0,57.8,3,20),(-4.5,54.2,2.5,3.3),(11.8,55.5,12,10),(10.3,55.3,6,6),
  (18.5,57.5,5,13),(14.9,55.1,3,2.5),(-63.3,46.4,22,3),(-62.9,49.45,22,5.5),(-78.5,26.6,9.6,1.8),(-77.9,24.4,6,15),
  (-77.4,25.05,2.2,1.2),(-70.6,41.4,2.5,1.0),(-70.05,41.28,2.5,1.0),(-5.95,57.25,3,5),(-6.2,56.4,3,3),(-2.15,49.21,1.8,1.2)]
 
 # rises [lon, lat, rx_km, rz_km, peak]
-RISES = [(-101.0,40.0,90,140,950),(-115.2,36.1,30,30,620),(11.6,48.3,35,25,420),(8.3,47.3,22,14,380),(-84.4,33.9,40,30,230),(-97.1,32.9,35,35,120),(-103.4,39.8,30,30,700),(11.0,60.3,20,18,170),(-9.1,38.8,8,8,90),(-86.0,41.0,90,60,190),(-72.0,51.5,110,70,450),(-63.0,54.0,50,40,500),
+RISES = [(-101.0,40.0,90,140,950),(88.0,33.0,170,100,4200),(55.0,32.0,110,80,1200),(103.0,46.0,180,70,1400),(77.0,17.0,70,90,550),(102.0,28.0,100,90,1900),(108.0,37.0,80,60,1100),(39.0,9.0,70,90,2100),(37.0,0.0,50,60,1500),(138.73,35.36,6,6,3600),(35.0,39.0,90,40,1000),(116.4,40.3,25,20,200),(-115.2,36.1,30,30,620),(11.6,48.3,35,25,420),(8.3,47.3,22,14,380),(-84.4,33.9,40,30,230),(-97.1,32.9,35,35,120),(-103.4,39.8,30,30,700),(11.0,60.3,20,18,170),(-9.1,38.8,8,8,90),(-86.0,41.0,90,60,190),(-72.0,51.5,110,70,450),(-63.0,54.0,50,40,500),
  (-102.0,24.0,70,80,1600),(-116.5,39.5,50,60,1300),(-110.5,37.0,50,40,1500),(-92.5,36.5,25,18,350),(-99.0,30.5,35,25,400),
  (-3.8,40.2,55,50,640),(3.0,45.3,20,18,900),(2.5,48.8,40,30,95),(-4.5,57.2,25,20,750),(-3.7,52.4,12,15,450),(-2.2,54.3,8,25,420),
  (-18.5,64.9,35,15,1100),(-42.0,67.5,65,120,2600),(15.5,63.0,40,60,450),(26.0,63.0,35,45,150),(10.0,50.5,40,25,420),
@@ -114,7 +128,7 @@ RISES = [(-101.0,40.0,90,140,950),(-115.2,36.1,30,30,620),(11.6,48.3,35,25,420),
  (9.05,42.15,6,12,1500),(9.0,40.0,8,18,850),(15.0,37.75,6,6,2600),(-24.2,65.7,8,6,500),(-16.6,28.3,4,4,2400),
  (-16.95,32.75,7,3,1300),(-25.4,37.8,8,2,700),(-6.9,62.05,5,8,600),(-93.0,47.5,60,40,300),(-79.5,44.6,40,25,260)]
 # ranges [lon_a, lat_a, lon_b, lat_b, radius_km, peak]
-RANGES = [(-106.0,33.0,-106.5,39.5,45,2600),(-106.5,39.5,-110.5,44.5,45,2600),(-110.5,44.5,-115.5,49.5,45,2400),
+RANGES = [(-106.0,33.0,-106.5,39.5,45,2600),(73.0,35.0,80.0,30.5,45,5200),(80.0,30.5,88.0,27.8,45,6000),(88.0,27.8,95.0,29.0,40,5000),(48.0,33.5,56.0,28.0,25,2800),(50.0,36.3,56.0,37.0,12,3500),(68.0,35.0,73.0,36.5,30,4500),(73.0,41.5,88.0,43.0,35,4000),(86.0,50.0,92.0,47.0,30,3200),(73.5,20.0,76.5,9.5,12,1300),(137.3,35.5,137.8,36.8,12,2800),(121.0,22.5,121.5,24.8,10,3200),(128.5,38.5,128.5,36.0,15,1400),(59.0,68.0,58.5,52.0,25,1500),(40.0,43.4,48.0,41.5,18,4500),(36.0,28.0,43.0,17.0,20,2000),(95.5,5.0,104.0,-5.0,12,2400),(116.5,6.0,114.0,2.0,15,2000),(-106.5,39.5,-110.5,44.5,45,2600),(-110.5,44.5,-115.5,49.5,45,2400),
  (-115.5,49.5,-120.0,54.5,40,2400),(-120.0,54.5,-127.0,60.0,40,2000),(-118.0,35.3,-121.3,40.3,18,2800),
  (-121.3,40.3,-121.5,49.0,18,2200),(-120.5,35.4,-123.5,40.0,8,800),(-119.4,34.75,-116.6,34.45,7,1200),
  (-84.5,34.5,-79.5,38.0,22,1100),(-79.5,38.0,-75.8,41.4,16,650),(-74.2,42.3,-71.5,44.6,16,1000),(-75.0,46.3,-70.6,47.6,22,700),
@@ -126,7 +140,7 @@ RANGES = [(-106.0,33.0,-106.5,39.5,45,2600),(-106.5,39.5,-110.5,44.5,45,2600),(-
  (3.0,35.0,9.0,35.8,15,1500)]
 
 # lakes [name, lon, lat, rx_km, rz_km, level]
-LAKES = [("Lake Superior",-87.6,47.65,54,22,183),("Lake Michigan",-87.0,44.0,17,47,176),("Lake Huron",-82.4,44.85,27,22,176),
+LAKES = [("Caspian Sea",50.6,41.8,63,116,0),("Black Sea",34.8,43.5,100,55,0),("Lake Balkhash",75.0,46.5,30,8,340),("Aral Sea",60.0,45.0,15,25,30),("Lake Superior",-87.6,47.65,54,22,183),("Lake Michigan",-87.0,44.0,17,47,176),("Lake Huron",-82.4,44.85,27,22,176),
  ("Lake Erie",-81.2,42.15,37,8,174),("Lake Ontario",-77.7,43.55,27,6.5,75),("Lake Okeechobee",-80.83,26.95,5,5,4),
  ("Great Salt Lake",-112.5,41.1,7,9,1280),("Lake Winnipeg",-97.5,52.2,9,38,217),("Lake Geneva",6.55,46.45,7,1.6,372),
  ("Lake Vänern",13.2,58.9,13,7,44),("Lake Vättern",14.5,58.3,2.6,12,88),("IJsselmeer",5.45,52.9,6,6,0),
@@ -149,7 +163,7 @@ RIVERS = [("Mississippi",900,[(-95.2,47.2),(-93.2,45.0),(-91.2,43.0),(-90.6,41.5
 LABELS = [("NORTH AMERICA",-98,47),("UNITED STATES",-95,38),("CANADA",-100,58),("GREENLAND",-41,70),("ICELAND",-19,65.2),
  ("ATLANTIC OCEAN",-40,38),("NORTH SEA",3.5,56),("GULF OF MEXICO",-90,25.3),("HUDSON BAY",-86,59),("MEDITERRANEAN SEA",6,38.2),
  ("EUROPE",14,52),("UNITED KINGDOM",-2.2,53.5),("FRANCE",2.5,46.8),("SPAIN",-3.8,40.0),("ITALY",12.5,43.0),("IRELAND",-8.0,53.2),
- ("AFRICA",0,28),("GERMANY",10.4,51.2),("NORWAY",9.0,61.6),("SWEDEN",15.6,61.8),("DENMARK",9.2,56.1),("SWITZERLAND",8.2,46.75),("AUSTRIA",14.4,47.55),("BELGIUM",4.6,50.6),("PORTUGAL",-8.1,39.7),("BALTIC SEA",19.0,57.0),("TEXAS",-99.0,31.0),("ROCKY MOUNTAINS",-108.5,42.0),("PACIFIC OCEAN",-125,33),("CARIBBEAN",-78,21.6)]
+ ("AFRICA",0,28),("ASIA",95,50),("CHINA",104,33),("INDIA",79,22),("JAPAN",138,37.5),("KOREA",127.8,36.5),("ARABIA",45,23),("RUSSIA",80,60),("INDIAN OCEAN",75,2),("ARABIAN SEA",64,16),("BAY OF BENGAL",88,15),("SOUTH CHINA SEA",114,14),("SEA OF JAPAN",134,40),("INDONESIA",112,-3),("THAILAND",101,16),("PERSIAN GULF",51.5,27.2),("TURKEY",34,39),("EGYPT",30,26),("IRAN",54,32),("MONGOLIA",103,46.5),("PHILIPPINES",123,12.5),("GERMANY",10.4,51.2),("NORWAY",9.0,61.6),("SWEDEN",15.6,61.8),("DENMARK",9.2,56.1),("SWITZERLAND",8.2,46.75),("AUSTRIA",14.4,47.55),("BELGIUM",4.6,50.6),("PORTUGAL",-8.1,39.7),("BALTIC SEA",19.0,57.0),("TEXAS",-99.0,31.0),("ROCKY MOUNTAINS",-108.5,42.0),("PACIFIC OCEAN",-125,33),("CARIBBEAN",-78,21.6)]
 
 # ------------------------------------------------------------------ airports
 # real airport positions, nudged where the 1:5 coastline needs it (km east, km south)
@@ -362,6 +376,108 @@ AIRPORTS = [
       runways=[("06/24",60,2560,45,0,0,(True,True))],
       city_off=(6500,500), radius=4000, pop=520000, tall=0.35, coastal=True,
       desc="A castle on an extinct volcano above the old town, and the grey waters of the Forth just north of the runway.", arff=7, ppd=40000),
+
+ # ---- Asia and the Middle East
+ dict(icao="RJTT", iata="HND", name="Tokyo Haneda", short="Tokyo Haneda", city="Tokyo", country="Japan",
+      lon=139.78, lat=35.55, nudge=(-2.0,-1.0), elev=6, size="hub", gates=32, between=True, side=1, style="hub",
+      runways=[("16R/34L",157,3000,60,-800,0,(True,True)),("16L/34R",157,3360,60,800,300,(True,True))],
+      city_off=(-2500,-7500), radius=9000, pop=14000000, tall=1.5, coastal=True,
+      desc="Neon, ramen and precision: the world's biggest city glowing all the way to the horizon, with Mount Fuji on clear days.", arff=10, ppd=240000),
+ dict(icao="RJBB", iata="KIX", name="Osaka Kansai", short="Osaka Kansai", city="Osaka", country="Japan",
+      lon=135.24, lat=34.43, nudge=(0,-3.0), elev=8, size="hub", gates=26, between=True, side=1, style="hub",
+      runways=[("06R/24L",58,3500,60,-650,0,(True,True)),("06L/24R",58,4000,60,650,300,(True,True))],
+      city_off=(4500,-6500), radius=7000, pop=2700000, tall=1.2, coastal=True,
+      desc="An airport built on its own island in Osaka Bay, with castles, temples and street food waiting on the mainland.", arff=9, ppd=80000),
+ dict(icao="RKSI", iata="ICN", name="Seoul Incheon", short="Seoul Incheon", city="Seoul", country="South Korea",
+      lon=126.45, lat=37.46, nudge=(6.0,0), elev=7, size="hub", gates=30, between=True, side=1, style="hub",
+      runways=[("15L/33R",150,3750,60,-800,0,(True,True)),("15R/33L",150,3750,60,800,300,(True,True))],
+      city_off=(9000,-3000), radius=7000, pop=9700000, tall=1.3, coastal=True,
+      desc="K-pop, high-tech and night markets: Korea's gateway on the Yellow Sea with Seoul's towers just inland.", arff=9, ppd=190000),
+ dict(icao="ZBAA", iata="PEK", name="Beijing Capital", short="Beijing", city="Beijing", country="China",
+      lon=116.6, lat=40.08, nudge=(0,0), elev=150, size="hub", gates=32, between=True, side=1, style="hub",
+      runways=[("18L/36R",180,3800,60,-1000,0,(True,True)),("18R/36L",180,3200,50,1000,300,(True,True))],
+      city_off=(-6000,7000), radius=8500, pop=21000000, tall=1.0, coastal=False,
+      desc="The Forbidden City, the Great Wall in the hills and one of the busiest airports on the planet.", arff=10, ppd=270000),
+ dict(icao="ZSPD", iata="PVG", name="Shanghai Pudong", short="Shanghai", city="Shanghai", country="China",
+      lon=121.8, lat=31.14, nudge=(-7.0,0), elev=4, size="hub", gates=32, between=True, side=1, style="hub",
+      runways=[("17L/35R",172,3800,60,-1000,0,(True,True)),("17R/35L",172,4000,60,1000,300,(True,True))],
+      city_off=(-7000,-3000), radius=8000, pop=24000000, tall=1.7, coastal=True,
+      desc="The Pudong skyline across the river from the Bund: the most futuristic cityscape on the approach anywhere.", arff=10, ppd=200000),
+ dict(icao="VHHH", iata="HKG", name="Hong Kong International", short="Hong Kong", city="Hong Kong", country="Hong Kong",
+      lon=113.92, lat=22.31, nudge=(0,-2.0), elev=9, size="hub", gates=30, between=True, side=1, style="hub",
+      runways=[("07L/25R",73,3800,60,-800,0,(True,True)),("07R/25L",73,3800,60,800,300,(True,True))],
+      city_off=(4500,-5500), radius=5000, pop=7500000, tall=1.9, coastal=True,
+      desc="Skyscrapers crowding the harbour, mountains on every side and an airport carved out of the sea.", arff=10, ppd=200000),
+ dict(icao="RCTP", iata="TPE", name="Taipei Taoyuan", short="Taipei", city="Taipei", country="Taiwan",
+      lon=121.23, lat=25.08, nudge=(0,3.0), elev=33, size="hub", gates=24, between=True, side=1, style="hub",
+      runways=[("05L/23R",53,3660,60,-800,0,(True,True)),("05R/23L",53,3800,60,800,300,(True,True))],
+      city_off=(5000,2500), radius=5000, pop=2600000, tall=1.2, coastal=True,
+      desc="Night markets, bubble tea and Taipei 101 standing above the city like a giant bamboo shoot.", arff=9, ppd=120000),
+ dict(icao="WSSS", iata="SIN", name="Singapore Changi", short="Singapore", city="Singapore", country="Singapore",
+      lon=103.99, lat=1.36, nudge=(-2.0,-3.0), elev=7, size="hub", gates=32, between=True, side=1, style="hub",
+      runways=[("02L/20R",20,4000,60,-900,0,(True,True)),("02C/20C",20,4000,60,900,300,(True,True))],
+      city_off=(-6500,-1500), radius=4500, pop=5900000, tall=1.6, coastal=True,
+      desc="The world's favourite airport: a rainforest waterfall in the terminal and Marina Bay Sands on the skyline.", arff=10, ppd=180000),
+ dict(icao="WMKK", iata="KUL", name="Kuala Lumpur International", short="Kuala Lumpur", city="Kuala Lumpur", country="Malaysia",
+      lon=101.71, lat=2.75, nudge=(3.0,0), elev=21, size="hub", gates=26, between=True, side=1, style="hub",
+      runways=[("14L/32R",143,4000,60,-900,0,(True,True)),("14R/32L",143,4060,60,900,300,(True,True))],
+      city_off=(0,-9000), radius=6000, pop=8000000, tall=1.4, coastal=False,
+      desc="Palm-oil plantations, tropical storms every afternoon and the Petronas Twin Towers shining over the city.", arff=9, ppd=150000),
+ dict(icao="VTBS", iata="BKK", name="Bangkok Suvarnabhumi", short="Bangkok", city="Bangkok", country="Thailand",
+      lon=100.75, lat=13.69, nudge=(0,-2.0), elev=2, size="hub", gates=28, between=True, side=1, style="hub",
+      runways=[("01R/19L",13,4000,60,-1000,0,(True,True)),("01L/19R",13,3700,60,1000,300,(True,True))],
+      city_off=(-6500,-2500), radius=7000, pop=10500000, tall=1.0, coastal=False,
+      desc="Golden temples, tuk-tuks and monsoon downpours: Southeast Asia's great crossroads.", arff=9, ppd=180000),
+ dict(icao="RPLL", iata="MNL", name="Manila Ninoy Aquino", short="Manila", city="Manila", country="Philippines",
+      lon=121.02, lat=14.51, nudge=(0,0), elev=23, size="regional", gates=18, between=False, side=1, style="regional",
+      runways=[("06/24",60,3410,60,0,0,(True,True))],
+      city_off=(-2000,-6000), radius=6000, pop=13000000, tall=1.0, coastal=True,
+      desc="Seven thousand islands, typhoon season and a runway squeezed into one of the world's most crowded cities.", arff=8, ppd=130000),
+ dict(icao="WIII", iata="CGK", name="Jakarta Soekarno-Hatta", short="Jakarta", city="Jakarta", country="Indonesia",
+      lon=106.65, lat=-6.13, nudge=(0,6.0), elev=10, size="hub", gates=26, between=True, side=1, style="hub",
+      runways=[("07L/25R",73,3600,60,-900,0,(True,True)),("07R/25L",73,3660,60,900,300,(True,True))],
+      city_off=(6500,1000), radius=7000, pop=10500000, tall=1.1, coastal=True,
+      desc="The gateway to Indonesia's seventeen thousand islands, volcanoes on the horizon and thunderstorms by the dozen.", arff=9, ppd=180000),
+ dict(icao="VIDP", iata="DEL", name="Delhi Indira Gandhi", short="Delhi", city="Delhi", country="India",
+      lon=77.1, lat=28.57, nudge=(0,0), elev=95, size="hub", gates=30, between=True, side=1, style="hub",
+      runways=[("10/28",96,3810,60,-900,0,(True,True)),("11/29",110,4430,60,900,300,(True,True))],
+      city_off=(5000,-4000), radius=8000, pop=20000000, tall=0.8, coastal=False,
+      desc="Winter smog, summer heat and the mighty Himalaya on the northern horizon on a clear morning.", arff=9, ppd=200000),
+ dict(icao="VABB", iata="BOM", name="Mumbai Chhatrapati Shivaji", short="Mumbai", city="Mumbai", country="India",
+      lon=72.87, lat=19.09, nudge=(4.0,0), elev=11, size="hub", gates=26, between=True, side=1, style="hub",
+      runways=[("09/27",92,3450,60,-700,0,(True,True)),("14/32",140,2870,45,700,300,(True,True))],
+      city_off=(-1500,5500), radius=6000, pop=20000000, tall=1.3, coastal=True,
+      desc="Bollywood, monsoon rain and slums pressed right up to the airport fence of India's busiest airport.", arff=9, ppd=130000),
+ dict(icao="OMDB", iata="DXB", name="Dubai International", short="Dubai", city="Dubai", country="United Arab Emirates",
+      lon=55.36, lat=25.25, nudge=(2.0,2.0), elev=19, size="hub", gates=32, between=True, side=1, style="hub",
+      runways=[("12L/30R",120,4450,60,-700,0,(True,True)),("12R/30L",120,4000,60,700,300,(True,True))],
+      city_off=(-4000,2500), radius=6000, pop=3500000, tall=2.2, coastal=True,
+      desc="The crossroads of the world: desert heat, sandstorms and the Burj Khalifa, the tallest building on Earth.", arff=10, ppd=240000),
+ dict(icao="OTHH", iata="DOH", name="Doha Hamad", short="Doha", city="Doha", country="Qatar",
+      lon=51.61, lat=25.27, nudge=(-4.0,0), elev=4, size="hub", gates=24, between=True, side=1, style="hub",
+      runways=[("16L/34R",160,4850,60,-900,0,(True,True)),("16R/34L",160,4250,60,900,300,(True,True))],
+      city_off=(-2500,-5500), radius=4500, pop=1200000, tall=1.6, coastal=True,
+      desc="A gleaming hub on the Gulf, with a giant teddy bear in the terminal and skyscrapers rising from the desert.", arff=9, ppd=100000),
+ dict(icao="LTFM", iata="IST", name="Istanbul Airport", short="Istanbul", city="Istanbul", country="Turkey",
+      lon=28.75, lat=41.26, nudge=(0,0), elev=99, size="hub", gates=32, between=True, side=1, style="hub",
+      runways=[("17L/35R",172,3750,60,-1000,0,(True,True)),("17R/35L",172,4100,60,1000,300,(True,True))],
+      city_off=(5000,6000), radius=7000, pop=15500000, tall=0.9, coastal=True,
+      desc="Where Europe meets Asia: minarets, the Bosporus and one of the biggest airports ever built.", arff=10, ppd=200000),
+ dict(icao="HECA", iata="CAI", name="Cairo International", short="Cairo", city="Cairo", country="Egypt",
+      lon=31.4, lat=30.12, nudge=(0,0), elev=116, size="hub", gates=24, between=True, side=1, style="hub",
+      runways=[("05L/23R",52,3300,60,-800,0,(True,True)),("05C/23C",52,4000,60,800,300,(True,True))],
+      city_off=(-4500,1500), radius=7000, pop=10000000, tall=0.8, coastal=False,
+      desc="The Nile, the desert and the Pyramids of Giza on the edge of a city of twenty million.", arff=9, ppd=90000),
+ dict(icao="LGAV", iata="ATH", name="Athens International", short="Athens", city="Athens", country="Greece",
+      lon=23.94, lat=37.94, nudge=(-9.0,-1.0), elev=94, size="regional", gates=20, between=False, side=1, style="regional",
+      runways=[("03R/21L",35,4000,60,-700,0,(True,True)),("03L/21R",35,3800,60,700,300,(True,True))],
+      city_off=(-5000,-2000), radius=4500, pop=3200000, tall=0.4, coastal=True,
+      desc="The Acropolis above the city, blue sea all around and the gateway to a thousand Greek islands.", arff=8, ppd=70000),
+ dict(icao="UUEE", iata="SVO", name="Moscow Sheremetyevo", short="Moscow", city="Moscow", country="Russia",
+      lon=37.41, lat=55.97, nudge=(0,0), elev=95, size="hub", gates=28, between=True, side=1, style="hub",
+      runways=[("06L/24R",64,3550,60,-700,0,(True,True)),("06R/24L",64,3700,60,700,300,(True,True))],
+      city_off=(3000,8000), radius=8000, pop=12600000, tall=0.9, coastal=False,
+      desc="Onion domes over Red Square, snow for half the year and de-icing trucks on standby every winter night.", arff=9, ppd=130000),
 ]
 
 # ------------------------------------------------------------------ city layouts (metres from the city centre)
@@ -428,6 +544,24 @@ CITY_LANDMARKS = {
  "LEBL": [("sagrada","Sagrada Familia","sagrada",500,-900,0)],
  "EBBR": [("atomium","Atomium","atomium",-1500,-2500,0)],
  "EGPH": [("edcastle","Edinburgh Castle","castle",-600,0,0)],
+ "RJTT": [("tokyodt","Tokyo skyline","skyline_tokyo",0,0,0),("skytree","Tokyo Skytree","tv_tower",3000,-2000,0),("ttower","Tokyo Tower","eiffel",-1500,1500,0)],
+ "ZSPD": [("pudong","Pudong skyline","skyline_shanghai",1000,0,0),("pearl","Oriental Pearl Tower","tv_tower",0,-600,0)],
+ "VHHH": [("hkdt","Victoria Harbour skyline","skyline_hongkong",0,0,0)],
+ "RCTP": [("t101","Taipei 101","taipei101",0,0,0)],
+ "WSSS": [("mbs","Marina Bay Sands","mbs",800,1500,0),("sgdt","Singapore skyline","skyline_singapore",0,0,0)],
+ "WMKK": [("petronas","Petronas Twin Towers","petronas",0,0,0),("kldt","Kuala Lumpur skyline","skyline_kl",800,600,0)],
+ "OMDB": [("burj","Burj Khalifa","burj",0,0,0),("dxbdt","Dubai skyline","skyline_dubai",1500,-1000,0)],
+ "OTHH": [("dohadt","West Bay skyline","skyline_doha",0,0,0)],
+ "RKSI": [("seouldt","Seoul skyline","skyline_seoul",0,0,0),("ntower","N Seoul Tower","tv_tower",0,1500,0)],
+ "ZBAA": [("bjdt","Beijing CBD","skyline_beijing",2500,0,0),("forbidden","Forbidden City","pagoda",-1000,500,0)],
+ "VTBS": [("bkkdt","Bangkok skyline","skyline_bangkok",0,0,0),("wat","Temple of Dawn","pagoda",-2500,1500,0)],
+ "VABB": [("bomdt","Mumbai skyline","skyline_mumbai",0,0,0)],
+ "VIDP": [("indiagate","India Gate","arc",0,1500,0)],
+ "HECA": [("pyramids","Pyramids of Giza","pyramids",-9000,3000,0)],
+ "LGAV": [("acropolis","Acropolis","parthenon",0,0,0)],
+ "LTFM": [("hagia","Hagia Sophia","dome_church",0,0,0)],
+ "UUEE": [("kremlin","St Basil's Cathedral","onion_domes",0,0,0)],
+ "RJBB": [("osakacastle","Osaka Castle","pagoda",0,0,0)],
 }
 
 def point_in_poly(p, poly):

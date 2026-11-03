@@ -3,7 +3,7 @@ class_name AircraftTypes
 ## Aerodynamic derivatives are per radian. Elevator/aileron/rudder derivatives use the
 ## convention "positive input = nose up / roll right / nose right".
 
-const ORDER := ["t172", "tp50", "tp72", "tp90", "rj70", "rj90", "rj100", "s319", "s320", "s321", "w280", "w350", "w390", "w380", "bj6", "bj8", "f4"]
+const ORDER := ["t172", "tp50", "tp72", "tp90", "rj70", "rj90", "rj100", "s319", "s320", "s321", "w280", "w350", "w390", "w380", "q740", "bj6", "bj8", "f4"]
 
 ## Every type: the hand-written ones below plus the family variants built from them.
 static var TYPES: Dictionary = _build_types()
@@ -338,6 +338,14 @@ const VARIANTS := {
 		"nose_gear_x": -12.4, "main_gear_x": 1.1, "winglet": "sharklet",
 		"cabin": [{"cls": "vip", "rows": 5, "layout": "1-1", "pitch": 1.9, "seat_w": 0.75}],
 		"hourly_cost": 7200, "rating_hours": 800.0, "range_nm": 7700}],
+	"q740": ["f4", {
+		"name": "Atlas Q-740 Monarch", "short": "Q740", "category": "widebody", "role": "Four-engine jumbo with an upper-deck hump",
+		"blurb": "The original jumbo: four engines, the famous hump over the flight deck and an upstairs lounge. Still the queen of the long-haul routes.",
+		"hump": true, "pilots": 2, "fa": 12, "cargo_door": false, "sound": "fan_large",
+		"cabin": [{"cls": "business", "rows": 4, "layout": "1-2-1", "pitch": 1.5, "seat_w": 0.65},
+			{"cls": "business", "rows": 6, "layout": "2-2-2", "pitch": 1.2, "seat_w": 0.6},
+			{"cls": "economy", "rows": 34, "layout": "3-4-3", "pitch": 0.8, "seat_w": 0.45}],
+		"doors": [0.1, 0.3, 0.55, 0.82], "hourly_cost": 24000, "rating_hours": 4000.0, "range_nm": 7700}],
 	"w380": ["f4", {
 		"name": "Atlas W-380 Skyliner", "short": "W380", "category": "widebody", "role": "Four-engine double-deck airliner",
 		"blurb": "The biggest passenger aircraft in the world: four engines, an upper deck and over 400 seats. Flagship of the long-haul fleets.",

@@ -36,6 +36,12 @@ const LIST := [
 	{"id": "coast_to_coast", "title": "Coast to Coast", "desc": "Land at five of the new cities: Atlanta, Dallas, Denver, Seattle, Las Vegas, Berlin, Stockholm and more.", "icon": "globe", "group": "Places", "goal": 5, "stat": "new_airports"},
 	{"id": "mile_high", "title": "Mile High", "desc": "Land at Denver, a mile above sea level.", "icon": "pin", "group": "Places"},
 	{"id": "viking", "title": "Viking Route", "desc": "Land at Oslo, Stockholm and Copenhagen.", "icon": "pin", "group": "Places", "goal": 3, "stat": "nordic"},
+	{"id": "big_in_japan", "title": "Big in Japan", "desc": "Land at Tokyo Haneda.", "icon": "pin", "group": "Places"},
+	{"id": "silk_road", "title": "Silk Road", "desc": "Land at Istanbul, Dubai, Delhi and Beijing.", "icon": "globe", "group": "Places", "goal": 4, "stat": "silk_road_aps"},
+	{"id": "asia_tour", "title": "Pacific Rim", "desc": "Land at eight airports in Asia and the Middle East.", "icon": "globe", "group": "Places", "goal": 8, "stat": "asia_airports"},
+	{"id": "ultra_long", "title": "Ultra Long Haul", "desc": "Complete a flight of four hours or more.", "icon": "clock", "group": "Flying"},
+	{"id": "monarch", "title": "Long Live the Jumbo", "desc": "Fly the Q-740 Monarch.", "icon": "plane", "group": "Flying"},
+	{"id": "equator", "title": "Crossing the Line", "desc": "Land south of the equator (Jakarta).", "icon": "globe", "group": "Places"},
 	# ---------------------------------------------------------------- sightseeing
 	{"id": "sightseer", "title": "Sightseer", "desc": "Fly low past three famous landmarks.", "icon": "star", "group": "Sightseeing", "goal": 3, "stat": "landmarks"},
 	{"id": "seen_it_all", "title": "Seen It All", "desc": "Fly low past fifteen landmarks.", "icon": "star", "group": "Sightseeing", "goal": 15, "stat": "landmarks"},
@@ -161,6 +167,8 @@ static func on_flight_result(res: Dictionary, cons: Dictionary = {}) -> void:
 		_add("types", type_id)
 	if type_id == "w380":
 		unlock("queen")
+	if type_id == "q740":
+		unlock("monarch")
 	_add("hours", float(res.get("block_hours", 0.0)))
 	var hz: Dictionary = res.get("hazards", {})
 	if hz.has("lightning"):
@@ -264,6 +272,16 @@ static func on_flight_result(res: Dictionary, cons: Dictionary = {}) -> void:
 		_add("new_airports", arr)
 	if arr == "KDEN":
 		unlock("mile_high")
+	if arr == "RJTT":
+		unlock("big_in_japan")
+	if arr == "WIII":
+		unlock("equator")
+	if arr in ["LTFM", "OMDB", "VIDP", "ZBAA"]:
+		_add("silk_road_aps", arr)
+	if arr in ["RJTT", "RJBB", "RKSI", "ZBAA", "ZSPD", "VHHH", "RCTP", "WSSS", "WMKK", "VTBS", "RPLL", "WIII", "VIDP", "VABB", "OMDB", "OTHH"]:
+		_add("asia_airports", arr)
+	if float(res.get("block_hours", 0.0)) >= 4.0:
+		unlock("ultra_long")
 	if arr in ["ENGM", "ESSA", "EKCH"]:
 		_add("nordic", arr)
 	if int(res.get("pax", 0)) > 0 and NewsExtra.review_stars(res) >= 5:

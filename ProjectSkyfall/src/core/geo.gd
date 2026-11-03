@@ -103,7 +103,7 @@ static func init_world() -> void:
 	ready = true
 
 
-const WORLD_VERSION := 1
+const WORLD_VERSION := 2
 
 
 static func _load_grid(name: String, count: int) -> PackedFloat32Array:

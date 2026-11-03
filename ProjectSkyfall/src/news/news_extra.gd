@@ -38,6 +38,10 @@ static func daily(day: int, r: RandomNumberGenerator) -> void:
 		_spotters(day, r)
 	if r.randf() < 0.1:
 		_travel(day, r)
+	if r.randf() < 0.18:
+		_asia(day, r, month)
+	if r.randf() < 0.08:
+		_ultra_long(day, r)
 	_forecast(day, r)
 	if r.randf() < 0.6:
 		_history(day, r)
@@ -65,7 +69,8 @@ static func _posts(r: RandomNumberGenerator, lines: Array, n: int, t: float, sid
 static func _disasters(day: int, r: RandomNumberGenerator, month: int) -> void:
 	# earthquakes: anywhere on a fault line
 	if r.randf() < 0.03:
-		var icao := String(["KSFO", "KLAX", "KSEA", "LIRF", "BIKF", "LPPD", "SKNG", "KLAS", "LSZH", "LPPT"][r.randi() % 10])
+		var quake_aps := ["KSFO", "KLAX", "KSEA", "LIRF", "BIKF", "LPPD", "SKNG", "KLAS", "LSZH", "LPPT", "RJTT", "RJBB", "RCTP", "RPLL", "WIII", "LTFM", "LGAV"]
+		var icao := String(quake_aps[r.randi() % quake_aps.size()])
 		var mag := snappedf(r.randf_range(5.6, 7.8), 0.1)
 		var city := _ap_city(icao)
 		var closed := mag >= 6.6
@@ -90,6 +95,28 @@ static func _disasters(day: int, r: RandomNumberGenerator, month: int) -> void:
 			"Thousands of passengers are stranded as flights are cancelled across the region.", "Forecasters are tracking the ash cloud as it drifts east."],
 			{"importance": 3, "t": _t(day, r.randf_range(4.0, 20.0)), "tags": ["volcano", "disaster"]})
 		_posts(r, ["The sky glowing red over the volcano tonight. Unreal.", "All flights cancelled. Ash cloud. Here we go again.", "Ash falling like grey snow on the car."], 3, _t(day, 14.0))
+	# typhoons in the western Pacific, monsoon floods in South Asia, sandstorms in the Gulf
+	if r.randf() < (0.08 if month in [7, 8, 9, 10] else 0.006):
+		var ticao := String(["RJTT", "RCTP", "VHHH", "RPLL", "RJBB"][r.randi() % 5])
+		var tnm := String(["Haikui", "Koinu", "Saola", "Mawar", "Lan", "Kong-rey", "Yagi", "Bebinca"][(day / 9) % 8])
+		_close(ticao, 1.5, "Typhoon %s" % tnm)
+		News.publish("skyline", "breaking", "Typhoon %s slams into %s - hundreds of flights cancelled" % [tnm, _ap_city(ticao)],
+			"Super Typhoon %s brought winds of up to 200 km/h. %s airport is closed." % [tnm, _ap_city(ticao)],
+			["Signal 10 warnings are in force.", "Airlines moved their aircraft to safer airports before the storm.", "Trains and ferries have also stopped."],
+			{"importance": 3, "t": _t(day, r.randf_range(4.0, 20.0)), "tags": ["hurricane", "disaster", "weather"]})
+	if r.randf() < (0.08 if month in [6, 7, 8, 9] else 0.003):
+		var micao := String(["VABB", "VIDP", "VTBS", "WMKK", "WIII"][r.randi() % 5])
+		_close(micao, 0.4, "monsoon flooding")
+		News.publish("gazette", "news", "Monsoon floods close the runway at %s" % _ap_city(micao),
+			"Torrential monsoon rain left standing water on the runway at %s." % _ap_city(micao),
+			["Several flights skidded on wet taxiways but nobody was hurt.", "Passengers waded through flooded roads to reach the terminal."],
+			{"importance": 2, "t": _t(day, r.randf_range(8.0, 20.0)), "tags": ["disaster", "weather"]})
+	if r.randf() < (0.05 if month in [3, 4, 5, 6] else 0.01):
+		var sicao := String(["OMDB", "OTHH", "HECA"][r.randi() % 3])
+		News.publish("gazette", "news", "Sandstorm turns day to night at %s" % _ap_city(sicao),
+			"A wall of sand swept across %s, cutting visibility to a few hundred metres." % _ap_city(sicao),
+			["Arrivals were put into holding patterns over the Gulf.", "Sand gets into engines and filters: maintenance crews are working overtime."],
+			{"importance": 2, "t": _t(day, r.randf_range(10.0, 18.0)), "tags": ["disaster", "weather"]})
 	# hurricanes: late summer and autumn, the south-east US and the islands
 	var hurricane_odds := 0.08 if month in [8, 9, 10] else 0.004
 	if r.randf() < hurricane_odds:
@@ -241,6 +268,37 @@ const HISTORY := ["On this day the first passenger jet service crossed the Atlan
 	"On this day the first flight across the English Channel took 36 minutes.", "On this day the first supersonic airliner made its last commercial flight.",
 	"On this day two brothers flew the first powered aeroplane for twelve seconds.", "On this day the first jet bridge was opened at an airport.",
 	"On this day the black box flight recorder was invented to help investigators learn from accidents.", "On this day the first in-flight meal was served: sandwiches and fruit."]
+
+
+static func _asia(day: int, r: RandomNumberGenerator, month: int) -> void:
+	## Stories from Asia and the Middle East: festivals, travel rushes, new routes and records.
+	var t := _t(day, r.randf_range(8.0, 20.0))
+	var stories := [
+		["Cherry blossom season sends flights to Tokyo soaring", "Every seat to Japan is sold out as visitors chase the pink blossoms.", "feelgood"],
+		["The world's biggest migration: Lunar New Year travel rush begins", "Hundreds of millions of journeys in forty days, and airlines add hundreds of extra flights.", "travel"],
+		["Desert Falcon opens the world's most luxurious first-class suite", "A shower, a double bed and a personal butler at 40,000 feet.", "business"],
+		["Merlion Airways named world's best airline - again", "Passengers praised the crew, the food and the legroom on its ultra-long flights.", "feelgood"],
+		["Hong Kong's new third runway opens", "The airport can now handle a hundred landings and takeoffs an hour.", "business"],
+		["Diwali travel rush: Monsoon Air adds 200 extra flights", "Families crowd airports across India to get home for the festival of lights.", "travel"],
+		["Pilgrimage season: special flights carry the faithful to the Gulf", "Airlines operate thousands of charter flights in a few weeks.", "travel"],
+		["Smog grounds flights in Delhi", "Visibility fell below 100 metres as winter pollution settled over the city.", "weather"],
+		["Singapore's airport waterfall named the world's most photographed terminal", "Forty metres of rainwater pour through the roof of the terminal mall.", "feelgood"],
+		["Spotters flock to Haneda for the last flight of the Q-740 jumbo in Japan", "Thousands gathered to wave goodbye to the queen of the skies.", "spotter"],
+		["Typhoon season: how pilots fly in the strongest storms on Earth", "Crosswinds of 40 knots and rain like a waterfall - a captain explains.", "weather"],
+		["Bosporus Air now flies to more countries than any other airline", "Istanbul's hub connects 125 countries.", "business"],
+	]
+	var st: Array = stories[r.randi() % stories.size()]
+	News.publish("gazette", "news", String(st[0]), String(st[1]), [], {"importance": 1, "t": t, "tags": [String(st[2]), "asia"]})
+
+
+static func _ultra_long(day: int, r: RandomNumberGenerator) -> void:
+	var pairs := [["KJFK", "WSSS"], ["KLAX", "RJTT"], ["KSFO", "VHHH"], ["KJFK", "RJTT"], ["KLAX", "WSSS"], ["EGLL", "WSSS"], ["OMDB", "KLAX"], ["WMSK", "RJTT"]]
+	var pr: Array = pairs[r.randi() % pairs.size()]
+	var nm := Airports.distance_nm(String(pr[0]), String(pr[1]))
+	News.publish("aeroweek", "business", "Ultra-long haul: %s to %s nonstop in %.1f hours" % [_ap_city(pr[0]), _ap_city(pr[1]), nm / 470.0 + 0.6],
+		"The new nonstop link covers %s nautical miles - one of the longest flights on the network." % U.fmt_int(int(nm)),
+		["Crews work in shifts and sleep in hidden bunks above the cabin.", "Passengers are offered stretching classes in the galley."],
+		{"importance": 1, "t": _t(day, r.randf_range(8.0, 18.0)), "tags": ["business", "newtype", "travel"]})
 
 
 static func _forecast(day: int, r: RandomNumberGenerator) -> void:

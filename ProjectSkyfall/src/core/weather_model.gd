@@ -19,6 +19,10 @@ const PRESETS := {
 	"volcanic_ash": {"cover": 0.7, "base_ft": 9000.0, "wind": 18.0, "dir": 260.0, "vis": 2500.0, "precip": "none", "turb": 0.25, "storm": 0.1, "temp_off": 0.0},
 	"heatwave": {"cover": 0.05, "base_ft": 9000.0, "wind": 8.0, "dir": 200.0, "vis": 15000.0, "precip": "none", "turb": 0.55, "storm": 0.0, "temp_off": 17.0},
 	"earthquake": {"cover": 0.2, "base_ft": 5000.0, "wind": 7.0, "dir": 250.0, "vis": 30000.0, "precip": "none", "turb": 0.08, "storm": 0.0, "temp_off": 0.0},
+	"typhoon": {"cover": 1.0, "base_ft": 700.0, "wind": 78.0, "dir": 90.0, "vis": 1500.0, "precip": "thunderstorm", "turb": 1.6, "storm": 1.0, "temp_off": 3.0},
+	"monsoon": {"cover": 1.0, "base_ft": 900.0, "wind": 22.0, "dir": 220.0, "vis": 1800.0, "precip": "rain", "turb": 0.6, "storm": 0.7, "temp_off": 6.0},
+	"sandstorm": {"cover": 0.3, "base_ft": 9000.0, "wind": 34.0, "dir": 300.0, "vis": 700.0, "precip": "none", "turb": 0.7, "storm": 0.2, "temp_off": 12.0},
+	"smog": {"cover": 0.6, "base_ft": 3000.0, "wind": 3.0, "dir": 300.0, "vis": 1200.0, "precip": "none", "turb": 0.05, "storm": 0.0, "temp_off": 2.0},
 	"crosswind": {"cover": 0.35, "base_ft": 3800.0, "wind": 26.0, "dir": 0.0, "vis": 25000.0, "precip": "none", "turb": 0.45, "storm": 0.1, "temp_off": 0.0},
 }
 

@@ -41,7 +41,7 @@ func setup(params: Dictionary) -> void:
 			"icon_name": "trophy"}))
 	row2.add_child(ImageCard.make("Passenger Journey", "Book a seat on any departure and ride along in the cabin", "home_passenger",
 		func(): Game.goto("passenger"), {"icon_name": "user"}))
-	row2.add_child(ImageCard.make("Hangar", "Seventeen aircraft and their liveries, up close", "home_hangar",
+	row2.add_child(ImageCard.make("Hangar", "Eighteen aircraft and dozens of liveries, up close", "home_hangar",
 		func(): Game.goto("hangar"), {"icon_name": "hangar"}))
 	row2.add_child(ImageCard.make("Achievements", "%d of %d unlocked: butter landings, landmarks, island hopping and more" % [Achievements.unlocked_count(), Achievements.LIST.size()],
 		"act_landing", func(): Game.goto("achievements"), {"icon_name": "medal", "progress": float(Achievements.unlocked_count()) / float(Achievements.LIST.size()),
@@ -76,7 +76,7 @@ func _featured() -> Array:
 		"ap:KJFK", func(): Game.goto("tower", {"icao": String(Game.settings.get("tower_airport", "KJFK"))}), {"ribbon": "NEW · ATC", "ribbon_color": UIStyle.GREEN, "title_size": 28, "kenburns": true}))
 	out.append(ImageCard.make("Special Missions", "Fly the president with a fighter escort, glide out of a volcanic ash cloud, land in a hurricane, an earthquake or a blizzard.",
 		"scn:ash_iceland", func(): Game.goto("activity", {"category": "special"}), {"ribbon": "NEW", "ribbon_color": UIStyle.RED, "title_size": 28, "kenburns": true}))
-	out.append(ImageCard.make("New York, London, Paris", "The real world: 41 airports from JFK, Atlanta and Las Vegas to Heathrow, Berlin and Stockholm, with the Statue of Liberty, the Space Needle and the Eiffel Tower to fly past.",
+	out.append(ImageCard.make("New York, London, Paris", "The real world: 61 airports from New York and London to Tokyo, Dubai and Singapore - long-haul flights of up to five hours, with the Burj Khalifa, the Pyramids and the Eiffel Tower to fly past.",
 		"scn:hudson_run", func(): Game.goto("activity", {"category": "discovery", "focus": "hudson_run"}), {"ribbon": "NEW WORLD", "ribbon_color": UIStyle.GOLD,
 			"title_size": 28, "kenburns": true}))
 	out.append(ImageCard.make("Landing Challenges", "Trade-wind crosswinds, fog, mountain gusts and night approaches. How good is your touchdown?",

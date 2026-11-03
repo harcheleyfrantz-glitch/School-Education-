@@ -138,6 +138,30 @@ static func sea_name(x: float, z: float) -> String:
 	var lat := ll.y
 	if lon < -100.0 and lat < 52.0:
 		return "the Pacific Ocean"
+	if lon > 26.0 and lon < 42.0 and lat > 40.5 and lat < 47.0:
+		return "the Black Sea"
+	if lon > 46.0 and lon < 55.0 and lat > 36.0 and lat < 47.5:
+		return "the Caspian Sea"
+	if lon > 32.0 and lon < 44.0 and lat > 12.0 and lat < 30.0:
+		return "the Red Sea"
+	if lon > 47.5 and lon < 57.0 and lat > 23.5 and lat < 30.5:
+		return "the Persian Gulf"
+	if lon > 50.0 and lon < 77.0 and lat > 5.0 and lat < 26.0:
+		return "the Arabian Sea"
+	if lon > 78.0 and lon < 99.0 and lat > 5.0 and lat < 23.0:
+		return "the Bay of Bengal"
+	if lon > 99.0 and lon < 121.0 and lat > 0.0 and lat < 23.0:
+		return "the South China Sea"
+	if lon > 105.0 and lon < 120.0 and lat > -8.0 and lat <= 0.0:
+		return "the Java Sea"
+	if lon > 117.0 and lon < 131.0 and lat > 23.0 and lat < 41.0:
+		return "the East China Sea" if lat < 33.0 else "the Yellow Sea"
+	if lon > 127.0 and lon < 142.0 and lat > 33.0 and lat < 52.0:
+		return "the Sea of Japan"
+	if lon > 121.0 and lat < 33.0:
+		return "the Philippine Sea"
+	if lon > 40.0 and lat < 10.0:
+		return "the Indian Ocean"
 	if lat > 18.0 and lat < 30.8 and lon > -98.0 and lon < -81.2:
 		return "the Gulf of Mexico"
 	if lat > 51.0 and lat < 64.5 and lon > -95.5 and lon < -76.5:
@@ -221,6 +245,40 @@ static func center_name(x: float, z: float, country: String) -> String:
 			return "Stockholm Control"
 		"Belgium":
 			return "Brussels Control"
+		"Japan":
+			return "Tokyo Control" if ll.x > 137.0 else "Fukuoka Control"
+		"South Korea":
+			return "Incheon Control"
+		"China":
+			return "Beijing Control" if ll.y > 35.0 else "Shanghai Control"
+		"Hong Kong":
+			return "Hong Kong Radar"
+		"Taiwan":
+			return "Taipei Control"
+		"Singapore":
+			return "Singapore Radar"
+		"Malaysia":
+			return "Lumpur Radar"
+		"Thailand":
+			return "Bangkok Control"
+		"Philippines":
+			return "Manila Control"
+		"Indonesia":
+			return "Jakarta Control"
+		"India":
+			return "Delhi Control" if ll.y > 23.0 else "Mumbai Control"
+		"United Arab Emirates":
+			return "Emirates Radar"
+		"Qatar":
+			return "Doha Control"
+		"Turkey":
+			return "Istanbul Control"
+		"Egypt":
+			return "Cairo Control"
+		"Greece":
+			return "Athinai Control"
+		"Russia":
+			return "Moscow Control"
 		"Bermuda":
 			return "New York Oceanic"
 		"Faroe Islands":

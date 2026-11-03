@@ -5,7 +5,8 @@ extends ScreenBase
 const WEATHER := [["live", "Live", "globe"], ["clear", "Clear", "sun"], ["few", "Few", "cloud"], ["scattered", "Scattered", "cloud"],
 	["overcast", "Overcast", "cloud"], ["rain", "Rain", "rain"], ["storm", "Storm", "storm"], ["fog", "Fog", "fog"], ["snow", "Snow", "snow"],
 	["crosswind", "Crosswind", "wind"], ["hurricane", "Hurricane", "storm"], ["tornado", "Tornado", "storm"],
-	["blizzard", "Blizzard", "snow"], ["hail", "Hail", "storm"], ["volcanic_ash", "Volcanic ash", "fog"], ["heatwave", "Heatwave", "sun"], ["earthquake", "Earthquake", "bell"]]
+	["blizzard", "Blizzard", "snow"], ["hail", "Hail", "storm"], ["volcanic_ash", "Volcanic ash", "fog"], ["heatwave", "Heatwave", "sun"], ["earthquake", "Earthquake", "bell"],
+	["typhoon", "Typhoon", "storm"], ["monsoon", "Monsoon", "rain"], ["sandstorm", "Sandstorm", "wind"], ["smog", "Smog", "fog"]]
 
 var cfg := {"type": "s320", "airline": "SKF", "dep": "SKPC", "arr": "SKRV", "start": "gate", "hour": 18.5, "weather": "live", "events": "realistic"}
 var map: WorldMapView
@@ -72,7 +73,7 @@ func setup(params: Dictionary) -> void:
 	regions.offset_top = 26
 	regions.offset_left = -230
 	regions.offset_right = 330
-	for rg in [["Calderra", "calderra"], ["North America", "america"], ["Atlantic", "atlantic"], ["Europe", "europe"], ["Whole world", "all"]]:
+	for rg in [["Calderra", "calderra"], ["North America", "america"], ["Atlantic", "atlantic"], ["Europe", "europe"], ["Asia", "asia"], ["Whole world", "all"]]:
 		var key: String = rg[1]
 		regions.add_child(UIStyle.button(rg[0], func(): map.frame_region(key), 0.0))
 	body.add_child(regions)

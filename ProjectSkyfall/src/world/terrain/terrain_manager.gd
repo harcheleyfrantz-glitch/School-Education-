@@ -3,8 +3,8 @@ extends Node3D
 ## Quadtree terrain streaming. Chunks are generated on worker threads and swapped in only when a
 ## complete, crack-free cover is available. Fine chunks also carry forests and buildings.
 
-const ROOT_SIZE := 4096000.0     # covers Calderra and the real-world region
-const MAX_LEVEL := 12            # 4096 km / 2^12 = 1 km leaves
+const ROOT_SIZE := 8192000.0     # covers Calderra and the real-world region (Americas to Japan)
+const MAX_LEVEL := 13            # 8192 km / 2^13 = 1 km leaves
 const DETAIL_SIZE := 2100.0       # chunks this size or smaller get trees/buildings
 
 var view: Node = null             # WorldView (provides origin)

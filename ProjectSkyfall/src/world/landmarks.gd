@@ -35,6 +35,17 @@ const SKYLINES := {
 	"skyline_seattle": [900.0, 650.0, 24, 80.0, 280.0, 0.6, 26],
 	"skyline_vegas": [600.0, 3200.0, 34, 90.0, 210.0, 0.8, 27],
 	"skyline_frankfurt": [800.0, 600.0, 16, 110.0, 270.0, 0.7, 28],
+	"skyline_tokyo": [2600.0, 1800.0, 90, 90.0, 260.0, 0.5, 29],
+	"skyline_shanghai": [1300.0, 900.0, 36, 120.0, 420.0, 0.75, 30],
+	"skyline_hongkong": [2000.0, 700.0, 70, 110.0, 380.0, 0.65, 31],
+	"skyline_singapore": [1100.0, 800.0, 34, 100.0, 280.0, 0.7, 32],
+	"skyline_kl": [1000.0, 800.0, 26, 90.0, 300.0, 0.65, 33],
+	"skyline_dubai": [700.0, 3500.0, 44, 120.0, 350.0, 0.8, 34],
+	"skyline_doha": [800.0, 700.0, 22, 100.0, 300.0, 0.8, 35],
+	"skyline_seoul": [1600.0, 1200.0, 50, 80.0, 260.0, 0.55, 36],
+	"skyline_beijing": [1000.0, 800.0, 30, 100.0, 330.0, 0.6, 37],
+	"skyline_bangkok": [1200.0, 900.0, 34, 90.0, 300.0, 0.55, 38],
+	"skyline_mumbai": [1200.0, 1500.0, 36, 80.0, 280.0, 0.55, 39],
 }
 
 
@@ -175,6 +186,22 @@ func _build(lm: Dictionary) -> void:
 				_castle(plain, boxes)
 			"twin_towers_church":
 				_twin_church(plain, boxes)
+			"burj":
+				_burj(plain, boxes)
+			"petronas":
+				_petronas(plain, boxes)
+			"mbs":
+				_mbs(plain, boxes)
+			"taipei101":
+				_taipei101(plain, boxes)
+			"pyramids":
+				_pyramids(plain, boxes)
+			"parthenon":
+				_parthenon(plain, boxes)
+			"pagoda":
+				_pagoda(plain, boxes)
+			"onion_domes":
+				_onion_domes(plain, boxes)
 	if plain.vcount() > 0:
 		var mi := MeshInstance3D.new()
 		mi.mesh = plain.commit()
@@ -764,3 +791,105 @@ func _twin_church(mb: MeshBuilder, boxes: Array) -> void:
 		mb.add_cone(b + Vector3(0, 112, 0), b + Vector3(0, 118, 0), 2.0, 6, Color(0.85, 0.7, 0.3))
 	boxes.append([Vector3(0, 55, -28), Vector3(20, 60, 9)])
 	boxes.append([Vector3(0, 20, 25), Vector3(20, 20, 45)])
+
+
+# ================================================================== Asia and the Middle East
+func _burj(mb: MeshBuilder, boxes: Array) -> void:
+	## The Burj Khalifa: a Y-shaped stepped tower 828 m tall with a spire.
+	var glass := Color(0.72, 0.78, 0.84)
+	var h := 0.0
+	var steps := [[0.0, 160.0, 34.0], [160.0, 330.0, 27.0], [330.0, 470.0, 20.0], [470.0, 580.0, 14.0], [580.0, 640.0, 9.0]]
+	for st in steps:
+		for k in 3:
+			var a := TAU * k / 3.0
+			var c := Vector3(cos(a), 0, sin(a)) * float(st[2]) * 0.55
+			mb.add_cylinder(c + Vector3(0, float(st[0]), 0), c + Vector3(0, float(st[1]), 0), float(st[2]) * 0.55, float(st[2]) * 0.5, 8, glass)
+		h = float(st[1])
+	mb.add_cylinder(Vector3(0, h, 0), Vector3(0, 828, 0), 5.0, 0.6, 8, Color(0.85, 0.87, 0.9))
+	boxes.append([Vector3(0, 240, 0), Vector3(36, 240, 36)])
+	boxes.append([Vector3(0, 700, 0), Vector3(10, 130, 10)])
+
+
+func _petronas(mb: MeshBuilder, boxes: Array) -> void:
+	## Twin steel towers joined by a skybridge.
+	var steel := Color(0.78, 0.8, 0.83)
+	for sx in [-1.0, 1.0]:
+		var b := Vector3(sx * 42.0, 0, 0)
+		var tiers := [[0.0, 240.0, 24.0], [240.0, 330.0, 20.0], [330.0, 375.0, 15.0], [375.0, 400.0, 10.0]]
+		for t in tiers:
+			mb.add_cylinder(b + Vector3(0, float(t[0]), 0), b + Vector3(0, float(t[1]), 0), float(t[2]), float(t[2]) * 0.96, 16, steel)
+		mb.add_cylinder(b + Vector3(0, 400, 0), b + Vector3(0, 452, 0), 3.0, 0.4, 8, steel)
+		boxes.append([b + Vector3(0, 200, 0), Vector3(24, 200, 24)])
+	mb.add_box(Vector3(0, 172, 0), Vector3(62, 6, 6), Color(0.5, 0.55, 0.6))
+
+
+func _mbs(mb: MeshBuilder, boxes: Array) -> void:
+	## Three hotel towers carrying a ship-shaped park across the top.
+	var c := Color(0.86, 0.86, 0.84)
+	for k in 3:
+		var x := (k - 1) * 70.0
+		mb.add_box(Vector3(x - 8, 97, 0), Vector3(14, 194, 38), c)
+		mb.add_box(Vector3(x + 8, 97, 0), Vector3(14, 194, 38), c)
+		boxes.append([Vector3(x, 97, 0), Vector3(16, 97, 19)])
+	mb.add_box(Vector3(10, 199, 0), Vector3(340, 10, 40), Color(0.3, 0.45, 0.32))
+
+
+func _taipei101(mb: MeshBuilder, boxes: Array) -> void:
+	## Eight flared stacked sections like a bamboo stalk, 508 m with the spire.
+	var g := Color(0.35, 0.55, 0.5)
+	mb.add_box(Vector3(0, 45, 0), Vector3(60, 90, 60), g)
+	for k in 8:
+		var y0 := 90.0 + k * 40.0
+		mb.add_cylinder(Vector3(0, y0, 0), Vector3(0, y0 + 40.0, 0), 22.0, 30.0, 4, g)
+	mb.add_box(Vector3(0, 430, 0), Vector3(30, 30, 30), g)
+	mb.add_cylinder(Vector3(0, 445, 0), Vector3(0, 508, 0), 3.0, 0.5, 6, Color(0.85, 0.85, 0.85))
+	boxes.append([Vector3(0, 230, 0), Vector3(32, 230, 32)])
+
+
+func _pyramids(mb: MeshBuilder, boxes: Array) -> void:
+	var sand := Color(0.85, 0.74, 0.52)
+	for p in [[Vector3(0, 0, 0), 230.0, 139.0], [Vector3(-350, 0, 300), 215.0, 136.0], [Vector3(-600, 0, 560), 105.0, 62.0]]:
+		var b: Vector3 = p[0]
+		mb.add_cone(b, b + Vector3(0, float(p[2]), 0), float(p[1]) * 0.7, 4, sand)
+		boxes.append([b + Vector3(0, float(p[2]) * 0.4, 0), Vector3(float(p[1]) * 0.45, float(p[2]) * 0.4, float(p[1]) * 0.45)])
+
+
+func _parthenon(mb: MeshBuilder, boxes: Array) -> void:
+	## The Acropolis rock with the Parthenon on top.
+	var rock := Color(0.6, 0.55, 0.47)
+	var marble := Color(0.9, 0.87, 0.8)
+	mb.add_rounded_box(Vector3(0, 35, 0), Vector3(300, 70, 150), rock, 0.5, 10, 6)
+	for i in 8:
+		for zz in [-14.0, 14.0]:
+			mb.add_cylinder(Vector3(-31.0 + i * 8.8, 70, zz), Vector3(-31.0 + i * 8.8, 80, zz), 0.9, 0.85, 8, marble)
+	mb.add_box(Vector3(0, 82, 0), Vector3(70, 4, 32), marble)
+	mb.add_box(Vector3(0, 69, 0), Vector3(72, 2, 34), marble)
+	boxes.append([Vector3(0, 42, 0), Vector3(150, 42, 75)])
+
+
+func _pagoda(mb: MeshBuilder, boxes: Array) -> void:
+	## A five-tiered pagoda or temple tower with upturned roofs.
+	var wall := Color(0.75, 0.2, 0.15)
+	var roof := Color(0.2, 0.22, 0.25)
+	mb.add_box(Vector3(0, 3, 0), Vector3(40, 6, 40), Color(0.75, 0.72, 0.65))
+	for k in 5:
+		var y := 6.0 + k * 11.0
+		var w := 22.0 - k * 3.0
+		mb.add_box(Vector3(0, y + 4.0, 0), Vector3(w, 8.0, w), wall)
+		mb.add_cone(Vector3(0, y + 8.0, 0), Vector3(0, y + 12.0, 0), w * 0.95, 4, roof)
+	mb.add_cylinder(Vector3(0, 61, 0), Vector3(0, 74, 0), 0.6, 0.2, 6, Color(0.85, 0.7, 0.3))
+	boxes.append([Vector3(0, 35, 0), Vector3(20, 35, 20)])
+
+
+func _onion_domes(mb: MeshBuilder, boxes: Array) -> void:
+	## St Basil's: a cluster of towers with bright striped onion domes.
+	var cols := [Color(0.85, 0.2, 0.2), Color(0.2, 0.6, 0.35), Color(0.95, 0.75, 0.2), Color(0.2, 0.4, 0.8), Color(0.9, 0.9, 0.85)]
+	mb.add_box(Vector3(0, 10, 0), Vector3(60, 20, 60), Color(0.65, 0.25, 0.2))
+	var spots := [[Vector3(0, 0, 0), 47.0], [Vector3(-20, 0, -20), 32.0], [Vector3(20, 0, -20), 32.0], [Vector3(-20, 0, 20), 32.0], [Vector3(20, 0, 20), 32.0]]
+	for i in spots.size():
+		var b: Vector3 = spots[i][0]
+		var h: float = spots[i][1]
+		mb.add_cylinder(b, b + Vector3(0, h, 0), 6.0, 5.0, 10, Color(0.7, 0.28, 0.22))
+		mb.add_sphere(b + Vector3(0, h + 5.0, 0), Vector3(7, 8, 7), 12, 8, cols[i % cols.size()])
+		mb.add_cone(b + Vector3(0, h + 11.0, 0), b + Vector3(0, h + 17.0, 0), 2.5, 8, Color(0.9, 0.75, 0.3))
+	boxes.append([Vector3(0, 30, 0), Vector3(30, 30, 30)])

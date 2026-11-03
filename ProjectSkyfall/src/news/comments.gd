@@ -71,6 +71,8 @@ static func context(art: Dictionary) -> Dictionary:
 		mood = "president"
 	elif tags.has("atc"):
 		mood = "atc"
+	elif tags.has("asia") and not tags.has("weather"):
+		mood = "asia"
 	elif tags.has("earthquake") or tags.has("volcano") or tags.has("hurricane") or tags.has("tornado") or tags.has("blizzard") or tags.has("heatwave") or tags.has("disaster"):
 		mood = "disaster"
 	elif tags.has("safety"):
