@@ -51,6 +51,14 @@ static func daily(day: int, r: RandomNumberGenerator) -> void:
 		_busiest_routes(day)
 	if day % 7 == 5:
 		_fuel(day, r)
+	if day % 365 == 40:
+		_awards(day, r)
+	if day % 30 == 15:
+		_airport_of_month(day, r)
+	if r.randf() < 0.07:
+		_miles(day, r)
+	if r.randf() < 0.05:
+		_sky_wonders(day, r)
 
 
 static func _close(icao: String, days: float, why: String) -> void:
@@ -299,6 +307,70 @@ static func _ultra_long(day: int, r: RandomNumberGenerator) -> void:
 		"The new nonstop link covers %s nautical miles - one of the longest flights on the network." % U.fmt_int(int(nm)),
 		["Crews work in shifts and sleep in hidden bunks above the cabin.", "Passengers are offered stretching classes in the galley."],
 		{"importance": 1, "t": _t(day, r.randf_range(8.0, 18.0)), "tags": ["business", "newtype", "travel"]})
+
+
+static func _awards(day: int, r: RandomNumberGenerator) -> void:
+	## The yearly Skyfall Aviation Awards: the best airline (safety first), cabin crew, airport and route.
+	var t := _t(day, 20.0)
+	var codes: Array = Airlines.all_codes().filter(func(c): return String(c) != "GOV")
+	var best := ""
+	var best_v := -1.0
+	for c in codes:
+		var v := float(Airlines.safety_stars(String(c))) * 10.0 + float(Airlines.get_al(String(c)).get("standards", 0.8)) * 5.0 + r.randf() * 6.0
+		if v > best_v:
+			best_v = v
+			best = String(c)
+	var crew: String = codes[r.randi() % codes.size()]
+	var airports := ["WSSS", "RJTT", "RKSI", "OTHH", "EDDM", "LSZH", "VHHH", "EHAM"]
+	var ap: String = airports[r.randi() % airports.size()]
+	var al_name := String(Airlines.get_al(best).get("name", best))
+	News.publish("aeroweek", "business", "Skyfall Aviation Awards: %s is Airline of the Year" % al_name,
+		"Judges praised its safety record and service. Best cabin crew went to %s, and %s was named the world's best airport." % [String(Airlines.get_al(crew).get("name", crew)), _ap_city(ap)],
+		["The acceptance speech thanked \"every mechanic who works nights so we can fly days\".", "Rivals called the result \"predictable\" and promised to win next year."],
+		{"importance": 2, "t": t, "tags": ["business", "feelgood", "awards"]})
+
+
+static func _airport_of_month(day: int, r: RandomNumberGenerator) -> void:
+	var picks := [
+		["WSSS", "a butterfly garden, a forty-metre indoor waterfall and immigration in under ten minutes"],
+		["RJTT", "spotless floors, on-time trains to the city and staff who bow to departing aircraft"],
+		["OTHH", "a giant yellow teddy bear, an indoor tropical garden and silent, calm halls"],
+		["RKSI", "free showers, a skating rink and a traditional culture museum airside"],
+		["LSZH", "an observation deck over the Alps and trains from the basement to the whole country"],
+		["EHAM", "a library, a museum of Dutch masters and everything under one enormous roof"],
+		["KDEN", "the peaked white roof like the Rockies and a famously odd horse statue outside"],
+		["OMDB", "duty-free the size of a small town and flights to every corner of the world"],
+		["VHHH", "a terminal built on an island, with the sea on three sides and mountains on the fourth"],
+		["EDDM", "a brewery inside the terminal and a Christmas market in winter"],
+	]
+	var p: Array = picks[r.randi() % picks.size()]
+	News.publish("gazette", "news", "Airport of the month: %s" % _ap_city(String(p[0])),
+		"Travellers voted for %s - %s." % [String(Airports.get_ap(String(p[0])).get("name", p[0])), String(p[1])], [],
+		{"importance": 1, "t": _t(day, 11.0), "tags": ["travel", "feelgood"]})
+
+
+static func _miles(day: int, r: RandomNumberGenerator) -> void:
+	var stories := [
+		["Mileage runner flies to Tokyo and back without leaving the airport - to keep Diamond status", "\"Ten hours in the air for a year of upgrades. Worth it,\" he says."],
+		["Frequent flyer programmes: are your miles still worth anything?", "Experts say the best value is upgrading long-haul flights, not buying toasters."],
+		["Grandmother reaches one million miles - the airline throws a party at the gate", "The crew sang, the captain made a speech and she got a cake shaped like a jumbo jet."],
+		["Airlines raise the miles needed for Gold status", "Members are furious: \"I flew 40 times this year and I'm still Silver.\""],
+		["Couple pays for their whole honeymoon in business class with miles", "\"Twelve years of flying for work, two weeks of champagne,\" they said."],
+	]
+	var st: Array = stories[r.randi() % stories.size()]
+	News.publish("gazette", "news", String(st[0]), String(st[1]), [], {"importance": 1, "t": _t(day, r.randf_range(9.0, 19.0)), "tags": ["travel", "business"]})
+
+
+static func _sky_wonders(day: int, r: RandomNumberGenerator) -> void:
+	var stories := [
+		["Passengers see the northern lights from a flight over Greenland", "The captain switched off the cabin lights so everyone could watch the green curtains of light."],
+		["Equator-crossing ceremony on a flight to Jakarta goes viral", "The crew handed out certificates and a passenger dressed as King Neptune."],
+		["The longest sunset: a westbound flight chases the sun for three hours", "Photographers on board called it \"golden hour that never ends\"."],
+		["Pilot photographs Mount Everest from 40,000 feet", "The picture of the summit above the clouds has been shared millions of times."],
+		["A meteor shower lights up the sky over the Atlantic", "Night flights reported dozens of shooting stars an hour."],
+	]
+	var st: Array = stories[r.randi() % stories.size()]
+	News.publish("gazette", "news", String(st[0]), String(st[1]), [], {"importance": 1, "t": _t(day, r.randf_range(7.0, 21.0)), "tags": ["feelgood", "travel"]})
 
 
 static func _forecast(day: int, r: RandomNumberGenerator) -> void:

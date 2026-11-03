@@ -84,7 +84,7 @@ func setup(_params: Dictionary) -> void:
 func _fill() -> void:
 	_board_title.text = "DEPARTURES  ·  %s" % String(Airports.get_ap(dep).name).to_upper()
 	if _wallet:
-		_wallet.text = "Wallet %s" % U.fmt_money(float(Game.player.get("money", 0.0)))
+		_wallet.text = "Wallet %s   ·   Skyfall Miles %s" % [U.fmt_money(float(Game.player.get("money", 0.0))), Loyalty.summary()]
 	for ch in _list.get_children():
 		ch.queue_free()
 	var rows := WorldSim.fids(dep, true, 14)
@@ -144,6 +144,11 @@ func _seat_ok(s: Dictionary) -> bool:
 func _book(f: Dictionary, price: int = 0) -> void:
 	var lay := CabinLayout.get_layout(String(f.type))
 	var want_biz := cabin_class == "business"
+	var upgraded := false
+	if not want_biz and Game.has_character() and Loyalty.upgrade_roll(randf()):
+		want_biz = true
+		upgraded = true
+		Loyalty.note_upgrade()
 	var seats: Array = lay.seats.filter(func(s): return _seat_ok(s) and (String(s.get("cls", "economy")) in ["business", "vip", "premium"]) == want_biz)
 	if seats.is_empty():
 		seats = lay.seats.filter(func(s): return seat_pref == "any" or (seat_pref == "window" and bool(s.window)) or (seat_pref == "aisle" and bool(s.aisle)))
@@ -151,11 +156,14 @@ func _book(f: Dictionary, price: int = 0) -> void:
 		Game.add_money(-float(price), "Ticket %s %s" % [String(f.number), cabin_class])
 		Game.save_game()
 		Game.notify("Ticket booked: %s, %s class, %s." % [String(f.number), cabin_class, U.fmt_money(float(price))], "success")
+	if upgraded:
+		Game.notify("Your %s status got you a free upgrade to business class! Enjoy the lounge." % Loyalty.tier(), "success")
 	var seat_id := ""
 	if not seats.is_empty():
 		seat_id = String(seats[randi() % seats.size()].id)
 	var params := {"mode": "passenger", "type": f.type, "airline": f.airline, "reg": f.reg if String(f.reg) != "" else "CR-PAX",
 		"dep": f.from, "arr": f.to, "callsign": f.callsign, "flight_id": f.id, "clock": maxf(WorldSim.clock, float(f.dep) - 30.0 * 60.0),
-		"sched_arr": float(f.arr), "pax": maxi(int(f.pax), 1), "seat": seat_id, "start": "gate"}
+		"sched_arr": float(f.arr), "pax": maxi(int(f.pax), 1), "seat": seat_id, "start": "gate",
+		"cabin_class": "business" if want_biz else "economy", "status_upgrade": upgraded}
 	launch_with_loading("%s to %s" % [f.number, Airports.get_ap(String(f.to)).city], "%s · seat %s" % [Airlines.get_al(String(f.airline)).name, seat_id],
 		"home_passenger", func(): Game.goto("flight", params))

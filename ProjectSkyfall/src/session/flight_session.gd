@@ -42,6 +42,7 @@ var traffic: TrafficManager = null
 var wreck: WreckPieces = null
 var escorts: Escorts = null
 var hazards: WeatherHazards = null
+var longhaul: LongHaul = null
 var near_misses := 0
 var atc_mistake := false
 var _tornado_done := false
@@ -1315,6 +1316,11 @@ func _on_deviation(kind: String, severity: float, text: String) -> void:
 func _special_ops() -> void:
 	## Presidential escorts join once airborne; tornado weather puts funnels on the route;
 	## natural hazards (earthquakes, ash, hail, lightning) run all flight.
+	if longhaul == null and not has_meta("test_fast_skip_lh"):
+		longhaul = LongHaul.new()
+		longhaul.name = "LongHaul"
+		add_child(longhaul)
+		longhaul.setup(self, ac)
 	if hazards == null:
 		hazards = WeatherHazards.new()
 		hazards.name = "Hazards"
@@ -1961,6 +1967,9 @@ func finish_flight(outcome: String) -> void:
 		"escort_intercepts": escorts.intercepts if escorts else 0, "hazards": hazards.summary() if hazards else {}, "near_misses": near_misses, "atc_mistake": atc_mistake, "go_arounds_n": go_arounds,
 		"weather_preset": WeatherModel.override_preset, "aircraft_record": WorldSim.aircraft(ac.reg),
 		"autofly_landed": autofly and not (touchdown as Dictionary).is_empty(),
+		"cabin_class": String(params.get("cabin_class", "economy")), "status_upgrade": bool(params.get("status_upgrade", false)),
+		"overflown": longhaul.overflown.duplicate() if longhaul else [], "continents": longhaul.continents.duplicate() if longhaul else [],
+		"crossed_equator": longhaul.crossed_equator if longhaul else false, "saw_aurora": longhaul.saw_aurora if longhaul else false,
 		"captain": _captain_name()}, true)
 	if outcome in ["crashed", "ditched"] or not incidents.is_empty():
 		var inv_in := res.duplicate()
@@ -1972,6 +1981,19 @@ func finish_flight(outcome: String) -> void:
 		res.investigation = Investigation.analyse(inv_in)
 	if mode == "passenger" and not outcome in ["crashed", "ditched"]:
 		_passenger_debrief(res, late)
+	if not outcome in ["crashed", "ditched", "abandoned"]:
+		var extra: Array = longhaul.debrief_notes() if longhaul else []
+		if mode == "passenger" and Game.has_character():
+			var cls_flown := String(params.get("cabin_class", "economy"))
+			var ff := Loyalty.earn(dep_icao, arr_icao, cls_flown)
+			res.loyalty = ff
+			extra.append("Skyfall Miles: +%s miles in %s. You are %s." % [U.fmt_int(int(ff.miles)), cls_flown, Loyalty.summary()])
+			if bool(ff.new_tier):
+				extra.append("Congratulations - you've reached %s status! %s" % [String(ff.tier), String(Loyalty.TIERS[Loyalty.tier_index()].perk)])
+		if not extra.is_empty():
+			var nl: Array = res.get("notes", [])
+			nl.append_array(extra)
+			res.notes = nl
 	WorldSim.sim_running = false
 	WeatherModel.override_preset = ""
 	Engine.time_scale = 1.0

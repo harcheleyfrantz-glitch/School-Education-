@@ -42,6 +42,15 @@ const LIST := [
 	{"id": "ultra_long", "title": "Ultra Long Haul", "desc": "Complete a flight of four hours or more.", "icon": "clock", "group": "Flying"},
 	{"id": "monarch", "title": "Long Live the Jumbo", "desc": "Fly the Q-740 Monarch.", "icon": "plane", "group": "Flying"},
 	{"id": "equator", "title": "Crossing the Line", "desc": "Land south of the equator (Jakarta).", "icon": "globe", "group": "Places"},
+	{"id": "ff_silver", "title": "Silver Status", "desc": "Reach Silver status in Skyfall Miles.", "icon": "trophy", "group": "Passenger"},
+	{"id": "ff_gold", "title": "Gold Status", "desc": "Reach Gold status in Skyfall Miles.", "icon": "trophy", "group": "Passenger"},
+	{"id": "ff_diamond", "title": "Diamond Status", "desc": "Reach Diamond status in Skyfall Miles.", "icon": "trophy", "group": "Passenger"},
+	{"id": "lucky_upgrade", "title": "Lucky Upgrade", "desc": "Get a free status upgrade to business class.", "icon": "star", "group": "Passenger"},
+	{"id": "line_crosser", "title": "Crossing the Line", "desc": "Cross the equator in flight.", "icon": "globe", "group": "Places"},
+	{"id": "aurora", "title": "Northern Lights", "desc": "See the aurora borealis from the flight deck or the cabin.", "icon": "star", "group": "Places"},
+	{"id": "three_continents", "title": "Intercontinental", "desc": "Cross three continents in a single flight.", "icon": "globe", "group": "Places"},
+	{"id": "santa", "title": "Santa Spotter", "desc": "Fly on Christmas Eve night and get a very special traffic advisory.", "icon": "star", "group": "Nature"},
+	{"id": "border_hopper", "title": "Border Hopper", "desc": "Fly over eight countries or seas in one flight.", "icon": "globe", "group": "Places"},
 	# ---------------------------------------------------------------- sightseeing
 	{"id": "sightseer", "title": "Sightseer", "desc": "Fly low past three famous landmarks.", "icon": "star", "group": "Sightseeing", "goal": 3, "stat": "landmarks"},
 	{"id": "seen_it_all", "title": "Seen It All", "desc": "Fly low past fifteen landmarks.", "icon": "star", "group": "Sightseeing", "goal": 15, "stat": "landmarks"},
@@ -282,6 +291,24 @@ static func on_flight_result(res: Dictionary, cons: Dictionary = {}) -> void:
 		_add("asia_airports", arr)
 	if float(res.get("block_hours", 0.0)) >= 4.0:
 		unlock("ultra_long")
+	if bool(res.get("crossed_equator", false)):
+		unlock("line_crosser")
+	if bool(res.get("saw_aurora", false)):
+		unlock("aurora")
+	if (res.get("continents", []) as Array).size() >= 3:
+		unlock("three_continents")
+	if (res.get("overflown", []) as Array).size() >= 8:
+		unlock("border_hopper")
+	if bool(res.get("status_upgrade", false)):
+		unlock("lucky_upgrade")
+	if res.has("loyalty"):
+		var tier_now := String(res.loyalty.get("tier", ""))
+		if tier_now in ["Silver", "Gold", "Platinum", "Diamond"]:
+			unlock("ff_silver")
+		if tier_now in ["Gold", "Platinum", "Diamond"]:
+			unlock("ff_gold")
+		if tier_now == "Diamond":
+			unlock("ff_diamond")
 	if arr in ["ENGM", "ESSA", "EKCH"]:
 		_add("nordic", arr)
 	if int(res.get("pax", 0)) > 0 and NewsExtra.review_stars(res) >= 5:

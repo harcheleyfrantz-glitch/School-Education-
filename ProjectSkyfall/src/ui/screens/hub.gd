@@ -55,6 +55,9 @@ func _status_card(p: Dictionary, al: Dictionary) -> void:
 	stat_row(a, "Type ratings", ", ".join(p.ratings.map(func(t): return AircraftTypes.get_type(t).short)))
 	stat_row(a, "Money", U.fmt_money(float(p.money)), UIStyle.GREEN if float(p.money) >= 0.0 else UIStyle.RED)
 	stat_row(a, "Base", "%s (now at %s)" % [p.base, p.location])
+	stat_row(a, "Skyfall Miles", Loyalty.summary(), Loyalty.tier_color())
+	if int(Game.settings.get("longest_flight_km", 0)) > 0:
+		stat_row(a, "Longest flight", "%s km" % U.fmt_int(int(Game.settings.get("longest_flight_km", 0))))
 	grid.add_child(a)
 	var b := UIStyle.vbox(4)
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL

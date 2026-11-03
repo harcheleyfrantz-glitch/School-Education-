@@ -595,21 +595,70 @@ func _draw_map() -> void:
 	var k := minf(sz.x, sz.y) / span
 	var tf := func(p: Vector2) -> Vector2: return sz * 0.5 + (p - c) * k
 	# coastlines are expensive; show airports and the route
+	var world := Geo.in_world_region(float(n.x), float(n.z))
+	# a faint lat/lon grid like a seatback moving map
+	if world:
+		for lon in range(-180, 181, 10):
+			var a: Vector2 = tf.call(RealWorld.to_world(80.0, float(lon)))
+			var b: Vector2 = tf.call(RealWorld.to_world(-20.0, float(lon)))
+			map_view.draw_line(a, b, Color(0.3, 0.5, 0.7, 0.12), 1.0)
+		for lat in range(-20, 81, 10):
+			var a2: Vector2 = tf.call(RealWorld.to_world(float(lat), -180.0))
+			var b2: Vector2 = tf.call(RealWorld.to_world(float(lat), 180.0))
+			map_view.draw_line(a2, b2, Color(0.3, 0.5, 0.7, 0.12) if lat != 0 else Color(1.0, 0.7, 0.3, 0.35), 1.0)
 	for icao in Airports.all_icao():
 		var ap: Dictionary = Airports.get_ap(icao)
 		var sp: Vector2 = tf.call(Vector2(float(ap.x), float(ap.z)))
 		if Rect2(Vector2.ZERO, sz).has_point(sp):
-			map_view.draw_circle(sp, 4.0, UIStyle.DIM)
-			map_view.draw_string(UIStyle.font(), sp + Vector2(6, -4), icao, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, UIStyle.DIM)
+			var key: bool = String(icao) == String(session.dep_icao) or String(icao) == String(session.arr_icao)
+			map_view.draw_circle(sp, 5.0 if key else 3.0, UIStyle.AMBER if key else UIStyle.DIM)
+			var nm: String = String(ap.get("city", icao)) if world else String(icao)
+			map_view.draw_string(UIStyle.font(key), sp + Vector2(7, -5), nm, HORIZONTAL_ALIGNMENT_LEFT, -1, 14 if key else 11, UIStyle.TEXT if key else UIStyle.DIM)
 	var plan: Array = ac.ap.plan
 	for i in plan.size() - 1:
 		map_view.draw_line(tf.call(Vector2(plan[i].x, plan[i].z)), tf.call(Vector2(plan[i + 1].x, plan[i + 1].z)), UIStyle.MAGENTA, 2.0)
 	var me: Vector2 = tf.call(Vector2(n.x, n.z))
+	# flown and remaining legs
+	var dep_p: Vector2 = tf.call(pts[0])
+	var arr_p: Vector2 = tf.call(pts[1])
+	map_view.draw_line(dep_p, me, Color(0.35, 0.9, 1.0, 0.9), 3.0)
+	var seg := 14.0
+	var rem := arr_p - me
+	var steps := int(rem.length() / seg)
+	for i in range(0, steps, 2):
+		map_view.draw_line(me + rem * (float(i) / maxf(steps, 1)), me + rem * (float(i + 1) / maxf(steps, 1)), Color(1, 1, 1, 0.55), 2.0)
 	var h := deg_to_rad(float(n.hdg))
 	var fwd := Vector2(sin(h), -cos(h))
 	var rt := Vector2(-fwd.y, fwd.x)
 	map_view.draw_colored_polygon(PackedVector2Array([me + fwd * 12.0, me - fwd * 7.0 + rt * 7.0, me - fwd * 4.0, me - fwd * 7.0 - rt * 7.0]), UIStyle.AMBER)
-	map_view.draw_string(UIStyle.font(true), Vector2(14, 24), "%s → %s" % [session.dep_icao, session.arr_icao], HORIZONTAL_ALIGNMENT_LEFT, -1, 16, UIStyle.TEXT)
+	map_view.draw_string(UIStyle.font(true), Vector2(14, 24), "%s → %s" % [String(Airports.get_ap(session.dep_icao).get("city", session.dep_icao)), String(Airports.get_ap(session.arr_icao).get("city", session.arr_icao))], HORIZONTAL_ALIGNMENT_LEFT, -1, 16, UIStyle.TEXT)
+	# the information strip at the bottom, as on a seatback screen
+	var to_go := Vector2(n.x, n.z).distance_to(pts[1])
+	var gs := maxf(float(n.gs), 1.0)
+	var mins := int(to_go / maxf(gs, 60.0) / 60.0)
+	var below := LongHaul.country_at(float(n.x), float(n.z))
+	if Geo.is_water(float(n.x), float(n.z)):
+		below = RealWorld.sea_name(float(n.x), float(n.z)) if world else "the sea"
+	var oat := Atmo.temperature(float(n.alt)) - 273.15
+	var dep_lon := RealWorld.to_lonlat(pts[0].x, pts[0].y).x if world else 0.0
+	var arr_lon := RealWorld.to_lonlat(pts[1].x, pts[1].y).x if world else 0.0
+	var lt := func(lon: float) -> String:
+		var sec := fposmod(WorldSim.clock + lon / 15.0 * 3600.0, 86400.0)
+		return "%02d:%02d" % [int(sec / 3600.0), int(fmod(sec, 3600.0) / 60.0)]
+	var rows := [
+		["Below", below if below != "" else "-"], ["Ground speed", "%d km/h" % int(gs * 3.6)],
+		["Altitude", "%s m" % U.fmt_int(int(float(n.alt)))], ["Outside", "%d °C" % int(round(oat))],
+		["Distance to go", "%s km" % U.fmt_int(int(to_go / 1000.0))], ["Time to go", ("%d h %02d min" % [mins / 60, mins % 60]) if mins >= 60 else "%d min" % mins],
+		["Local time %s" % session.dep_icao, lt.call(dep_lon)], ["Local time %s" % session.arr_icao, lt.call(arr_lon)],
+	]
+	var box_h := 64.0
+	map_view.draw_rect(Rect2(Vector2(0, sz.y - box_h), Vector2(sz.x, box_h)), Color(0.0, 0.03, 0.06, 0.85))
+	var col_w := sz.x / 4.0
+	for i in rows.size():
+		var cx := 10.0 + float(i % 4) * col_w
+		var cy := sz.y - box_h + 18.0 + float(i / 4) * 30.0
+		map_view.draw_string(UIStyle.font(), Vector2(cx, cy - 4.0), String(rows[i][0]).to_upper(), HORIZONTAL_ALIGNMENT_LEFT, col_w - 12.0, 9, UIStyle.DIM)
+		map_view.draw_string(UIStyle.font(true), Vector2(cx, cy + 9.0), String(rows[i][1]), HORIZONTAL_ALIGNMENT_LEFT, col_w - 12.0, 13, UIStyle.TEXT)
 
 
 # ================================================================== decisions, dialogue, inspection
