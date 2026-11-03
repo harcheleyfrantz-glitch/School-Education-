@@ -35,6 +35,11 @@ const P_BOOT := 23
 const P_PYLON := 24
 const P_STAB := 25
 const P_WHITE := P_GEAR
+## Types whose turbofans have serrated nozzles: 1 = fan nozzle only, 2 = fan and core nozzles.
+const CHEVRONS := {"q740": 2, "f4": 2, "w280": 1}
+## Fine detail meshes (antennas, probes, wipers, strakes, drains) are culled beyond this distance
+## (metres); at 500 m a 0.3 m antenna is about one pixel at a 40 degree field of view.
+const DETAIL_RANGE := 500.0
 
 static var _mat_cache := {}
 static var _kit_cache := {}
@@ -79,6 +84,8 @@ var _bulges := []
 var _W := {}
 var _rk_z0 := -1e4              # trainer: windscreen rake starts here (matches the cockpit interior)
 var _rk_y0 := 0.0
+var _dmb_f: MeshBuilder = null  # fine fuselage detail under construction (LOD culled)
+var _dmb_a: MeshBuilder = null  # fine airframe detail under construction (LOD culled)
 
 
 func build(type_id: String, airline_code: String, reg: String, detail_level: float = 1.0) -> void:
@@ -104,6 +111,8 @@ func _make_kit() -> Dictionary:
 		"door_l1": Vector3.ZERO, "gear_doors": [], "landing": [], "wheels": {}}
 	var fmb := _new_mb()
 	var amb := _new_mb()
+	_dmb_f = _new_mb()
+	_dmb_a = _new_mb()
 	_build_fuselage(fmb)
 	_build_wings(amb)
 	_build_tail(amb)
@@ -111,11 +120,15 @@ func _make_kit() -> Dictionary:
 	_build_gear(amb)
 	_build_doors()
 	var panes := _cockpit_panes()
-	_build_details(fmb, amb, panes)
+	_build_details(_dmb_f, _dmb_a, panes)
 	_build_light_defs(fmb, amb)
 	_shader_geometry(panes)
 	_k.fuselage = fmb.commit()
 	_k.airframe = amb.commit()
+	_k.fuselage_detail = _dmb_f.commit() if _dmb_f.vcount() > 0 else null
+	_k.airframe_detail = _dmb_a.commit() if _dmb_a.vcount() > 0 else null
+	_dmb_f = null
+	_dmb_a = null
 	_k.erase("wheels")
 	return _k
 
@@ -126,6 +139,13 @@ func _instantiate(kit: Dictionary) -> void:
 	add_child(exterior)
 	fuselage_mi = _mesh_node(kit.fuselage, "Fuselage", exterior)
 	airframe = _mesh_node(kit.airframe, "Airframe", self)
+	# fine detail: separate meshes culled at a distance, no shadows of their own
+	for dd in [[kit.get("fuselage_detail"), "FuselageDetail", exterior], [kit.get("airframe_detail"), "AirframeDetail", self]]:
+		if dd[0] != null:
+			var dmi := _mesh_node(dd[0], String(dd[1]), dd[2])
+			dmi.visibility_range_end = DETAIL_RANGE
+			dmi.visibility_range_end_margin = 20.0
+			dmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	anchors = kit.anchors
 	door_l1_local = kit.door_l1
 	for p in kit.parts:
@@ -934,7 +954,9 @@ func _fuse_stations() -> Array:
 	var n_nose := 34 if hi else 10
 	for i in n_nose:
 		out.append(tn * (1.0 - cos(float(i) / n_nose * PI * 0.5)))
-	var step := (1.25 if hi else 4.0) / body_len
+	# the mid body has a constant section (bulges and the hump add their own stations), so its rings
+	# can be sparse without changing the shape or the shading
+	var step := (2.4 if hi else 4.0) / body_len
 	var n_body := maxi(int(ceil((tt - tn) / step)), 2)
 	for i in n_body:
 		out.append(lerpf(tn, tt, float(i) / n_body))
@@ -1481,16 +1503,30 @@ func _turbofan(mb: MeshBuilder, p: Vector3, idx: int) -> void:
 	if rear:
 		aft = [Vector2(x_tr, Rm * 0.99), Vector2(0.82 * Ln, Rm * 0.9), Vector2(Ln, 0.42 * D),
 			Vector2(Ln - 0.008 * D, 0.405 * D), Vector2(Ln - 0.5 * D, 0.42 * D)]
+	var chev: int = CHEVRONS.get(_type_id, 0) if hi and not rear else 0
 	if hi and bool(spec.reverser):
 		_revolve(mb, o, ax, outer + [Vector2(x_tr, Rm * 0.955), Vector2(x_tr + 0.32 * D, Rm * 0.955)],
 			parts + [P_DARK, P_DARK], vs + [0.56, 0.6], segs)
 		var sleeve := _new_mb()
 		_revolve(sleeve, o, ax, [Vector2(x_tr + 0.004 * D, Rm * 0.955)] + aft, [P_NACELLE] + aft_parts, [0.56] + aft_vs, segs)
+		if chev > 0:
+			_chevrons(sleeve, o, ax, Ln - 0.004 * D, 0.479 * D, 0.085 * D, 0.02 * D, 14, 0.006 * D, P_NACELLE, 0.9)
 		_k.parts.append({"kind": "reverser", "name": "Reverser%d" % idx, "engine": idx, "xf": Transform3D.IDENTITY,
 			"mesh": sleeve.commit(), "sign": 1.0, "max": 0.0, "travel": ax * (0.3 * D)})
 	else:
 		aft.remove_at(0)
 		_revolve(mb, o, ax, outer + aft, parts + aft_parts, vs + aft_vs.slice(1), segs)
+		if chev > 0:
+			_chevrons(mb, o, ax, Ln - 0.004 * D, 0.479 * D, 0.085 * D, 0.02 * D, 14, 0.006 * D, P_NACELLE, 0.9)
+	if chev > 1:
+		_chevrons(mb, o, ax, Ln + 0.418 * D, 0.254 * D, 0.042 * D, 0.01 * D, 16, 0.004 * D, P_EXHAUST, 1.0)
+	# vortex strake on the inboard side of the nacelle (full detail, wing engines without chevrons)
+	if hi and not rear and chev == 0 and cat in ["narrowbody", "widebody", "cargo", "regional"]:
+		var dm := (Vector3.UP * cos(deg_to_rad(52.0)) + Vector3(-side, 0, 0) * sin(deg_to_rad(52.0))).normalized()
+		var tdir := dm.cross(ax).normalized()
+		var ss := [_sec(o + ax * (0.17 * Ln) + dm * (Rm * 0.975), ax, tdir, 0.36 * Ln, 0.09, 0.35),
+			_sec(o + ax * (0.3 * Ln) + dm * (Rm + 0.1 * D), ax, tdir, 0.2 * Ln, 0.07, 0.35)]
+		_surf(_dmb_a, ss, 0.0, 1.0, P_NACELLE, 6, {"cap1": true, "uv2": "zy"})
 	# fan exit (dark) and core cowl, nozzle and plug
 	_revolve(mb, o, ax, [Vector2(xf + 0.16 * D, 0.0), Vector2(xf + 0.16 * D, Rf)], [P_DARK], [0.0, 1.0], segs)
 	if rear:
@@ -1529,6 +1565,48 @@ func _turbofan(mb: MeshBuilder, p: Vector3, idx: int) -> void:
 		nb = 10
 	_fan_blades(rmb, D, nb)
 	_k.engines.append({"pos": o + ax * xf, "mesh": rmb.commit(), "blades": null, "disc": 0.0, "nb": nb})
+
+
+## Serrated (chevron) nozzle trailing edge: n tabs starting on the ring of radius r0 at axial
+## station x0, each reaching ln further aft and leaning `lean` towards the axis; two skins th apart.
+func _chevrons(mb: MeshBuilder, o: Vector3, ax: Vector3, x0: float, r0: float, ln: float, lean: float, n: int, th: float, part: int, uvy: float) -> void:
+	var u := ax.cross(Vector3.UP if absf(ax.y) < 0.9 else Vector3.RIGHT).normalized()
+	var v := ax.cross(u).normalized()
+	var cc := _c(part)
+	for i in n:
+		var a0 := TAU * (float(i) - 0.5) / n
+		var a1 := TAU * (float(i) + 0.5) / n
+		var am := TAU * float(i) / n
+		var d0 := u * cos(a0) + v * sin(a0)
+		var d1 := u * cos(a1) + v * sin(a1)
+		var dm := u * cos(am) + v * sin(am)
+		var p0 := o + ax * x0 + d0 * r0
+		var pm := o + ax * x0 + dm * r0
+		var p1 := o + ax * x0 + d1 * r0
+		var pt := o + ax * (x0 + ln) + dm * (r0 - lean)
+		# smooth normals: each vertex keeps the radial direction of the round nozzle it sits on
+		var tilt := ax * (lean / ln)
+		var n0 := (d0 + tilt).normalized()
+		var nm := (dm + tilt).normalized()
+		var n1 := (d1 + tilt).normalized()
+		_tri_n(mb, p0, pm, pt, [n0, nm, nm], cc, uvy)
+		_tri_n(mb, pm, p1, pt, [nm, n1, nm], cc, uvy)
+		_tri_n(mb, p0 - d0 * th, pm - dm * th, pt - dm * th, [-n0, -nm, -nm], cc, uvy)
+		_tri_n(mb, pm - dm * th, p1 - d1 * th, pt - dm * th, [-nm, -n1, -nm], cc, uvy)
+
+
+## Triangle facing the average of its vertex normals ns (three Vector3).
+func _tri_n(mb: MeshBuilder, a: Vector3, b: Vector3, c: Vector3, ns: Array, col: Color, uvy: float = 0.5) -> void:
+	var na: Vector3 = ns[0]
+	var nb: Vector3 = ns[1]
+	var nc: Vector3 = ns[2]
+	var i0 := mb.add_vertex(a, na, col, Vector2(0.0, uvy), Vector2(a.z, a.y))
+	var i1 := mb.add_vertex(b, nb, col, Vector2(1.0, uvy), Vector2(b.z, b.y))
+	var i2 := mb.add_vertex(c, nc, col, Vector2(0.5, uvy), Vector2(c.z, c.y))
+	if (b - a).cross(c - a).dot(na + nb + nc) > 0.0:
+		mb.add_tri_idx(i0, i2, i1)
+	else:
+		mb.add_tri_idx(i0, i1, i2)
 
 
 ## Wide-chord twisted fan blades in the rotor frame (fan plane at z = 0).
@@ -1666,6 +1744,14 @@ func _turboprop(mb: MeshBuilder, p: Vector3, idx: int) -> void:
 	_revolve(rmb, Vector3.ZERO, Vector3(0, 0, 1), spn, [P_GEAR], [0.0, 0.1, 0.3, 0.6, 0.85, 1.0, 1.0], 24 if hi else 10)
 	var bmb := _new_mb()
 	_prop_blades(bmb, D, 6, 0.24, -0.15)
+	if hi:
+		# blade root cuffs where the composite blades enter the hub, and the spinner bulkhead
+		for k in 6:
+			var a := TAU * float(k) / 6.0
+			var rad := Vector3(sin(a), cos(a), 0.0)
+			# drawn outside-in: the shader's yellow tip band (UV.y > 0.9) then sits inside the spinner
+			bmb.add_cylinder(rad * 0.41 + Vector3(0, 0, -0.15), rad * 0.18 + Vector3(0, 0, -0.15), 0.052, 0.078, 8, _c(P_PROP), true)
+		_revolve(rmb, Vector3.ZERO, Vector3(0, 0, 1), [Vector2(0.05, 0.276), Vector2(0.065, 0.285), Vector2(0.08, 0.28)], [P_METAL], [0.0, 0.5, 1.0], 24)
 	_k.engines.append({"pos": Vector3(p.x, y_ax, z_prop), "mesh": rmb.commit(), "blades": bmb.commit(), "disc": D, "nb": 6})
 
 
@@ -1789,8 +1875,10 @@ func _wheel_mesh(wr: float, tw: float) -> ArrayMesh:
 
 
 ## Tyre (rounded shoulders, tread) and a wheel with a dished hub on each face; axle along X.
+## Full detail: rim flange, recessed web, raised bolt circle with tie bolts and a hub cap.
 func _wheel_into(mb: MeshBuilder, c: Vector3, wr: float, tw: float) -> void:
-	var segs := 30 if hi else 12
+	# bogie types carry 10-18 wheels: fewer segments keep the hero model within its budget
+	var segs := (24 if spec.category in ["widebody", "cargo"] else 30) if hi else 12
 	var h := tw * 0.5
 	var rr := wr * 0.56
 	var prof := [Vector2(-h * 0.86, rr), Vector2(-h * 0.98, rr + (wr - rr) * 0.25), Vector2(-h, rr + (wr - rr) * 0.55),
@@ -1798,17 +1886,30 @@ func _wheel_into(mb: MeshBuilder, c: Vector3, wr: float, tw: float) -> void:
 		Vector2(h * 0.93, wr * 0.95), Vector2(h, rr + (wr - rr) * 0.55), Vector2(h * 0.98, rr + (wr - rr) * 0.25), Vector2(h * 0.86, rr)]
 	_revolve(mb, c, Vector3.RIGHT, prof, [P_TYRE], [0.0, 0.08, 0.16, 0.28, 0.36, 0.5, 0.64, 0.72, 0.84, 0.92, 1.0], segs)
 	for s in [-1.0, 1.0]:
-		var hp := [Vector2(h * 0.86, rr), Vector2(h * 0.8, rr * 0.93), Vector2(h * 0.55, rr * 0.82), Vector2(h * 0.5, rr * 0.4),
-			Vector2(h * 0.62, rr * 0.3), Vector2(h * 0.64, 0.0)]
+		var hp: Array
+		var hparts: Array
+		if hi:
+			# flange lip, rim well, recessed web, raised bolt circle, hub bore with a domed cap
+			hp = [Vector2(h * 0.86, rr), Vector2(h * 0.93, rr * 1.03), Vector2(h * 0.95, rr * 0.97), Vector2(h * 0.84, rr * 0.92),
+				Vector2(h * 0.5, rr * 0.86), Vector2(h * 0.42, rr * 0.62), Vector2(h * 0.58, rr * 0.56), Vector2(h * 0.6, rr * 0.3),
+				Vector2(h * 0.5, rr * 0.26), Vector2(h * 0.72, rr * 0.2), Vector2(h * 0.8, rr * 0.1), Vector2(h * 0.82, 0.0)]
+			hparts = [P_CHROME, P_CHROME, P_HUB, P_HUB, P_HUB, P_HUB, P_HUB, P_DARK if s < 0.0 else P_HUB, P_METAL, P_METAL, P_METAL]
+		else:
+			hp = [Vector2(h * 0.86, rr), Vector2(h * 0.8, rr * 0.93), Vector2(h * 0.55, rr * 0.82), Vector2(h * 0.5, rr * 0.4),
+				Vector2(h * 0.62, rr * 0.3), Vector2(h * 0.64, 0.0)]
+			hparts = [P_HUB, P_HUB, P_HUB, P_DARK if s < 0.0 else P_HUB, P_HUB]
 		var hpp := []
-		for q in hp:
-			hpp.append(Vector2((q as Vector2).x * s, (q as Vector2).y))
-		_revolve(mb, c, Vector3.RIGHT, hpp, [P_HUB, P_HUB, P_HUB, P_DARK if s < 0.0 else P_HUB, P_HUB], [0.0, 0.2, 0.4, 0.6, 0.8, 1.0], segs / 2 + 2)
+		var hvs := []
+		for i in hp.size():
+			var q: Vector2 = hp[i]
+			hpp.append(Vector2(q.x * s, q.y))
+			hvs.append(float(i) / float(hp.size() - 1))
+		_revolve(mb, c, Vector3.RIGHT, hpp, hparts, hvs, segs / 2 + 2)
 		if hi:
 			for k in 8:
-				var a := TAU * float(k) / 8.0
-				var bp := c + Vector3(s * h * 0.5, cos(a) * rr * 0.62, sin(a) * rr * 0.62)
-				mb.add_cylinder(bp, bp + Vector3(s * 0.025, 0, 0), 0.018, 0.018, 6, _c(P_METAL), true)
+				var a := TAU * (float(k) + 0.5) / 8.0
+				var bp := c + Vector3(s * h * 0.57, cos(a) * rr * 0.44, sin(a) * rr * 0.44)
+				mb.add_cylinder(bp, bp + Vector3(s * 0.03, 0, 0), 0.018, 0.015, 4, _c(P_METAL), true)
 
 
 func _gear_leg(mb: MeshBuilder, g: Dictionary) -> void:
@@ -1848,9 +1949,25 @@ func _gear_leg(mb: MeshBuilder, g: Dictionary) -> void:
 		wheels.append(Vector3.ZERO)
 	else:
 		# oleo: painted cylinder with gland nut, chrome piston on the sliding part
-		lmb.add_cylinder(Vector3(0, 0.12, 0), Vector3(0, -leg + stroke, 0), rc, rc, seg, _c(P_GEAR), true)
-		lmb.add_cylinder(Vector3(0, -leg + stroke + 0.04, 0), Vector3(0, -leg + stroke - 0.02, 0), rc * 1.1, rc * 1.1, seg, _c(P_METAL), true)
+		if hi:
+			# shaped outer cylinder: flared top fitting, barrel, collar and gland nut (hard edges)
+			var lc := 0.12 + leg - stroke
+			var op := [Vector2(0.0, 0.0), Vector2(0.0, rc * 1.22), Vector2(0.0, rc * 1.22), Vector2(lc * 0.07, rc * 1.22),
+				Vector2(lc * 0.13, rc * 1.02), Vector2(lc * 0.5, rc), Vector2(lc * 0.5, rc), Vector2(lc * 0.5, rc * 1.07),
+				Vector2(lc * 0.53, rc * 1.07), Vector2(lc * 0.53, rc), Vector2(lc * 0.53, rc), Vector2(lc - 0.07, rc),
+				Vector2(lc - 0.07, rc * 1.13), Vector2(lc + 0.02, rc * 1.13), Vector2(lc + 0.02, rc * 1.13), Vector2(lc + 0.02, rc * 0.74)]
+			var opp := [P_GEAR, P_GEAR, P_GEAR, P_GEAR, P_GEAR, P_GEAR, P_METAL, P_METAL, P_METAL, P_GEAR, P_GEAR, P_METAL, P_METAL, P_METAL, P_METAL]
+			var ovs := []
+			for i in op.size():
+				ovs.append(float(i) / float(op.size() - 1))
+			_revolve(lmb, Vector3(0, 0.12, 0), Vector3.DOWN, op, opp, ovs, seg + 4)
+		else:
+			lmb.add_cylinder(Vector3(0, 0.12, 0), Vector3(0, -leg + stroke, 0), rc, rc, seg, _c(P_GEAR), true)
+			lmb.add_cylinder(Vector3(0, -leg + stroke + 0.04, 0), Vector3(0, -leg + stroke - 0.02, 0), rc * 1.1, rc * 1.1, seg, _c(P_METAL), true)
 		smb.add_cylinder(Vector3(0, stroke + 0.25, 0), Vector3(0, 0.12, 0), rc * 0.72, rc * 0.72, seg, _c(P_CHROME), false)
+		if hi:
+			# axle collar at the foot of the piston
+			smb.add_cylinder(Vector3(0, 0.3, 0), Vector3(0, 0.04, 0), rc * 0.86, rc * 0.92, seg, _c(P_GEAR), true)
 		# trunnion at the top
 		if nose:
 			lmb.add_cylinder(Vector3(-rc * 2.2, 0.02, 0), Vector3(rc * 2.2, 0.02, 0), rc * 0.55, rc * 0.55, 8, _c(P_GEAR), true)
@@ -1867,32 +1984,65 @@ func _gear_leg(mb: MeshBuilder, g: Dictionary) -> void:
 			var k0 := Vector3(inb * rc, -leg * 0.38, 0.0)
 			var k1 := Vector3(inb * leg * 0.62, -0.05, 0.12)
 			var knee := k0.lerp(k1, 0.5) + Vector3(0, -0.12, 0.05)
-			lmb.add_cylinder(k0, knee, rc * 0.38, rc * 0.38, 6, _c(P_GEAR), true)
-			lmb.add_cylinder(knee, k1, rc * 0.38, rc * 0.38, 6, _c(P_GEAR), true)
+			var br := rc * (0.44 if hi else 0.38)
+			lmb.add_cylinder(k0, knee, br, br * 0.9, 8 if hi else 6, _c(P_GEAR), true)
+			lmb.add_cylinder(knee, k1, br * 0.9, br, 8 if hi else 6, _c(P_GEAR), true)
 			if hi:
-				lmb.add_sphere(knee, Vector3.ONE * rc * 0.5, 8, 4, _c(P_METAL))
+				lmb.add_sphere(knee, Vector3.ONE * rc * 0.52, 8, 4, _c(P_METAL))
+				# lock link from the knee back to the leg, with its spring and actuator
+				var lk := Vector3(inb * rc * 0.9, -leg * 0.14, -rc * 0.3)
+				var lmid := knee.lerp(lk, 0.5) + Vector3(0, -0.1, -0.03)
+				lmb.add_cylinder(knee, lmid, rc * 0.2, rc * 0.2, 6, _c(P_GEAR), true)
+				lmb.add_cylinder(lmid, lk, rc * 0.2, rc * 0.2, 6, _c(P_GEAR), true)
+				lmb.add_sphere(lmid, Vector3.ONE * rc * 0.27, 6, 3, _c(P_METAL))
+				lmb.add_cylinder(lmid + Vector3(0, 0.02, 0.05), lk + Vector3(0, 0.3, 0.06), 0.02, 0.02, 4, _c(P_DARK), false)
+				lmb.add_cylinder(k1 + Vector3(0, 0.02, -0.18), knee + Vector3(0, 0.06, -0.12), rc * 0.24, rc * 0.17, 6, _c(P_GEAR), true)
 			# leg door on the outboard side
 			if bool(g.retract) and not bool(g.get("body", false)):
 				var dh := leg * 0.66
-				lmb.add_box(Vector3(side * (rc + 0.06), -dh * 0.5 + 0.05, 0.0), Vector3(0.035, dh, rc * 5.0), _c(P_BELLY))
+				if hi:
+					_leg_door(lmb, side, rc, dh, rc * 2.5)
+				else:
+					lmb.add_box(Vector3(side * (rc + 0.06), -dh * 0.5 + 0.05, 0.0), Vector3(0.035, dh, rc * 5.0), _c(P_BELLY))
 		# torque links (scissors) on the front of the oleo
 		var lz := -rc - 0.02
 		var tl0 := Vector3(0, -leg + stroke + 0.02, lz)
 		var tl1 := Vector3(0, -leg + stroke * 0.5 + 0.04, lz - 0.16 - rc)
-		lmb.add_cylinder(tl0, tl1, 0.03 + rc * 0.12, 0.03 + rc * 0.12, 5, _c(P_GEAR), true)
-		smb.add_cylinder(Vector3(0, stroke * 0.5 + 0.04, lz - 0.16 - rc), Vector3(0, 0.15, lz), 0.03 + rc * 0.12, 0.03 + rc * 0.12, 5, _c(P_GEAR), true)
 		if hi:
-			# hydraulic lines down the leg
-			lmb.add_cylinder(Vector3(rc * 0.9, 0.0, rc * 0.5), Vector3(rc * 0.95, -leg + stroke + 0.1, rc * 0.5), 0.012, 0.012, 4, _c(P_DARK), false)
-			lmb.add_cylinder(Vector3(rc * 0.9, 0.0, rc * 0.2), Vector3(rc * 0.95, -leg + stroke + 0.1, rc * 0.2), 0.01, 0.01, 4, _c(P_DARK), false)
+			# two flat arms meeting at a pinned apex, lugs on the cylinder and the axle collar
+			var lw := 0.05 + rc * 0.3
+			var lt := 0.03 + rc * 0.12
+			var apex_s := Vector3(0, stroke * 0.5 + 0.04, lz - 0.16 - rc)
+			_bar(lmb, tl0 + Vector3(0, 0.0, rc * 0.25), tl1, lw, lt, _c(P_GEAR))
+			_bar(smb, apex_s, Vector3(0, 0.15, lz + rc * 0.25), lw, lt, _c(P_GEAR))
+			lmb.add_cylinder(tl1 - Vector3(lt * 1.6, 0, 0), tl1 + Vector3(lt * 1.6, 0, 0), lw * 0.42, lw * 0.42, 8, _c(P_METAL), true)
+			lmb.add_cylinder(tl0 + Vector3(-lt * 1.4, 0, rc * 0.25), tl0 + Vector3(lt * 1.4, 0, rc * 0.25), lw * 0.38, lw * 0.38, 8, _c(P_METAL), true)
+			smb.add_cylinder(Vector3(-lt * 1.4, 0.15, lz + rc * 0.25), Vector3(lt * 1.4, 0.15, lz + rc * 0.25), lw * 0.38, lw * 0.38, 8, _c(P_METAL), true)
+		else:
+			lmb.add_cylinder(tl0, tl1, 0.03 + rc * 0.12, 0.03 + rc * 0.12, 5, _c(P_GEAR), true)
+			smb.add_cylinder(Vector3(0, stroke * 0.5 + 0.04, lz - 0.16 - rc), Vector3(0, 0.15, lz), 0.03 + rc * 0.12, 0.03 + rc * 0.12, 5, _c(P_GEAR), true)
+		if hi:
+			# hydraulic lines down the leg, clamped to it
+			for hz in [rc * 0.5, rc * 0.2]:
+				var hzf: float = hz
+				lmb.add_cylinder(Vector3(rc * 1.0, 0.0, hzf), Vector3(rc * 1.0, -leg + stroke + 0.1, hzf), 0.013, 0.013, 5, _c(P_DARK), false)
+			for k in 3:
+				var cy := lerpf(-0.15, -leg + stroke + 0.2, float(k) / 2.0)
+				lmb.add_box(Vector3(rc * 0.98, cy, rc * 0.35), Vector3(0.05, 0.03, rc * 0.55), _c(P_METAL))
 		# axle, bogie
 		if bogie:
-			smb.add_cylinder(Vector3(0, 0.0, -wb * 0.62), Vector3(0, 0.0, wb * 0.62), rc * 0.55, rc * 0.55, 8, _c(P_GEAR), true)
+			smb.add_cylinder(Vector3(0, 0.0, -wb * 0.62), Vector3(0, 0.0, wb * 0.62), rc * 0.55, rc * 0.55, 10 if hi else 8, _c(P_GEAR), true)
 			smb.add_box(Vector3(0, 0.08, 0), Vector3(rc * 1.4, rc * 1.2, rc * 2.0), _c(P_GEAR))
 			for az in [-wb * 0.5, wb * 0.5]:
 				smb.add_cylinder(Vector3(-off - tw * 0.3, 0, az), Vector3(off + tw * 0.3, 0, az), rc * 0.3, rc * 0.3, 8, _c(P_METAL), false)
 				for sx in [-1.0, 1.0]:
 					wheels.append(Vector3(sx * off, 0.0, az))
+				if hi:
+					# brake torque rods from each brake back to the foot of the strut
+					var azf: float = az
+					for sx2 in [-1.0, 1.0]:
+						var bx: float = sx2 * rc * 0.62
+						smb.add_cylinder(Vector3(bx, rc * 0.85, azf * 0.9), Vector3(bx, rc * 0.95, azf * 0.18), 0.035, 0.035, 6, _c(P_GEAR), true)
 			if hi:
 				smb.add_cylinder(Vector3(0, 0.35, -rc), Vector3(0, 0.06, -wb * 0.45), rc * 0.22, rc * 0.18, 6, _c(P_GEAR), true)
 		elif twin:
@@ -1940,9 +2090,95 @@ func _gear_leg(mb: MeshBuilder, g: Dictionary) -> void:
 		for sx in [-1.0, 1.0]:
 			var hinge := Vector3(sx * bay_w, top_y - 0.28, float(g.z) + dl * 0.5 - 0.1)
 			var dmb := _new_mb()
-			dmb.add_box(Vector3(-sx * bay_w * 0.5, 0.0, 0.0), Vector3(bay_w, 0.04, dl), _c(P_BELLY))
+			# painted outer skin, primer-coloured inner structure with a stiffener
+			dmb.add_box(Vector3(-sx * bay_w * 0.5, -0.012, 0.0), Vector3(bay_w, 0.016, dl), _c(P_BELLY))
+			dmb.add_box(Vector3(-sx * bay_w * 0.5, 0.008, 0.0), Vector3(bay_w * 0.94, 0.024, dl * 0.96), _c(P_GEAR))
+			dmb.add_box(Vector3(-sx * bay_w * 0.5, 0.03, 0.0), Vector3(0.05, 0.03, dl * 0.9), _c(P_GEAR))
 			_k.gear_doors.append({"xf": Transform3D(Basis.IDENTITY, hinge), "mesh": dmb.commit(), "axis": Vector3(0, 0, 1),
 				"angle": sx * PI * 0.5, "src": 0})
+
+
+## Rectangular bar from a to b (w wide, t thick along thick_dir), e.g. torque link arms.
+func _bar(mb: MeshBuilder, a: Vector3, b: Vector3, w: float, t: float, col: Color, thick_dir: Vector3 = Vector3.RIGHT) -> void:
+	var d := b - a
+	var L := d.length()
+	if L < 1e-4:
+		return
+	var zz := d / L
+	var xx := thick_dir - zz * thick_dir.dot(zz)
+	if xx.length_squared() < 1e-8:
+		xx = zz.cross(Vector3.UP)
+	xx = xx.normalized()
+	var yy := zz.cross(xx).normalized()
+	mb.add_box_xf(Transform3D(Basis(xx, yy, zz), (a + b) * 0.5), Vector3(t, w, L), col)
+
+
+## Flat-shaded quad a-b-c-d (in order around it) facing n.
+func _quad_n(mb: MeshBuilder, a: Vector3, b: Vector3, c: Vector3, d: Vector3, n: Vector3, col: Color) -> void:
+	var nn := n.normalized()
+	var i0 := mb.add_vertex(a, nn, col, Vector2(0, 0), Vector2(a.z, a.y))
+	var i1 := mb.add_vertex(b, nn, col, Vector2(1, 0), Vector2(b.z, b.y))
+	var i2 := mb.add_vertex(c, nn, col, Vector2(1, 1), Vector2(c.z, c.y))
+	var i3 := mb.add_vertex(d, nn, col, Vector2(0, 1), Vector2(d.z, d.y))
+	if (b - a).cross(d - a).dot(nn) > 0.0:
+		mb.add_tri_idx(i0, i2, i1)
+		mb.add_tri_idx(i0, i3, i2)
+	else:
+		mb.add_tri_idx(i0, i1, i2)
+		mb.add_tri_idx(i0, i2, i3)
+
+
+## Main gear leg door: a curved two-skin panel (painted outside, primer inside) with rounded lower
+## corners, closed edges and two struts to the leg. Leg frame: top at y = 0.05, outboard = side.
+func _leg_door(mb: MeshBuilder, side: float, rc: float, dh: float, hz: float) -> void:
+	var nu := 7
+	var nv := 6
+	var th := 0.03
+	var outer := PackedVector3Array()
+	var inner := PackedVector3Array()
+	var col_o := PackedColorArray()
+	var col_i := PackedColorArray()
+	var uv := PackedVector2Array()
+	var uv2 := PackedVector2Array()
+	var hint_o := PackedVector3Array()
+	var hint_i := PackedVector3Array()
+	for r in nv:
+		var v := float(r) / float(nv - 1)
+		var y := 0.05 - dh * v
+		var ze := hz * (1.0 - 0.42 * pow(U.smooth01((v - 0.6) / 0.4), 1.6))
+		for c in nu:
+			var u := lerpf(-1.0, 1.0, float(c) / float(nu - 1))
+			var p := Vector3(side * (rc + 0.06 + 0.07 * (1.0 - u * u)), y, u * ze)
+			outer.append(p)
+			inner.append(p - Vector3(side * th, 0, 0))
+			col_o.append(_c(P_BELLY))
+			col_i.append(_c(P_GEAR))
+			uv.append(Vector2(float(c) / float(nu - 1), v))
+			uv2.append(Vector2(p.z, p.y))
+			hint_o.append(Vector3(side, 0, 0))
+			hint_i.append(Vector3(-side, 0, 0))
+	_emit_grid(mb, nv, nu, outer, _grid_normals(nv, nu, outer, hint_o), col_o, uv, uv2)
+	_emit_grid(mb, nv, nu, inner, _grid_normals(nv, nu, inner, hint_i), col_i, uv, uv2)
+	# closed edges all round
+	var ctr := Vector3(side * (rc + 0.06), 0.05 - dh * 0.5, 0.0)
+	var edges := []
+	for c in nu - 1:
+		edges.append([c, c + 1])
+		edges.append([(nv - 1) * nu + c, (nv - 1) * nu + c + 1])
+	for r in nv - 1:
+		edges.append([r * nu, (r + 1) * nu])
+		edges.append([r * nu + nu - 1, (r + 1) * nu + nu - 1])
+	for e in edges:
+		var i: int = e[0]
+		var j: int = e[1]
+		var mid := (outer[i] + outer[j]) * 0.5
+		var n := mid - ctr
+		n.x = 0.0
+		_quad_n(mb, outer[i], outer[j], inner[j], inner[i], n, _c(P_GEAR))
+	# struts from the door to the leg
+	for f in [0.25, 0.72]:
+		var y2 := 0.05 - dh * float(f)
+		mb.add_cylinder(Vector3(side * rc * 0.85, y2, 0.0), Vector3(side * (rc + 0.1), y2, 0.0), 0.025, 0.025, 5, _c(P_GEAR), false)
 
 
 # ------------------------------------------------------------------ doors
@@ -2067,6 +2303,30 @@ func _build_details(fmb: MeshBuilder, amb: MeshBuilder, panes: Array) -> void:
 			var t2 := 0.42
 			var sp2 := section(spec, t2)
 			fmb.add_sphere(Vector3(0, sp2.w + _rh * sp2.y - 0.05, cg_z + t2 * body_len), Vector3(0.55, 0.2, 1.4), 16, 6, _c(P_FLAT))
+		# GPS patch domes on the crown
+		for k in 2:
+			var tg := 0.33 + 0.025 * float(k)
+			var spg := section(spec, tg)
+			fmb.add_sphere(Vector3(0, spg.w + _rh * spg.y - 0.015, cg_z + tg * body_len), Vector3(0.09, 0.035, 0.12), 10, 4, _c(P_FLAT))
+		# drain masts under the belly (forward and aft of the wing box) and the pack ram-air inlets
+		for tdm in [0.24, 0.71]:
+			var tdf: float = tdm
+			var spd := section(spec, tdf)
+			var yb := _fpt(spd, tdf, PI).y if not _bulges.is_empty() else spd.w - _rh * spd.z
+			var zd := cg_z + tdf * body_len
+			var dsec := [_sec(Vector3(0, yb + 0.03, zd), Vector3(0, 0, 1), Vector3(1, 0, 0), 0.26, 0.14, 0.0),
+				_sec(Vector3(0, yb - 0.2, zd + 0.14), Vector3(0, 0, 1), Vector3(1, 0, 0), 0.12, 0.12, 1.0)]
+			_surf(fmb, dsec, 0.0, 1.0, P_BELLY, 6, {"cap1": true, "uv2": "zy"})
+		if spec.wing_pos == "low" and not _bulges.is_empty():
+			var zr := _w_le_z(_rw) - 0.15 * _w_chord(_rw)
+			var tr2 := clampf((zr - cg_z) / body_len, 0.0, 1.0)
+			var spr := section(spec, tr2)
+			for sx in [-1.0, 1.0]:
+				var th0 := PI - float(sx) * 0.32
+				var pr := _fpt(spr, tr2, th0)
+				var nr := (pr - Vector3(0, spr.w, pr.z)).normalized()
+				var rb := Basis(nr.cross(Vector3(0, 0, 1)).normalized(), nr, Vector3(0, 0, 1))
+				fmb.add_box_xf(Transform3D(rb, pr + nr * 0.004), Vector3(0.32, 0.03, 0.7), _c(P_DARK))
 	# trainer: door handles, step and the GA wing root fairing
 	if cat == "trainer":
 		for sx in [-1.0, 1.0]:
