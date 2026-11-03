@@ -473,6 +473,9 @@ func record_passenger_flight(pid: int, flight_no: String) -> void:
 
 
 # ------------------------------------------------------------------ background world events
+var _template_sched: Array = []
+
+
 func _maybe_world_events(t0: float, t1: float) -> void:
 	# Roughly one minor aviation story every few days somewhere in the world.
 	var d0 := int(floor(t0 / 21600.0))
@@ -480,7 +483,14 @@ func _maybe_world_events(t0: float, t1: float) -> void:
 	for slot in range(d0 + 1, d1 + 1):
 		var r := U.rng(U.hash_ints(world_seed, slot, 404))
 		if r.randf() < 0.11:
-			var sched := schedule_for_day(int(slot * 21600.0 / 86400.0))
+			# the timetable repeats every day: reuse one day's schedule instead of building a new
+			# one for every simulated day (long time skips stay fast)
+			var day_i := int(slot * 21600.0 / 86400.0)
+			var sched: Array = _schedule_cache.get(day_i, [])
+			if sched.is_empty():
+				if _template_sched.is_empty():
+					_template_sched = schedule_for_day(day_i)
+				sched = _template_sched
 			if sched.is_empty():
 				continue
 			var f: Dictionary = sched[r.randi_range(0, sched.size() - 1)]

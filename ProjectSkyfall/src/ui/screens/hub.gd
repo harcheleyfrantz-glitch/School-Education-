@@ -131,10 +131,18 @@ static func upcoming_for(p: Dictionary) -> Array:
 func _actions(p: Dictionary) -> void:
 	var c := card("Time and career")
 	var row := UIStyle.hbox(8)
-	row.add_child(UIStyle.button("Rest 8 hours", func():
-		WorldSim.advance(8.0 * 3600.0)
-		Game.save_game()
-		Game.goto("hub")))
+	for opt in [["Rest 8 hours", 8.0 / 24.0], ["1 day", 1.0], ["1 week", 7.0], ["1 month", 30.0], ["1 year", 365.0]]:
+		var days: float = opt[1]
+		row.add_child(UIStyle.button(String(opt[0]), func():
+			# a day at a time, so news, world events and careers keep happening along the way
+			var left := days * 86400.0
+			while left > 0.0:
+				var step := minf(left, 86400.0)
+				WorldSim.advance(step)
+				left -= step
+			Game.save_game()
+			Game.notify("Time moved on %s." % ("8 hours" if days < 1.0 else "%d days" % int(days)), "info")
+			Game.goto("hub")))
 	var block := _blocked_reason(p)
 	if block != "" and String(p.license) != "Revoked":
 		var until := maxf(float(p.get("recovery_until", 0.0)), float(p.get("suspended_until", 0.0)))
