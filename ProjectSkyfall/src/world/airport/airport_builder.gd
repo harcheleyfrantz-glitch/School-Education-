@@ -2,6 +2,7 @@ class_name AirportBuilder
 ## Builds an airport's geometry as plain arrays (safe on worker threads). AirportView turns the
 ## product into nodes. Coordinates are airport-local with y = height above field elevation.
 
+const K := preload("res://src/world/models/model_kit.gd")
 const PAINT_Y := 0.075
 const RWY_Y := 0.06
 const TWY_Y := 0.05
@@ -272,7 +273,7 @@ static func _roof_plant(misc: MeshBuilder, t: Transform3D, y: float, hx: float, 
 		var p := Vector3(r.randf_range(-hx * 0.7, hx * 0.7), y, r.randf_range(-hz * 0.7, hz * 0.7))
 		var sz := Vector3(r.randf_range(2.0, 4.5), r.randf_range(1.2, 2.2), r.randf_range(2.0, 6.0))
 		misc.add_box(p + Vector3(0, sz.y * 0.5, 0), sz, PLANT)
-		misc.add_cylinder(p + Vector3(0, sz.y, 0), p + Vector3(0, sz.y + 0.25, 0), minf(sz.x, sz.z) * 0.32, minf(sz.x, sz.z) * 0.32, 8, STEEL_DARK)
+		K.cyl(misc, p + Vector3(0, sz.y, 0), p + Vector3(0, sz.y + 0.25, 0), minf(sz.x, sz.z) * 0.32, minf(sz.x, sz.z) * 0.32, 8, STEEL_DARK)
 	misc.xf = Transform3D.IDENTITY
 
 
@@ -307,7 +308,7 @@ static func _buildings(L: Dictionary, a: Dictionary, prod: Dictionary, detail: f
 			var rise := 7.0 if L.size == "hub" else 4.0
 			for k in bays:
 				var zc: float = -bl * 0.5 + (k + 0.5) * (bl / bays)
-				metal.add_arch(Vector3(0, bh, zc), bd + 14.0, rise, bl / bays + 0.5, 14, Color.WHITE)
+				K.arch(metal, Vector3(0, bh, zc), bd + 14.0, rise, bl / bays + 0.5, 14, Color.WHITE)
 			# roof-edge fascia under the overhanging eaves
 			for sx in [-1.0, 1.0]:
 				metal.add_box(Vector3(sx * (bd * 0.5 + 6.6), bh + 0.25, 0), Vector3(0.9, 1.1, bl + 0.5), Color.WHITE)
@@ -338,7 +339,7 @@ static func _buildings(L: Dictionary, a: Dictionary, prod: Dictionary, detail: f
 					var nc := int(bl * 0.72 / 18.0)
 					for k3 in nc + 1:
 						var zc3: float = -bl * 0.36 + bl * 0.72 * float(k3) / maxf(nc, 1)
-						misc.add_cylinder(Vector3(sx2 * (bd * 0.5 + 13.5), 0, zc3), Vector3(sx2 * (bd * 0.5 + 13.5), fl - 0.35, zc3), 0.22, 0.2, 8, FIN, false)
+						K.cyl(misc, Vector3(sx2 * (bd * 0.5 + 13.5), 0, zc3), Vector3(sx2 * (bd * 0.5 + 13.5), fl - 0.35, zc3), 0.22, 0.2, 8, FIN, false)
 					var nd := int(bl / 36.0)
 					for k4 in nd:
 						var zd: float = -bl * 0.5 + (k4 + 0.5) * bl / maxf(nd, 1)
@@ -376,31 +377,31 @@ static func _buildings(L: Dictionary, a: Dictionary, prod: Dictionary, detail: f
 		concrete.add_box(_v3(tp + bb, 4.5), Vector3(tr * 5.5, 9.0, tr * 4.0), Color.WHITE, true)
 		glass.add_box(_v3(tp + bb, 5.0), Vector3(tr * 5.5 + 0.2, 2.6, tr * 4.0 + 0.2), Color.WHITE, true)
 		_roof_plant(misc, Transform3D(Basis(), _v3(tp + bb, 0)), 9.0, tr * 2.75, tr * 2.0, U.hash_str(L.icao) + 7)
-	concrete.add_cylinder(_v3(tp, 0), _v3(tp, th - 4.0), tr * 1.3, tr, 12, Color.WHITE)
+	K.cyl(concrete, _v3(tp, 0), _v3(tp, th - 4.0), tr * 1.3, tr, 12, Color.WHITE)
 	for k5 in 4:
 		var ang := TAU * k5 / 4.0 + PI * 0.25
 		var dv := Vector2(cos(ang), sin(ang))
 		misc.add_box_xf(Transform3D(Basis(Vector3.UP, -ang), _v3(tp + dv * tr * 1.05, (th - 4.0) * 0.5)), Vector3(tr * 0.5, th - 4.0, tr * 0.35), Color(0.8, 0.8, 0.78))
-	concrete.add_cylinder(_v3(tp, th - 4.0), _v3(tp, th - 3.4), tr * 1.05, tr * 1.85, 12, Color.WHITE)
-	glass.add_cylinder(_v3(tp, th - 3.4), _v3(tp, th - 0.5), tr * 1.85, tr * 1.85, 12, Color.WHITE)
-	concrete.add_cylinder(_v3(tp, th - 0.5), _v3(tp, th + 0.2), tr * 2.65, tr * 2.6, 16, Color.WHITE)
-	cab.add_cylinder(_v3(tp, th + 0.2), _v3(tp, th + 5.0), tr * 2.0, tr * 2.35, 12, Color.WHITE)
+	K.cyl(concrete, _v3(tp, th - 4.0), _v3(tp, th - 3.4), tr * 1.05, tr * 1.85, 12, Color.WHITE)
+	K.cyl(glass, _v3(tp, th - 3.4), _v3(tp, th - 0.5), tr * 1.85, tr * 1.85, 12, Color.WHITE)
+	K.cyl(concrete, _v3(tp, th - 0.5), _v3(tp, th + 0.2), tr * 2.65, tr * 2.6, 16, Color.WHITE)
+	cab.add_cylinder(_v3(tp, th + 0.2), _v3(tp, th + 5.0), tr * 2.0, tr * 2.35, 12, Color.WHITE, false)
 	for k6 in 12:
 		var a6 := TAU * (float(k6) + 0.5) / 12.0
 		var d6 := Vector2(cos(a6), sin(a6))
-		misc.add_cylinder(_v3(tp + d6 * tr * 1.99, th + 0.2), _v3(tp + d6 * tr * 2.34, th + 5.0), 0.07, 0.07, 4, STEEL_DARK, false)
+		K.cyl(misc, _v3(tp + d6 * tr * 1.99, th + 0.2), _v3(tp + d6 * tr * 2.34, th + 5.0), 0.07, 0.07, 4, STEEL_DARK, false)
 	for k7 in 24:
 		var a7 := TAU * float(k7) / 24.0
 		var a8 := TAU * float(k7 + 1) / 24.0
 		var p7 := tp + Vector2(cos(a7), sin(a7)) * tr * 2.55
 		var p8 := tp + Vector2(cos(a8), sin(a8)) * tr * 2.55
-		misc.add_cylinder(_v3(p7, th + 0.2), _v3(p7, th + 1.25), 0.04, 0.04, 3, FIN, false)
-		misc.add_cylinder(_v3(p7, th + 1.25), _v3(p8, th + 1.25), 0.05, 0.05, 3, FIN, false)
-	concrete.add_cylinder(_v3(tp, th + 5.0), _v3(tp, th + 5.8), tr * 2.7, tr * 2.55, 16, Color.WHITE)
-	concrete.add_cylinder(_v3(tp, th + 5.8), _v3(tp, th + 6.4), tr * 1.6, tr * 1.25, 12, Color.WHITE)
+		K.cyl(misc, _v3(p7, th + 0.2), _v3(p7, th + 1.25), 0.04, 0.04, 3, FIN, false)
+		K.cyl(misc, _v3(p7, th + 1.25), _v3(p8, th + 1.25), 0.05, 0.05, 3, FIN, false)
+	K.cyl(concrete, _v3(tp, th + 5.0), _v3(tp, th + 5.8), tr * 2.7, tr * 2.55, 16, Color.WHITE)
+	K.cyl(concrete, _v3(tp, th + 5.8), _v3(tp, th + 6.4), tr * 1.6, tr * 1.25, 12, Color.WHITE)
 	misc.add_sphere(_v3(tp + Vector2(tr * 0.7, 0), th + 6.4 + tr * 0.28), Vector3.ONE * tr * 0.3, 10, 6, Color(0.92, 0.92, 0.9))
-	misc.add_cylinder(_v3(tp + Vector2(-tr * 0.6, tr * 0.4), th + 6.4), _v3(tp + Vector2(-tr * 0.6, tr * 0.4), th + 9.5), 0.06, 0.04, 4, FIN, false)
-	misc.add_cylinder(_v3(tp, th + 6.4), _v3(tp, th + 11.0), 0.12, 0.08, 4, Color(0.8, 0.1, 0.1))
+	K.cyl(misc, _v3(tp + Vector2(-tr * 0.6, tr * 0.4), th + 6.4), _v3(tp + Vector2(-tr * 0.6, tr * 0.4), th + 9.5), 0.06, 0.04, 4, FIN, false)
+	K.cyl(misc, _v3(tp, th + 6.4), _v3(tp, th + 11.0), 0.12, 0.08, 4, Color(0.8, 0.1, 0.1))
 	prod.beacon = _v3(tp, th + 6.8)
 	prod.tower_top = _v3(tp, th + 3.0)
 	# hangars: corrugated shed under a barrel roof, segmented doors with a header beam and
@@ -417,7 +418,7 @@ static func _buildings(L: Dictionary, a: Dictionary, prod: Dictionary, detail: f
 		var hb := Basis(Vector3.UP, yaw2)
 		metal.xf = Transform3D(hb, _v3(hc, 0))
 		metal.add_box(Vector3(0, hh * 0.5, 0), Vector3(hd, hh, hw), Color.WHITE, true)
-		metal.add_arch(Vector3(0, hh, 0), hd, hh * 0.32, hw, 16, Color.WHITE)
+		K.arch(metal, Vector3(0, hh, 0), hd, hh * 0.32, hw, 16, Color.WHITE)
 		metal.xf = Transform3D.IDENTITY
 		var dn: Vector2 = hg.door_normal
 		var ldn: Vector3 = hb.inverse() * Vector3(dn.x, 0, dn.y)
@@ -479,14 +480,14 @@ static func _buildings(L: Dictionary, a: Dictionary, prod: Dictionary, detail: f
 			misc.add_box(_v3(fuel + Vector2(sx5 * 39.0, 0), 0.6), Vector3(0.6, 1.2, 34.0), Color(0.66, 0.66, 0.64))
 		for k in 3:
 			var fp: Vector2 = fuel + Vector2(k * 24.0 - 24.0, 0)
-			misc.add_cylinder(_v3(fp, 0), _v3(fp, 12.0), 9.0, 9.0, 24, Color(0.92, 0.92, 0.9))
-			misc.add_cylinder(_v3(fp, 12.0), _v3(fp, 13.6), 9.0, 2.0, 24, Color(0.86, 0.86, 0.84))
-			misc.add_cylinder(_v3(fp, 4.0), _v3(fp, 4.6), 9.05, 9.05, 24, Color(0.8, 0.15, 0.1), false)
+			K.cyl(misc, _v3(fp, 0), _v3(fp, 12.0), 9.0, 9.0, 24, Color(0.92, 0.92, 0.9))
+			K.cyl(misc, _v3(fp, 12.0), _v3(fp, 13.6), 9.0, 2.0, 24, Color(0.86, 0.86, 0.84))
+			K.cyl(misc, _v3(fp, 4.0), _v3(fp, 4.6), 9.05, 9.05, 24, Color(0.8, 0.15, 0.1), false)
 			for ks in 6:
 				var sa := float(ks) / 6.0 * PI * 0.9
 				var sp := fp + Vector2(cos(sa), sin(sa)) * 9.6
 				misc.add_box(_v3(sp, 1.0 + ks * 2.0), Vector3(1.2, 0.15, 1.2), STEEL_DARK)
-			misc.add_cylinder(_v3(fp + Vector2(9.6, 0), 0), _v3(fp + Vector2(9.6, 0), 13.0), 0.05, 0.05, 3, FIN, false)
+			K.cyl(misc, _v3(fp + Vector2(9.6, 0), 0), _v3(fp + Vector2(9.6, 0), 13.0), 0.05, 0.05, 3, FIN, false)
 	# car parks with cars and lamp posts
 	for pk in L.parking:
 		var pc: Vector2 = pk.center
@@ -506,7 +507,7 @@ static func _buildings(L: Dictionary, a: Dictionary, prod: Dictionary, detail: f
 		for row2 in rows + 1:
 			for col2 in int(pk.len / 30.0) + 1:
 				var lp2: Vector2 = pc + pax * (col2 * 30.0 - pk.len * 0.5) + pn * (row2 * 12.0 - pk.depth * 0.5)
-				misc.add_cylinder(_v3(lp2, 0), _v3(lp2, 8.0), 0.12, 0.08, 6, FIN, false)
+				K.cyl(misc, _v3(lp2, 0), _v3(lp2, 8.0), 0.12, 0.08, 6, FIN, false)
 				misc.add_box(_v3(lp2, 8.05), Vector3(0.9, 0.2, 0.4), STEEL_DARK)
 	# jet bridges and stand equipment
 	for i in L.stands.size():
@@ -685,15 +686,15 @@ static func _flood_mast(mb: MeshBuilder, fp: Vector2, facing: Vector2, along: Ve
 	## Apron high mast: plinth, tapered octagonal pole, service platform with a rail and a
 	## head frame of floodlights tilted down at the stands.
 	var grey := Color(0.58, 0.59, 0.61)
-	mb.add_cylinder(_v3(fp, 0.0), _v3(fp, 0.7), 0.85, 0.75, 8, Color(0.62, 0.62, 0.6))
-	mb.add_cylinder(_v3(fp, 0.7), _v3(fp, 24.0), 0.42, 0.2, 8, grey, false)
-	mb.add_cylinder(_v3(fp, 22.6), _v3(fp, 22.8), 1.4, 1.4, 8, Color(0.3, 0.3, 0.32))
+	K.cyl(mb, _v3(fp, 0.0), _v3(fp, 0.7), 0.85, 0.75, 8, Color(0.62, 0.62, 0.6))
+	K.cyl(mb, _v3(fp, 0.7), _v3(fp, 24.0), 0.42, 0.2, 8, grey, false)
+	K.cyl(mb, _v3(fp, 22.6), _v3(fp, 22.8), 1.4, 1.4, 8, Color(0.3, 0.3, 0.32))
 	for k in 8:
 		var a0 := TAU * k / 8.0
 		var a1 := TAU * (k + 1) / 8.0
 		var p0 := fp + Vector2(cos(a0), sin(a0)) * 1.35
 		var p1 := fp + Vector2(cos(a1), sin(a1)) * 1.35
-		mb.add_cylinder(_v3(p0, 22.8), _v3(p1, 23.7), 0.04, 0.04, 3, grey, false)
+		K.cyl(mb, _v3(p0, 22.8), _v3(p1, 23.7), 0.04, 0.04, 3, grey, false)
 	var yawf := atan2(facing.x, facing.y)
 	var hb := Basis(Vector3.UP, yawf)
 	mb.add_box_xf(Transform3D(hb, _v3(fp, 24.1)), Vector3(4.2, 0.25, 0.3), Color(0.3, 0.3, 0.32))

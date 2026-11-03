@@ -335,8 +335,8 @@ func _liberty(mb: MeshBuilder, boxes: Array) -> void:
 	var gold := _c(Color(1.0, 0.8, 0.35), K.LAMP)
 	var dark := _c(Color(0.1, 0.1, 0.1), K.DARK_GLASS)
 	# the island stands well clear of the harbour swell; everything else sits on its top
-	mb.add_cylinder(Vector3(0, -24, 0), Vector3(0, 6.0, 0), 158.0, 136.0, 40, grass)
-	mb.add_cylinder(Vector3(0, 6.0, 0), Vector3(0, 6.2, 0), 72.0, 72.0, 32, paving)
+	K.cyl(mb, Vector3(0, -24, 0), Vector3(0, 6.0, 0), 158.0, 136.0, 40, grass)
+	K.cyl(mb, Vector3(0, 6.0, 0), Vector3(0, 6.2, 0), 72.0, 72.0, 32, paving)
 	mb.xf = Transform3D(Basis(), Vector3(0, 3.5, 0))
 	# Fort Wood: an eleven-pointed star of granite walls
 	K.prism(mb, K.star(11, 62.0, 45.0, PI * 0.5), 2.5, 9.0, stone)
@@ -369,24 +369,24 @@ func _liberty(mb: MeshBuilder, boxes: Array) -> void:
 		rings.append(ring)
 	mb.add_loft(rings, copper, true, true)
 	# neck, head and the crown with seven rays
-	mb.add_cylinder(Vector3(0, P + 27.0, -0.4), Vector3(0, P + 29.0, -0.5), 1.4, 1.2, 10, copper)
+	K.cyl(mb, Vector3(0, P + 27.0, -0.4), Vector3(0, P + 29.0, -0.5), 1.4, 1.2, 10, copper)
 	mb.add_sphere(Vector3(0, P + 30.7, -0.6), Vector3(2.2, 2.7, 2.4), 12, 8, copper)
-	mb.add_cylinder(Vector3(0, P + 31.9, -0.6), Vector3(0, P + 33.0, -0.6), 2.5, 2.2, 14, copper)
+	K.cyl(mb, Vector3(0, P + 31.9, -0.6), Vector3(0, P + 33.0, -0.6), 2.5, 2.2, 14, copper)
 	for k3 in 7:
 		var a3 := deg_to_rad(-78.0 + k3 * 26.0)
 		var dirv := Vector3(sin(a3), 0.42, -cos(a3)).normalized()
 		var root_p := Vector3(0, P + 32.6, -0.6) + Vector3(sin(a3), 0, -cos(a3)) * 2.2
-		mb.add_cone(root_p, root_p + dirv * 4.0, 0.45, 4, copper)
+		K.cone(mb, root_p, root_p + dirv * 4.0, 0.45, 4, copper)
 	# raised right arm, torch and the gilded flame (lit at night)
 	mb.add_sphere(Vector3(3.0, P + 25.6, -0.3), Vector3(1.6, 1.6, 1.6), 8, 6, copper)
-	mb.add_cylinder(Vector3(3.1, P + 25.8, -0.3), Vector3(4.2, P + 37.8, -0.9), 1.3, 0.95, 8, copper)
+	K.cyl(mb, Vector3(3.1, P + 25.8, -0.3), Vector3(4.2, P + 37.8, -0.9), 1.3, 0.95, 8, copper)
 	mb.add_sphere(Vector3(4.25, P + 38.2, -0.9), Vector3(1.05, 1.1, 1.05), 8, 6, copper)
-	mb.add_cylinder(Vector3(4.25, P + 38.5, -0.9), Vector3(4.3, P + 41.3, -0.95), 0.75, 0.9, 8, copper)
-	mb.add_cylinder(Vector3(4.3, P + 41.3, -0.95), Vector3(4.3, P + 42.5, -0.95), 1.3, 1.9, 12, copper)
-	mb.add_cylinder(Vector3(4.3, P + 42.2, -0.95), Vector3(4.3, P + 42.6, -0.95), 2.1, 2.1, 12, copper)
-	mb.add_cone(Vector3(4.3, P + 42.5, -0.95), Vector3(4.4, P + 46.2, -1.0), 1.5, 10, gold)
+	K.cyl(mb, Vector3(4.25, P + 38.5, -0.9), Vector3(4.3, P + 41.3, -0.95), 0.75, 0.9, 8, copper)
+	K.cyl(mb, Vector3(4.3, P + 41.3, -0.95), Vector3(4.3, P + 42.5, -0.95), 1.3, 1.9, 12, copper)
+	K.cyl(mb, Vector3(4.3, P + 42.2, -0.95), Vector3(4.3, P + 42.6, -0.95), 2.1, 2.1, 12, copper)
+	K.cone(mb, Vector3(4.3, P + 42.5, -0.95), Vector3(4.4, P + 46.2, -1.0), 1.5, 10, gold)
 	# left arm cradling the tablet
-	mb.add_cylinder(Vector3(-3.1, P + 24.5, -0.4), Vector3(-3.9, P + 17.8, -1.6), 1.15, 0.9, 8, copper)
+	K.cyl(mb, Vector3(-3.1, P + 24.5, -0.4), Vector3(-3.9, P + 17.8, -1.6), 1.15, 0.9, 8, copper)
 	mb.add_box_xf(Transform3D(Basis(Vector3.FORWARD, 0.22) * Basis(Vector3.RIGHT, -0.18), Vector3(-4.6, P + 19.5, -1.9)), Vector3(1.0, 7.2, 4.2), copper)
 	mb.xf = Transform3D.IDENTITY
 	boxes.append([Vector3(0, 27, 0), Vector3(21, 27, 21)])
@@ -435,8 +435,8 @@ func _empire(mb: MeshBuilder, boxes: Array) -> void:
 	K.prism(mb, K.ngon(8, 8.0, PI / 8.0), 352.0, 366.0, alu, 0.8, true, alu)
 	K.prism(mb, K.ngon(8, 5.6, PI / 8.0), 366.0, 373.0, lamp, 0.7, true, alu)
 	mb.add_sphere(Vector3(0, 374.5, 0), Vector3(3.6, 3.0, 3.6), 10, 5, alu)
-	mb.add_cylinder(Vector3(0, 376, 0), Vector3(0, 405, 0), 1.6, 1.0, 8, alu)
-	mb.add_cylinder(Vector3(0, 405, 0), Vector3(0, 443, 0), 0.8, 0.25, 6, _c(Color(0.9, 0.9, 0.9), K.METAL))
+	K.cyl(mb, Vector3(0, 376, 0), Vector3(0, 405, 0), 1.6, 1.0, 8, alu)
+	K.cyl(mb, Vector3(0, 405, 0), Vector3(0, 443, 0), 0.8, 0.25, 6, _c(Color(0.9, 0.9, 0.9), K.METAL))
 	_aviation_light(Vector3(0, 443.5, 0))
 	_aviation_light(Vector3(0, 405.5, 0), 0.7)
 	boxes.append([Vector3(0, 41, 0), Vector3(64, 41, 28)])
@@ -471,10 +471,10 @@ func _one_wtc(mb: MeshBuilder, boxes: Array) -> void:
 		K.tri(mb, t0, b0, t1, Vector3(cos(ab0), 0, sin(ab0)), glass)
 	# parapet, spire base and the spire with its maintenance rings
 	K.prism(mb, K.ngon(4, rt, 0.0), y1, y1 + 8.0, steel)
-	mb.add_cylinder(Vector3(0, 425, 0), Vector3(0, 434, 0), 7.0, 5.0, 12, steel)
-	mb.add_cylinder(Vector3(0, 434, 0), Vector3(0, 541, 0), 2.0, 0.45, 8, steel)
+	K.cyl(mb, Vector3(0, 425, 0), Vector3(0, 434, 0), 7.0, 5.0, 12, steel)
+	K.cyl(mb, Vector3(0, 434, 0), Vector3(0, 541, 0), 2.0, 0.45, 8, steel)
 	for ry in [446.0, 470.0, 494.0, 518.0]:
-		mb.add_cylinder(Vector3(0, ry, 0), Vector3(0, ry + 1.2, 0), 3.4, 3.4, 10, steel)
+		K.cyl(mb, Vector3(0, ry, 0), Vector3(0, ry + 1.2, 0), 3.4, 3.4, 10, steel)
 	_fine.add_sphere(Vector3(0, 541.5, 0), Vector3.ONE * 1.2, 8, 5, _c(Color(1, 1, 1), K.LAMP))
 	boxes.append([Vector3(0, 210, 0), Vector3(32, 210, 32)])
 	boxes.append([Vector3(0, 480, 0), Vector3(4, 60, 4)])
@@ -499,7 +499,7 @@ func _willis(mb: MeshBuilder, boxes: Array) -> void:
 			if h > 300.0:
 				K.prism(mb, K.rect(6.0, 5.0, cx, cz), h, h + 4.0, roof)
 	for p in [Vector3(-12, 442, -6), Vector3(12, 442, -6)]:
-		mb.add_cylinder(p, p + Vector3(0, 85, 0), 1.6, 0.4, 8, _c(Color(0.9, 0.9, 0.9), K.METAL))
+		K.cyl(mb, p, p + Vector3(0, 85, 0), 1.6, 0.4, 8, _c(Color(0.9, 0.9, 0.9), K.METAL))
 		_aviation_light(p + Vector3(0, 85.5, 0))
 	boxes.append([Vector3(0, 221, 0), Vector3(35, 221, 35)])
 
@@ -549,7 +549,7 @@ func _big_ben(mb: MeshBuilder, boxes: Array) -> void:
 		var px := 12.0 + k * 8.9
 		for sz in [-1.0, 1.0]:
 			mb.add_box(Vector3(px, 16.0, sz * 35.6), Vector3(1.4, 32.0, 1.2), sand)
-			mb.add_cone(Vector3(px, 32.0, sz * 35.6), Vector3(px, 39.0, sz * 35.6), 1.0, 4, sand)
+			K.cone(mb, Vector3(px, 32.0, sz * 35.6), Vector3(px, 39.0, sz * 35.6), 1.0, 4, sand)
 	K.prism(mb, K.ngon(8, 9.0, PI / 8.0, 128.0, 0.0), 28.0, 66.0, sandw)
 	K.loft2(mb, K.ngon(8, 9.0, PI / 8.0, 128.0, 0.0), 66.0, K.ngon(8, 0.5, PI / 8.0, 128.0, 0.0), 91.0, slate)
 	# Victoria Tower with corner turrets and the flag
@@ -557,9 +557,9 @@ func _big_ben(mb: MeshBuilder, boxes: Array) -> void:
 	for cx in [-10.5, 10.5]:
 		for cz in [-10.5, 10.5]:
 			K.prism(mb, K.ngon(8, 2.2, PI / 8.0, 262.0 + cx, cz), 0.0, 98.0, sand)
-			mb.add_cone(Vector3(262.0 + cx, 98.0, cz), Vector3(262.0 + cx, 104.0, cz), 2.0, 8, gold)
+			K.cone(mb, Vector3(262.0 + cx, 98.0, cz), Vector3(262.0 + cx, 104.0, cz), 2.0, 8, gold)
 	K.loft2(mb, K.rect(10.0, 10.0, 262.0, 0.0), 92.0, K.rect(5.0, 5.0, 262.0, 0.0), 96.0, slate)
-	_fine.add_cylinder(Vector3(262, 96, 0), Vector3(262, 112, 0), 0.25, 0.15, 6, _c(Color(0.9, 0.9, 0.9), K.METAL))
+	K.cyl(_fine, Vector3(262, 96, 0), Vector3(262, 112, 0), 0.25, 0.15, 6, _c(Color(0.9, 0.9, 0.9), K.METAL))
 	_fine.add_box(Vector3(262, 109.5, 3.0), Vector3(0.1, 4.0, 6.0), _c(Color(0.75, 0.1, 0.12), K.STONE))
 	# Elizabeth Tower: shaft, clock stage, belfry, slate spire and gilded finial
 	K.prism(mb, K.rect(6.0, 6.0), 0.0, 54.0, sandw)
@@ -569,8 +569,8 @@ func _big_ben(mb: MeshBuilder, boxes: Array) -> void:
 	K.prism(mb, K.rect(7.3, 7.3), 54.0, 70.0, sand)
 	for side in 4:
 		var b := Basis(Vector3.UP, side * PI * 0.5)
-		mb.add_cylinder(b * Vector3(0, 62.0, 7.3), b * Vector3(0, 62.0, 7.75), 3.55, 3.55, 20, face)
-		mb.add_cylinder(b * Vector3(0, 62.0, 7.25), b * Vector3(0, 62.0, 7.55), 4.2, 4.2, 20, gold)
+		K.cyl(mb, b * Vector3(0, 62.0, 7.3), b * Vector3(0, 62.0, 7.75), 3.55, 3.55, 20, face)
+		K.cyl(mb, b * Vector3(0, 62.0, 7.25), b * Vector3(0, 62.0, 7.55), 4.2, 4.2, 20, gold)
 		_fine.add_box_xf(Transform3D(b * Basis(Vector3.BACK, 0.7), b * Vector3(0, 62.0, 7.85)), Vector3(0.3, 4.6, 0.1), dark)
 		_fine.add_box_xf(Transform3D(b * Basis(Vector3.BACK, -1.9), b * Vector3(0, 62.0, 7.9)), Vector3(0.35, 3.2, 0.1), dark)
 		for k2 in 3:
@@ -579,9 +579,9 @@ func _big_ben(mb: MeshBuilder, boxes: Array) -> void:
 	K.loft2(mb, K.rect(6.9, 6.9), 78.5, K.rect(0.7, 0.7), 92.0, slate)
 	for cx3 in [-6.2, 6.2]:
 		for cz3 in [-6.2, 6.2]:
-			mb.add_cone(Vector3(cx3, 78.5, cz3), Vector3(cx3, 86.0, cz3), 1.0, 6, gold)
+			K.cone(mb, Vector3(cx3, 78.5, cz3), Vector3(cx3, 86.0, cz3), 1.0, 6, gold)
 	K.prism(mb, K.rect(1.6, 1.6), 86.0, 89.0, gold)
-	mb.add_cone(Vector3(0, 91.5, 0), Vector3(0, 96.0, 0), 0.7, 6, gold)
+	K.cone(mb, Vector3(0, 91.5, 0), Vector3(0, 96.0, 0), 0.7, 6, gold)
 	boxes.append([Vector3(0, 48, 0), Vector3(8, 48, 8)])
 	boxes.append([Vector3(130, 20, 0), Vector3(135, 20, 35)])
 	boxes.append([Vector3(262, 54, 0), Vector3(12, 54, 12)])
@@ -599,19 +599,19 @@ func _london_eye(mb: MeshBuilder, boxes: Array) -> void:
 		for zz in [-1.6, 1.6]:
 			var p0 := Vector3(cos(a0) * rr, cy + sin(a0) * rr, zz)
 			var p1 := Vector3(cos(a1) * rr, cy + sin(a1) * rr, zz)
-			mb.add_cylinder(p0, p1, 0.6, 0.6, 4, white, false)
+			K.cyl(mb, p0, p1, 0.6, 0.6, 4, white, false)
 		if k % 2 == 0:
-			_fine.add_cylinder(Vector3(cos(a0) * rr, cy + sin(a0) * rr, -1.6), Vector3(cos(a1) * rr, cy + sin(a1) * rr, 1.6), 0.2, 0.2, 3, white, false)
+			K.cyl(_fine, Vector3(cos(a0) * rr, cy + sin(a0) * rr, -1.6), Vector3(cos(a1) * rr, cy + sin(a1) * rr, 1.6), 0.2, 0.2, 3, white, false)
 	for k in 32:
 		var a := TAU * k / 32.0
-		mb.add_cylinder(Vector3(0, cy, (k % 2) * 6.0 - 3.0), Vector3(cos(a) * rr, cy + sin(a) * rr, 0), 0.18, 0.18, 3, white, false)
+		K.cyl(mb, Vector3(0, cy, (k % 2) * 6.0 - 3.0), Vector3(cos(a) * rr, cy + sin(a) * rr, 0), 0.18, 0.18, 3, white, false)
 	for k in 32:
 		var a2 := TAU * k / 32.0
 		mb.add_sphere(Vector3(cos(a2) * (rr + 2.8), cy + sin(a2) * (rr + 2.8), 0), Vector3(2.4, 2.0, 4.0), 8, 5, pod)
-	mb.add_cylinder(Vector3(0, cy, -5), Vector3(0, cy, 5), 3.0, 3.0, 12, white)
-	mb.add_cylinder(Vector3(-30, 0, 35), Vector3(0, cy, 2), 1.6, 1.2, 8, white)
-	mb.add_cylinder(Vector3(30, 0, 35), Vector3(0, cy, 2), 1.6, 1.2, 8, white)
-	_fine.add_cylinder(Vector3(-30, 40, 35), Vector3(30, 40, 35), 0.4, 0.4, 4, white, false)
+	K.cyl(mb, Vector3(0, cy, -5), Vector3(0, cy, 5), 3.0, 3.0, 12, white)
+	K.cyl(mb, Vector3(-30, 0, 35), Vector3(0, cy, 2), 1.6, 1.2, 8, white)
+	K.cyl(mb, Vector3(30, 0, 35), Vector3(0, cy, 2), 1.6, 1.2, 8, white)
+	K.cyl(_fine, Vector3(-30, 40, 35), Vector3(30, 40, 35), 0.4, 0.4, 4, white, false)
 	K.prism(mb, K.rect(40.0, 10.0, 0.0, 38.0), 0.0, 1.0, _c(Color(0.5, 0.5, 0.52), K.STONE))
 	boxes.append([Vector3(0, cy, 0), Vector3(68, 68, 4)])
 
@@ -630,18 +630,18 @@ func _tower_bridge(mb: MeshBuilder, boxes: Array) -> void:
 		for cx in [-8.5, 8.5]:
 			for cz in [-8.5, 8.5]:
 				K.prism(mb, K.ngon(8, 2.4, PI / 8.0, cx, tz + cz), 2.0, 60.0, stone_p)
-				mb.add_cone(Vector3(cx, 60, tz + cz), Vector3(cx, 68, tz + cz), 2.3, 8, slate)
-				_fine.add_cone(Vector3(cx, 67.5, tz + cz), Vector3(cx, 70.5, tz + cz), 0.4, 4, gold)
+				K.cone(mb, Vector3(cx, 60, tz + cz), Vector3(cx, 68, tz + cz), 2.3, 8, slate)
+				K.cone(_fine, Vector3(cx, 67.5, tz + cz), Vector3(cx, 70.5, tz + cz), 0.4, 4, gold)
 		K.loft2(mb, K.rect(8.5, 8.5, 0.0, tz), 58.0, K.rect(1.0, 1.0, 0.0, tz), 72.0, slate)
-		mb.add_cone(Vector3(0, 71.5, tz), Vector3(0, 76.0, tz), 0.6, 6, gold)
+		K.cone(mb, Vector3(0, 71.5, tz), Vector3(0, 76.0, tz), 0.6, 6, gold)
 	# high-level walkways (blue lattice girders) and the bascule road deck
 	for wy in [44.0, 49.0]:
 		for wx in [-4.0, 4.0]:
 			mb.add_box(Vector3(wx, wy, 0), Vector3(3, 3.4, 58), blue)
 	for k in 10:
 		var zz := -26.0 + k * 5.8
-		_fine.add_cylinder(Vector3(-5.5, 42.5, zz), Vector3(-5.5, 50.5, zz + 5.8), 0.25, 0.25, 3, white, false)
-		_fine.add_cylinder(Vector3(5.5, 42.5, zz), Vector3(5.5, 50.5, zz + 5.8), 0.25, 0.25, 3, white, false)
+		K.cyl(_fine, Vector3(-5.5, 42.5, zz), Vector3(-5.5, 50.5, zz + 5.8), 0.25, 0.25, 3, white, false)
+		K.cyl(_fine, Vector3(5.5, 42.5, zz), Vector3(5.5, 50.5, zz + 5.8), 0.25, 0.25, 3, white, false)
 	mb.add_box(Vector3(0, 9, 0), Vector3(16, 2.5, 330), deck)
 	for sx in [-8.2, 8.2]:
 		mb.add_box(Vector3(sx, 10.8, 0), Vector3(0.6, 1.2, 330), blue)
@@ -654,9 +654,9 @@ func _tower_bridge(mb: MeshBuilder, boxes: Array) -> void:
 				var t1 := float(k + 1) / 10.0
 				var p0 := a.lerp(b, t0) + Vector3(0, -sin(t0 * PI) * 8.0, 0)
 				var p1 := a.lerp(b, t1) + Vector3(0, -sin(t1 * PI) * 8.0, 0)
-				mb.add_cylinder(p0, p1, 0.9, 0.9, 4, blue, false)
+				K.cyl(mb, p0, p1, 0.9, 0.9, 4, blue, false)
 				if k > 0:
-					mb.add_cylinder(p0, Vector3(p0.x, 10.5, p0.z), 0.25, 0.25, 3, blue, false)
+					K.cyl(mb, p0, Vector3(p0.x, 10.5, p0.z), 0.25, 0.25, 3, blue, false)
 	boxes.append([Vector3(0, 30, -38), Vector3(11, 36, 11)])
 	boxes.append([Vector3(0, 30, 38), Vector3(11, 36, 11)])
 	boxes.append([Vector3(0, 46, 0), Vector3(8, 4, 30)])
@@ -683,7 +683,7 @@ func _suspension(mb: MeshBuilder, boxes: Array, span: float, tower_h: float, dec
 				var pw := 12.0 if sx != 0.0 else 8.0
 				mb.add_box(Vector3(sx * (width * 0.5 + 2.0), (deck_h + tower_h) * 0.5, tz), Vector3(pw, tower_h - deck_h, 30.0), tcol)
 			for sx2 in [-1.0, 1.0]:
-				mb.add_arch(Vector3(sx2 * (width * 0.25 + 1.0), tower_h - 30.0, tz), width * 0.5 - 6.0, 8.0, 30.0, 8, tcol)
+				K.arch(mb, Vector3(sx2 * (width * 0.25 + 1.0), tower_h - 30.0, tz), width * 0.5 - 6.0, 8.0, 30.0, 8, tcol)
 			mb.add_box(Vector3(0, tower_h - 9.0, tz), Vector3(width + 16.0, 18.0, 30.0), tcol)
 			mb.add_box(Vector3(0, tower_h + 0.8, tz), Vector3(width + 18.0, 1.6, 32.0), tdark)
 		else:
@@ -715,11 +715,11 @@ func _suspension(mb: MeshBuilder, boxes: Array, span: float, tower_h: float, dec
 			var yy := deck_h + 4.0 + (tower_h - deck_h - 6.0) * pow((zz / half_s), 2.0)
 			pts.append(Vector3(px, yy, zz))
 		for k2 in pts.size() - 1:
-			mb.add_cylinder(pts[k2], pts[k2 + 1], 0.9, 0.9, 5, ccol, false)
+			K.cyl(mb, pts[k2], pts[k2 + 1], 0.9, 0.9, 5, ccol, false)
 			var hp: Vector3 = pts[k2]
 			if k2 > 0:
 				var hanger_mb: MeshBuilder = mb if k2 % 2 == 0 else _fine
-				hanger_mb.add_cylinder(hp, Vector3(px, deck_h + 1.5, hp.z), 0.2, 0.2, 3, ccol, false)
+				K.cyl(hanger_mb, hp, Vector3(px, deck_h + 1.5, hp.z), 0.2, 0.2, 3, ccol, false)
 		# side spans down to the anchorages
 		for sgn in [-1.0, 1.0]:
 			var a := Vector3(px, tower_h - 2.0, half_s * sgn)
@@ -729,9 +729,9 @@ func _suspension(mb: MeshBuilder, boxes: Array, span: float, tower_h: float, dec
 				var t1 := float(k3 + 1) / 10.0
 				var q0 := a.lerp(b, t0) - Vector3(0, sin(t0 * PI) * 10.0, 0)
 				var q1 := a.lerp(b, t1) - Vector3(0, sin(t1 * PI) * 10.0, 0)
-				mb.add_cylinder(q0, q1, 0.9, 0.9, 5, ccol, false)
+				K.cyl(mb, q0, q1, 0.9, 0.9, 5, ccol, false)
 				if k3 > 0:
-					_fine.add_cylinder(q0, Vector3(px, deck_h + 1.5, q0.z), 0.2, 0.2, 3, ccol, false)
+					K.cyl(_fine, q0, Vector3(px, deck_h + 1.5, q0.z), 0.2, 0.2, 3, ccol, false)
 	for sgn2 in [-1.0, 1.0]:
 		mb.add_box(Vector3(0, deck_h * 0.5, half_l * sgn2), Vector3(width + 10.0, deck_h + 6.0, 40.0), pier)
 
@@ -766,7 +766,7 @@ func _eiffel(mb: MeshBuilder, boxes: Array) -> void:
 				var r1: Array = rings[i + 1]
 				var mid0: Vector3 = (r0[0] + r0[1] + r0[2] + r0[3]) * 0.25
 				var mid1: Vector3 = (r1[0] + r1[1] + r1[2] + r1[3]) * 0.25
-				mb.add_cylinder(mid0, mid1, (r0[0] as Vector3).distance_to(r0[2]) * 0.18, (r1[0] as Vector3).distance_to(r1[2]) * 0.18, 4, col, false)
+				K.cyl(mb, mid0, mid1, (r0[0] as Vector3).distance_to(r0[2]) * 0.18, (r1[0] as Vector3).distance_to(r1[2]) * 0.18, 4, col, false)
 	# arches between the legs under the first platform
 	for side in 4:
 		var b := Basis(Vector3.UP, side * PI * 0.5)
@@ -775,7 +775,7 @@ func _eiffel(mb: MeshBuilder, boxes: Array) -> void:
 			var t1 := float(k + 1) / 12.0
 			var p0 := b * Vector3(lerpf(-30.0, 30.0, t0), 17.0 + sin(t0 * PI) * 22.0, -42.0)
 			var p1 := b * Vector3(lerpf(-30.0, 30.0, t1), 17.0 + sin(t1 * PI) * 22.0, -42.0)
-			mb.add_cylinder(p0, p1, 1.3, 1.3, 4, iron if not tokyo else orange, false)
+			K.cyl(mb, p0, p1, 1.3, 1.3, 4, iron if not tokyo else orange, false)
 	# first platform: a square ring with its gallery, second platform, top cabin
 	var pc := deck if not tokyo else white
 	for side2 in 4:
@@ -804,8 +804,8 @@ func _eiffel(mb: MeshBuilder, boxes: Array) -> void:
 		K.prism(mb, K.rect(14.0, 14.0), 150.0, 160.0, _c(Color(0.75, 0.8, 0.85), K.RIBBON))
 	K.prism(mb, K.rect(8.5, 8.5), 276.0, 283.0, _c(Color(0.5, 0.45, 0.38), K.PUNCHED))
 	K.prism(mb, K.rect(5.0, 5.0), 283.0, 288.0, pc)
-	mb.add_cylinder(Vector3(0, 288, 0), Vector3(0, 300, 0), 2.2, 1.6, 8, pc)
-	mb.add_cylinder(Vector3(0, 300, 0), Vector3(0, 330, 0), 1.1, 0.35, 6, _c(Color(0.75, 0.75, 0.75), K.METAL))
+	K.cyl(mb, Vector3(0, 288, 0), Vector3(0, 300, 0), 2.2, 1.6, 8, pc)
+	K.cyl(mb, Vector3(0, 300, 0), Vector3(0, 330, 0), 1.1, 0.35, 6, _c(Color(0.75, 0.75, 0.75), K.METAL))
 	_fine.add_sphere(Vector3(0, 301.0, 0), Vector3(2.0, 1.2, 2.0), 8, 4, lamp)
 	_aviation_light(Vector3(0, 330.5, 0))
 	K.prism(mb, K.rect(90.0, 90.0), 0.0, 0.4, _c(Color(0.72, 0.68, 0.6), K.STONE))
@@ -819,17 +819,17 @@ func _arc(mb: MeshBuilder, boxes: Array) -> void:
 	var st := _c(Color(0.87, 0.83, 0.73), K.STONE)
 	var relief := _c(Color(0.74, 0.7, 0.6), K.STONE)
 	var plaza := _c(Color(0.62, 0.6, 0.57), K.STONE)
-	mb.add_cylinder(Vector3(0, -0.5, 0), Vector3(0, 0.3, 0), 120.0, 120.0, 40, plaza)
+	K.cyl(mb, Vector3(0, -0.5, 0), Vector3(0, 0.3, 0), 120.0, 120.0, 40, plaza)
 	for sx in [-1.0, 1.0]:
 		for sz in [-1.0, 1.0]:
 			mb.add_box(Vector3(sx * 15.4, 15.0, sz * 7.3), Vector3(14.2, 30.0, 7.4), st)
 			_fine.add_box(Vector3(sx * 15.4, 12.0, sz * 11.1), Vector3(9.0, 11.0, 0.4), relief)
-		mb.add_arch(Vector3(sx * 15.4, 18.7, 0), 8.4, 4.2, 7.2, 8, st)
+		K.arch(mb, Vector3(sx * 15.4, 18.7, 0), 8.4, 4.2, 7.2, 8, st)
 	mb.add_box(Vector3(0, 33.0, 0), Vector3(45.0, 6.0, 22.0), st)
 	mb.add_box(Vector3(0, 36.5, 0), Vector3(46.4, 1.4, 23.4), relief)
 	mb.add_box(Vector3(0, 42.5, 0), Vector3(44.6, 11.0, 21.6), st)
 	mb.add_box(Vector3(0, 48.4, 0), Vector3(45.6, 1.2, 22.6), relief)
-	mb.add_arch(Vector3(0, 22.6, 0), 14.6, 7.3, 22.0, 12, st)
+	K.arch(mb, Vector3(0, 22.6, 0), 14.6, 7.3, 22.0, 12, st)
 	mb.add_box(Vector3(0, 26.5, 0), Vector3(14.6, 7.0, 22.0), st)
 	boxes.append([Vector3(0, 25, 0), Vector3(23, 25, 11)])
 
@@ -853,17 +853,17 @@ func _cn_tower(mb: MeshBuilder, boxes: Array) -> void:
 		for k in 3:
 			var a := TAU * k / 3.0 + PI * 0.5
 			K.loft2(mb, K.wing_plan(a, ln, 7.0, 2), y0, K.wing_plan(a, ln1, 6.0, 2), y1, conc)
-	mb.add_cylinder(Vector3(0, 335, 0), Vector3(0, 342, 0), 15.0, 21.0, 24, pod)
-	mb.add_cylinder(Vector3(0, 342, 0), Vector3(0, 351, 0), 21.0, 23.5, 24, win)
-	mb.add_cylinder(Vector3(0, 351, 0), Vector3(0, 360, 0), 23.5, 22.5, 24, pod)
-	mb.add_cylinder(Vector3(0, 360, 0), Vector3(0, 368, 0), 22.5, 14.0, 24, win)
-	mb.add_cylinder(Vector3(0, 368, 0), Vector3(0, 372, 0), 14.0, 8.0, 18, pod)
-	mb.add_cylinder(Vector3(0, 372, 0), Vector3(0, 447, 0), 6.0, 4.8, 8, conc)
-	mb.add_cylinder(Vector3(0, 447, 0), Vector3(0, 457, 0), 8.5, 8.5, 14, win)
-	mb.add_cylinder(Vector3(0, 457, 0), Vector3(0, 460, 0), 8.5, 4.5, 14, pod)
+	K.cyl(mb, Vector3(0, 335, 0), Vector3(0, 342, 0), 15.0, 21.0, 24, pod)
+	K.cyl(mb, Vector3(0, 342, 0), Vector3(0, 351, 0), 21.0, 23.5, 24, win)
+	K.cyl(mb, Vector3(0, 351, 0), Vector3(0, 360, 0), 23.5, 22.5, 24, pod)
+	K.cyl(mb, Vector3(0, 360, 0), Vector3(0, 368, 0), 22.5, 14.0, 24, win)
+	K.cyl(mb, Vector3(0, 368, 0), Vector3(0, 372, 0), 14.0, 8.0, 18, pod)
+	K.cyl(mb, Vector3(0, 372, 0), Vector3(0, 447, 0), 6.0, 4.8, 8, conc)
+	K.cyl(mb, Vector3(0, 447, 0), Vector3(0, 457, 0), 8.5, 8.5, 14, win)
+	K.cyl(mb, Vector3(0, 457, 0), Vector3(0, 460, 0), 8.5, 4.5, 14, pod)
 	for k2 in 6:
 		var y2 := 460.0 + k2 * 15.5
-		mb.add_cylinder(Vector3(0, y2, 0), Vector3(0, y2 + 15.5, 0), 3.0 - k2 * 0.4, 2.8 - k2 * 0.4, 8, red if k2 % 2 == 0 else white)
+		K.cyl(mb, Vector3(0, y2, 0), Vector3(0, y2 + 15.5, 0), 3.0 - k2 * 0.4, 2.8 - k2 * 0.4, 8, red if k2 % 2 == 0 else white)
 	_aviation_light(Vector3(0, 553.5, 0), 1.0)
 	_aviation_light(Vector3(0, 447.0, 6.2), 0.8)
 	boxes.append([Vector3(0, 170, 0), Vector3(20, 170, 20)])
@@ -897,15 +897,15 @@ func _capitol(mb: MeshBuilder, boxes: Array) -> void:
 	mb.add_box(Vector3(0, 20, 42), Vector3(60, 36, 14), w)
 	K.loft2(mb, K.rect(30.0, 8.0, 0.0, 42.0), 36.0, K.rect(28.0, 0.5, 0.0, 42.0), 44.0, w)
 	for k in 12:
-		mb.add_cylinder(Vector3(-27 + k * 4.9, 4, 50), Vector3(-27 + k * 4.9, 34, 50), 1.2, 1.05, 10, w)
+		K.cyl(mb, Vector3(-27 + k * 4.9, 4, 50), Vector3(-27 + k * 4.9, 34, 50), 1.2, 1.05, 10, w)
 	mb.add_box(Vector3(0, 2, 56), Vector3(54, 4, 16), w)
-	mb.add_cylinder(Vector3(0, 32, 0), Vector3(0, 40, 0), 33.0, 32.0, 32, w)
-	mb.add_cylinder(Vector3(0, 40, 0), Vector3(0, 62, 0), 28.0, 27.0, 32, ww)
+	K.cyl(mb, Vector3(0, 32, 0), Vector3(0, 40, 0), 33.0, 32.0, 32, w)
+	K.cyl(mb, Vector3(0, 40, 0), Vector3(0, 62, 0), 28.0, 27.0, 32, ww)
 	for k2 in 36:
 		var a := TAU * k2 / 36.0
-		mb.add_cylinder(Vector3(cos(a) * 31.0, 40, sin(a) * 31.0), Vector3(cos(a) * 31.0, 58, sin(a) * 31.0), 0.9, 0.8, 8, w)
-	mb.add_cylinder(Vector3(0, 58, 0), Vector3(0, 63, 0), 32.0, 30.0, 32, w)
-	mb.add_cylinder(Vector3(0, 63, 0), Vector3(0, 70, 0), 26.0, 25.0, 32, ww)
+		K.cyl(mb, Vector3(cos(a) * 31.0, 40, sin(a) * 31.0), Vector3(cos(a) * 31.0, 58, sin(a) * 31.0), 0.9, 0.8, 8, w)
+	K.cyl(mb, Vector3(0, 58, 0), Vector3(0, 63, 0), 32.0, 30.0, 32, w)
+	K.cyl(mb, Vector3(0, 63, 0), Vector3(0, 70, 0), 26.0, 25.0, 32, ww)
 	mb.add_sphere(Vector3(0, 70, 0), Vector3(25, 22, 25), 32, 10, w)
 	for k3 in 16:
 		var a3 := TAU * k3 / 16.0
@@ -914,10 +914,10 @@ func _capitol(mb: MeshBuilder, boxes: Array) -> void:
 			var ph := float(j) / 5.0 * PI * 0.47
 			rib.append(Vector3(cos(a3) * 25.3 * cos(ph), 70.0 + 22.3 * sin(ph), sin(a3) * 25.3 * cos(ph)))
 		for j2 in 5:
-			_fine.add_cylinder(rib[j2], rib[j2 + 1], 0.45, 0.45, 4, w, false)
-	mb.add_cylinder(Vector3(0, 91, 0), Vector3(0, 100, 0), 4.5, 3.8, 14, w)
+			K.cyl(_fine, rib[j2], rib[j2 + 1], 0.45, 0.45, 4, w, false)
+	K.cyl(mb, Vector3(0, 91, 0), Vector3(0, 100, 0), 4.5, 3.8, 14, w)
 	mb.add_sphere(Vector3(0, 100, 0), Vector3(3.8, 3.0, 3.8), 12, 5, w)
-	mb.add_cylinder(Vector3(0, 102, 0), Vector3(0, 107, 0), 1.0, 0.6, 8, _c(Color(0.35, 0.33, 0.28), K.METAL))
+	K.cyl(mb, Vector3(0, 102, 0), Vector3(0, 107, 0), 1.0, 0.6, 8, _c(Color(0.35, 0.33, 0.28), K.METAL))
 	boxes.append([Vector3(0, 18, 0), Vector3(115, 18, 36)])
 	boxes.append([Vector3(0, 60, 0), Vector3(30, 40, 30)])
 
@@ -938,9 +938,9 @@ func _obelisk(mb: MeshBuilder, boxes: Array) -> void:
 	for k2 in 50:
 		var a := TAU * k2 / 50.0
 		var p := Vector3(cos(a) * 32.0, 0, sin(a) * 32.0)
-		_fine.add_cylinder(p, p + Vector3(0, 15, 0), 0.12, 0.08, 4, _c(Color(0.85, 0.85, 0.85), K.METAL), false)
+		K.cyl(_fine, p, p + Vector3(0, 15, 0), 0.12, 0.08, 4, _c(Color(0.85, 0.85, 0.85), K.METAL), false)
 		_fine.add_box(p + Vector3(0, 14, 0.9), Vector3(0.05, 1.2, 1.8), _c(Color(0.75, 0.1, 0.15) if k2 % 2 == 0 else Color(0.15, 0.2, 0.5), K.STONE))
-	mb.add_cylinder(Vector3(0, -0.5, 0), Vector3(0, 0.3, 0), 36.0, 36.0, 32, _c(Color(0.7, 0.68, 0.64), K.STONE))
+	K.cyl(mb, Vector3(0, -0.5, 0), Vector3(0, 0.3, 0), 36.0, 36.0, 32, _c(Color(0.7, 0.68, 0.64), K.STONE))
 	boxes.append([Vector3(0, 84, 0), Vector3(9, 84, 9)])
 
 
@@ -1011,18 +1011,18 @@ func _dome_church(mb: MeshBuilder, boxes: Array) -> void:
 	K.loft2(mb, K.rect(30.0, 75.0, 0.0, 70.0), 44.0, K.rect(1.0, 75.0, 0.0, 70.0), 56.0, lead)
 	K.prism(mb, K.rect(57.5, 6.0, 0.0, 140.0), 0.0, 50.0, stw)
 	for k in 8:
-		mb.add_cylinder(Vector3(-26.0 + k * 7.4, 0, 147.0), Vector3(-26.0 + k * 7.4, 42.0, 147.0), 1.4, 1.2, 10, st)
+		K.cyl(mb, Vector3(-26.0 + k * 7.4, 0, 147.0), Vector3(-26.0 + k * 7.4, 42.0, 147.0), 1.4, 1.2, 10, st)
 	K.loft2(mb, K.rect(28.0, 3.0, 0.0, 146.0), 42.0, K.rect(27.0, 0.5, 0.0, 146.0), 52.0, st)
 	K.prism(mb, K.rect(70.0, 30.0, 0.0, -20.0), 0.0, 44.0, stw)
-	mb.add_cylinder(Vector3(0, 44, -20), Vector3(0, 48, -20), 28.0, 27.0, 32, st)
-	mb.add_cylinder(Vector3(0, 48, -20), Vector3(0, 76, -20), 25.0, 24.0, 32, st)
+	K.cyl(mb, Vector3(0, 44, -20), Vector3(0, 48, -20), 28.0, 27.0, 32, st)
+	K.cyl(mb, Vector3(0, 48, -20), Vector3(0, 76, -20), 25.0, 24.0, 32, st)
 	for k2 in 16:
 		var a := TAU * k2 / 16.0
 		var cp := Vector3(cos(a) * 25.6, 0, -20.0 + sin(a) * 25.6)
-		mb.add_cylinder(cp + Vector3(0, 48, 0), cp + Vector3(0, 74, 0), 1.0, 0.9, 6, st)
+		K.cyl(mb, cp + Vector3(0, 48, 0), cp + Vector3(0, 74, 0), 1.0, 0.9, 6, st)
 		var wa := a + TAU / 32.0
 		mb.add_box_xf(Transform3D(Basis(Vector3.UP, -wa + PI * 0.5), Vector3(cos(wa) * 24.6, 62.0, -20.0 + sin(wa) * 24.6)), Vector3(3.2, 8.0, 0.4), dark)
-	mb.add_cylinder(Vector3(0, 76, -20), Vector3(0, 79, -20), 26.0, 24.0, 32, st)
+	K.cyl(mb, Vector3(0, 76, -20), Vector3(0, 79, -20), 26.0, 24.0, 32, st)
 	mb.add_sphere(Vector3(0, 79, -20), Vector3(23, 34 if not hagia else 18, 23), 32, 10, lead)
 	for k3 in 16:
 		var a3 := TAU * k3 / 16.0
@@ -1031,24 +1031,24 @@ func _dome_church(mb: MeshBuilder, boxes: Array) -> void:
 			var ph := float(j) / 6.0 * PI * 0.46
 			var p := Vector3(cos(a3) * 23.3 * cos(ph), 79.0 + (34.3 if not hagia else 18.3) * sin(ph), -20.0 + sin(a3) * 23.3 * cos(ph))
 			if j > 0:
-				_fine.add_cylinder(prev, p, 0.5, 0.5, 4, st, false)
+				K.cyl(_fine, prev, p, 0.5, 0.5, 4, st, false)
 			prev = p
 	if not hagia:
-		mb.add_cylinder(Vector3(0, 111, -20), Vector3(0, 126, -20), 5.0, 4.2, 12, st)
+		K.cyl(mb, Vector3(0, 111, -20), Vector3(0, 126, -20), 5.0, 4.2, 12, st)
 		mb.add_sphere(Vector3(0, 126, -20), Vector3(4.2, 3.0, 4.2), 10, 5, lead)
-		mb.add_cone(Vector3(0, 128, -20), Vector3(0, 134, -20), 1.4, 8, lead)
+		K.cone(mb, Vector3(0, 128, -20), Vector3(0, 134, -20), 1.4, 8, lead)
 		mb.add_sphere(Vector3(0, 134.5, -20), Vector3(1.0, 1.0, 1.0), 8, 5, _c(Color(0.9, 0.75, 0.35), K.METAL))
 		for sx in [-1.0, 1.0]:
-			mb.add_cylinder(Vector3(sx * 42.0, 44, -20), Vector3(sx * 42.0, 60, -20), 7.0, 6.5, 12, st)
+			K.cyl(mb, Vector3(sx * 42.0, 44, -20), Vector3(sx * 42.0, 60, -20), 7.0, 6.5, 12, st)
 			mb.add_sphere(Vector3(sx * 42.0, 60, -20), Vector3(6.5, 9.0, 6.5), 12, 6, lead)
 	else:
-		mb.add_cylinder(Vector3(0, 96, -20), Vector3(0, 100, -20), 0.6, 0.3, 6, _c(Color(0.9, 0.75, 0.35), K.METAL))
+		K.cyl(mb, Vector3(0, 96, -20), Vector3(0, 100, -20), 0.6, 0.3, 6, _c(Color(0.9, 0.75, 0.35), K.METAL))
 		for mx in [-1.0, 1.0]:
 			for mz in [-1.0, 1.0]:
 				var mp := Vector3(mx * 62.0, 0, -20.0 + mz * 50.0)
-				mb.add_cylinder(mp, mp + Vector3(0, 55, 0), 2.4, 2.0, 10, st)
-				mb.add_cylinder(mp + Vector3(0, 40, 0), mp + Vector3(0, 41.5, 0), 3.2, 3.2, 10, st)
-				mb.add_cone(mp + Vector3(0, 55, 0), mp + Vector3(0, 66, 0), 2.1, 10, lead)
+				K.cyl(mb, mp, mp + Vector3(0, 55, 0), 2.4, 2.0, 10, st)
+				K.cyl(mb, mp + Vector3(0, 40, 0), mp + Vector3(0, 41.5, 0), 3.2, 3.2, 10, st)
+				K.cone(mb, mp + Vector3(0, 55, 0), mp + Vector3(0, 66, 0), 2.1, 10, lead)
 	boxes.append([Vector3(0, 25, 50), Vector3(60, 25, 95)])
 	boxes.append([Vector3(0, 80, -20), Vector3(25, 56, 25)])
 
@@ -1060,14 +1060,14 @@ func _windmills(mb: MeshBuilder, boxes: Array) -> void:
 		var body := _c(Color(0.25, 0.32, 0.26) if k % 2 == 0 else Color(0.45, 0.33, 0.24), K.STONE)
 		K.prism(mb, K.ngon(8, 7.8, 0.0, o.x, o.z), 0.0, 6.0, _c(Color(0.55, 0.3, 0.22), K.PUNCHED))
 		K.prism(mb, K.ngon(8, 7.0, 0.0, o.x, o.z), 6.0, 22.0, body, 0.62)
-		_fine.add_cylinder(o + Vector3(0, 6.5, 0), o + Vector3(0, 7.0, 0), 9.0, 9.0, 12, _c(Color(0.35, 0.25, 0.18), K.STONE))
-		mb.add_cone(o + Vector3(0, 22, 0), o + Vector3(0, 28, 0), 5.2, 8, _c(Color(0.2, 0.2, 0.22), K.STONE))
+		K.cyl(_fine, o + Vector3(0, 6.5, 0), o + Vector3(0, 7.0, 0), 9.0, 9.0, 12, _c(Color(0.35, 0.25, 0.18), K.STONE))
+		K.cone(mb, o + Vector3(0, 22, 0), o + Vector3(0, 28, 0), 5.2, 8, _c(Color(0.2, 0.2, 0.22), K.STONE))
 		var hub := o + Vector3(0, 23, -5.5)
-		mb.add_cylinder(o + Vector3(0, 23, -3.0), hub, 0.6, 0.5, 6, _c(Color(0.3, 0.22, 0.16), K.STONE))
+		K.cyl(mb, o + Vector3(0, 23, -3.0), hub, 0.6, 0.5, 6, _c(Color(0.3, 0.22, 0.16), K.STONE))
 		for s in 4:
 			var a := s * PI * 0.5 + PI * 0.25 + k * 0.4
 			var tip := hub + Vector3(cos(a), sin(a), 0) * 13.0
-			mb.add_cylinder(hub, tip, 0.35, 0.3, 4, _c(Color(0.35, 0.25, 0.18), K.STONE), false)
+			K.cyl(mb, hub, tip, 0.35, 0.3, 4, _c(Color(0.35, 0.25, 0.18), K.STONE), false)
 			mb.add_box_xf(Transform3D(Basis(Vector3.FORWARD, a), hub.lerp(tip, 0.6) + Vector3(0, 0, -0.4)), Vector3(8.0, 2.2, 0.3), _c(Color(0.92, 0.9, 0.84), K.STONE))
 		boxes.append([o + Vector3(0, 14, 0), Vector3(8, 14, 8)])
 
@@ -1078,7 +1078,7 @@ func _church_tower(mb: MeshBuilder, boxes: Array) -> void:
 	var dark := _c(Color(0.1, 0.1, 0.12), K.DARK_GLASS)
 	K.prism(mb, K.rect(5.0, 7.0), 0.0, 68.0, c)
 	K.loft2(mb, K.rect(5.0, 7.0), 68.0, K.rect(0.4, 0.4), 76.0, c)
-	_fine.add_cylinder(Vector3(0, 76, 0), Vector3(0, 78.5, 0), 0.15, 0.1, 4, c)
+	K.cyl(_fine, Vector3(0, 76, 0), Vector3(0, 78.5, 0), 0.15, 0.1, 4, c)
 	for side in [-1.0, 1.0]:
 		mb.add_box(Vector3(side * 5.05, 58.0, 0), Vector3(0.2, 5.0, 3.0), dark)
 	mb.add_box(Vector3(0, 58.0, -7.05), Vector3(3.0, 5.0, 0.2), dark)
@@ -1109,19 +1109,19 @@ func _space_needle(mb: MeshBuilder, boxes: Array) -> void:
 				var rad := lerpf(19.0, 4.0, sin(t * PI * 0.5)) if t < 0.72 else lerpf(5.0, 9.5, (t - 0.72) / 0.28)
 				pts.append(Vector3(cos(aa) * rad, t * 158.0, sin(aa) * rad))
 			for j2 in 8:
-				mb.add_cylinder(pts[j2], pts[j2 + 1], 1.1, 1.0, 6, white, false)
+				K.cyl(mb, pts[j2], pts[j2 + 1], 1.1, 1.0, 6, white, false)
 		for j3 in 5:
 			var y := 25.0 + j3 * 26.0
 			var rad2 := lerpf(19.0, 4.0, sin(y / 158.0 * PI * 0.5))
-			_fine.add_cylinder(Vector3(cos(a - 0.16) * rad2, y, sin(a - 0.16) * rad2), Vector3(cos(a + 0.16) * rad2, y, sin(a + 0.16) * rad2), 0.4, 0.4, 4, white, false)
-	mb.add_cylinder(Vector3(0, 0, 0), Vector3(0, 160, 0), 3.0, 3.0, 10, _c(Color(0.78, 0.78, 0.76), K.STONE))
-	mb.add_cylinder(Vector3(0, 100, 0), Vector3(0, 102, 0), 8.5, 8.5, 16, white)
-	mb.add_cylinder(Vector3(0, 152, 0), Vector3(0, 156, 0), 5.0, 14.0, 24, white)
-	mb.add_cylinder(Vector3(0, 156, 0), Vector3(0, 163, 0), 14.0, 17.0, 32, glass)
-	mb.add_cylinder(Vector3(0, 163, 0), Vector3(0, 165, 0), 21.0, 21.0, 32, orange)
-	mb.add_cylinder(Vector3(0, 165, 0), Vector3(0, 169, 0), 17.0, 15.0, 32, glass)
-	mb.add_cylinder(Vector3(0, 169, 0), Vector3(0, 173, 0), 15.0, 6.0, 24, white)
-	mb.add_cylinder(Vector3(0, 173, 0), Vector3(0, 184, 0), 1.2, 0.3, 6, white)
+			K.cyl(_fine, Vector3(cos(a - 0.16) * rad2, y, sin(a - 0.16) * rad2), Vector3(cos(a + 0.16) * rad2, y, sin(a + 0.16) * rad2), 0.4, 0.4, 4, white, false)
+	K.cyl(mb, Vector3(0, 0, 0), Vector3(0, 160, 0), 3.0, 3.0, 10, _c(Color(0.78, 0.78, 0.76), K.STONE))
+	K.cyl(mb, Vector3(0, 100, 0), Vector3(0, 102, 0), 8.5, 8.5, 16, white)
+	K.cyl(mb, Vector3(0, 152, 0), Vector3(0, 156, 0), 5.0, 14.0, 24, white)
+	K.cyl(mb, Vector3(0, 156, 0), Vector3(0, 163, 0), 14.0, 17.0, 32, glass)
+	K.cyl(mb, Vector3(0, 163, 0), Vector3(0, 165, 0), 21.0, 21.0, 32, orange)
+	K.cyl(mb, Vector3(0, 165, 0), Vector3(0, 169, 0), 17.0, 15.0, 32, glass)
+	K.cyl(mb, Vector3(0, 169, 0), Vector3(0, 173, 0), 15.0, 6.0, 24, white)
+	K.cyl(mb, Vector3(0, 173, 0), Vector3(0, 184, 0), 1.2, 0.3, 6, white)
 	_aviation_light(Vector3(0, 184.5, 0), 0.6)
 	boxes.append([Vector3(0, 80, 0), Vector3(12, 80, 12)])
 	boxes.append([Vector3(0, 165, 0), Vector3(21, 10, 21)])
@@ -1154,14 +1154,14 @@ func _tv_tower(mb: MeshBuilder, boxes: Array) -> void:
 						K.bar(mb, prev[k2], ring[(k2 + 1) % 6], 0.6, lat, 3)
 						K.bar(mb, prev[(k2 + 1) % 6], ring[k2], 0.6, lat, 3)
 				prev = ring
-			mb.add_cylinder(Vector3(0, 0, 0), Vector3(0, 495, 0), 8.0, 5.0, 12, _c(Color(0.8, 0.82, 0.85), K.STONE))
-			mb.add_cylinder(Vector3(0, 340, 0), Vector3(0, 345, 0), 13.0, 19.0, 24, steel)
-			mb.add_cylinder(Vector3(0, 345, 0), Vector3(0, 358, 0), 19.0, 18.0, 24, glass)
-			mb.add_cylinder(Vector3(0, 358, 0), Vector3(0, 362, 0), 18.0, 10.0, 24, steel)
-			mb.add_cylinder(Vector3(0, 362, 0), Vector3(0, 440, 0), 10.0, 9.0, 12, _c(Color(0.86, 0.9, 0.95), K.METAL))
-			mb.add_cylinder(Vector3(0, 440, 0), Vector3(0, 452, 0), 13.5, 13.0, 24, glass)
-			mb.add_cylinder(Vector3(0, 452, 0), Vector3(0, 456, 0), 13.0, 7.0, 24, steel)
-			mb.add_cylinder(Vector3(0, 456, 0), Vector3(0, 634, 0), 5.0, 1.2, 10, white)
+			K.cyl(mb, Vector3(0, 0, 0), Vector3(0, 495, 0), 8.0, 5.0, 12, _c(Color(0.8, 0.82, 0.85), K.STONE))
+			K.cyl(mb, Vector3(0, 340, 0), Vector3(0, 345, 0), 13.0, 19.0, 24, steel)
+			K.cyl(mb, Vector3(0, 345, 0), Vector3(0, 358, 0), 19.0, 18.0, 24, glass)
+			K.cyl(mb, Vector3(0, 358, 0), Vector3(0, 362, 0), 18.0, 10.0, 24, steel)
+			K.cyl(mb, Vector3(0, 362, 0), Vector3(0, 440, 0), 10.0, 9.0, 12, _c(Color(0.86, 0.9, 0.95), K.METAL))
+			K.cyl(mb, Vector3(0, 440, 0), Vector3(0, 452, 0), 13.5, 13.0, 24, glass)
+			K.cyl(mb, Vector3(0, 452, 0), Vector3(0, 456, 0), 13.0, 7.0, 24, steel)
+			K.cyl(mb, Vector3(0, 456, 0), Vector3(0, 634, 0), 5.0, 1.2, 10, white)
 			_aviation_light(Vector3(0, 634.5, 0), 1.2)
 			boxes.append([Vector3(0, 170, 0), Vector3(30, 170, 30)])
 			boxes.append([Vector3(0, 490, 0), Vector3(19, 145, 19)])
@@ -1170,18 +1170,18 @@ func _tv_tower(mb: MeshBuilder, boxes: Array) -> void:
 			var pink := _c(Color(0.86, 0.32, 0.48), K.METAL)
 			for k in 3:
 				var a := TAU * k / 3.0
-				mb.add_cylinder(Vector3(cos(a) * 22.0, 0, sin(a) * 22.0), Vector3(cos(a) * 6.0, 95.0, sin(a) * 6.0), 4.0, 3.0, 8, conc)
-				mb.add_cylinder(Vector3(cos(a) * 6.0, 0, sin(a) * 6.0), Vector3(cos(a) * 6.0, 330.0, sin(a) * 6.0), 4.5, 3.5, 10, conc)
+				K.cyl(mb, Vector3(cos(a) * 22.0, 0, sin(a) * 22.0), Vector3(cos(a) * 6.0, 95.0, sin(a) * 6.0), 4.0, 3.0, 8, conc)
+				K.cyl(mb, Vector3(cos(a) * 6.0, 0, sin(a) * 6.0), Vector3(cos(a) * 6.0, 330.0, sin(a) * 6.0), 4.5, 3.5, 10, conc)
 			mb.add_sphere(Vector3(0, 95, 0), Vector3(25, 25, 25), 24, 14, pink)
 			mb.add_sphere(Vector3(0, 263, 0), Vector3(22.5, 22.5, 22.5), 24, 14, pink)
-			mb.add_cylinder(Vector3(0, 93, 0), Vector3(0, 97, 0), 25.5, 25.5, 24, glass)
-			mb.add_cylinder(Vector3(0, 261, 0), Vector3(0, 265, 0), 23.0, 23.0, 24, glass)
+			K.cyl(mb, Vector3(0, 93, 0), Vector3(0, 97, 0), 25.5, 25.5, 24, glass)
+			K.cyl(mb, Vector3(0, 261, 0), Vector3(0, 265, 0), 23.0, 23.0, 24, glass)
 			for k2 in 5:
 				var y2 := 140.0 + k2 * 22.0
 				mb.add_sphere(Vector3(0, y2, 0), Vector3(7.5, 7.5, 7.5), 12, 8, pink)
-			mb.add_cylinder(Vector3(0, 330, 0), Vector3(0, 345, 0), 4.0, 4.0, 10, conc)
+			K.cyl(mb, Vector3(0, 330, 0), Vector3(0, 345, 0), 4.0, 4.0, 10, conc)
 			mb.add_sphere(Vector3(0, 350, 0), Vector3(8, 8, 8), 14, 10, pink)
-			mb.add_cylinder(Vector3(0, 358, 0), Vector3(0, 468, 0), 2.6, 0.6, 8, white)
+			K.cyl(mb, Vector3(0, 358, 0), Vector3(0, 468, 0), 2.6, 0.6, 8, white)
 			_aviation_light(Vector3(0, 468.5, 0))
 			boxes.append([Vector3(0, 150, 0), Vector3(25, 150, 25)])
 			boxes.append([Vector3(0, 400, 0), Vector3(8, 70, 8)])
@@ -1191,37 +1191,37 @@ func _tv_tower(mb: MeshBuilder, boxes: Array) -> void:
 			for k in 3:
 				var a := TAU * k / 3.0 + PI * 0.5
 				K.loft2(mb, K.wing_plan(a, 24.0, 6.0, 2), 0.0, K.wing_plan(a, 6.0, 4.0, 2), 250.0, conc)
-			mb.add_cylinder(Vector3(0, 255, 0), Vector3(0, 262, 0), 8.0, 20.0, 24, conc)
+			K.cyl(mb, Vector3(0, 255, 0), Vector3(0, 262, 0), 8.0, 20.0, 24, conc)
 			for k2 in 4:
 				var y3 := 262.0 + k2 * 6.5
-				mb.add_cylinder(Vector3(0, y3, 0), Vector3(0, y3 + 4.5, 0), 20.0 - k2 * 1.5, 20.5 - k2 * 1.5, 24, glass)
-				mb.add_cylinder(Vector3(0, y3 + 4.5, 0), Vector3(0, y3 + 6.5, 0), 21.0 - k2 * 1.5, 19.5 - k2 * 1.5, 24, conc)
-			mb.add_cylinder(Vector3(0, 288, 0), Vector3(0, 350, 0), 3.5, 1.2, 8, white)
+				K.cyl(mb, Vector3(0, y3, 0), Vector3(0, y3 + 4.5, 0), 20.0 - k2 * 1.5, 20.5 - k2 * 1.5, 24, glass)
+				K.cyl(mb, Vector3(0, y3 + 4.5, 0), Vector3(0, y3 + 6.5, 0), 21.0 - k2 * 1.5, 19.5 - k2 * 1.5, 24, conc)
+			K.cyl(mb, Vector3(0, 288, 0), Vector3(0, 350, 0), 3.5, 1.2, 8, white)
 			_aviation_light(Vector3(0, 350.5, 0))
 			boxes.append([Vector3(0, 140, 0), Vector3(20, 140, 20)])
 			boxes.append([Vector3(0, 300, 0), Vector3(20, 50, 20)])
 		"ntower":
 			K.prism(mb, K.ngon(8, 8.0), 0.0, 140.0, conc, 0.8)
-			mb.add_cylinder(Vector3(0, 140, 0), Vector3(0, 146, 0), 6.4, 15.0, 24, conc)
-			mb.add_cylinder(Vector3(0, 146, 0), Vector3(0, 160, 0), 15.0, 15.5, 24, glass)
-			mb.add_cylinder(Vector3(0, 160, 0), Vector3(0, 164, 0), 15.5, 8.0, 24, conc)
-			mb.add_cylinder(Vector3(0, 164, 0), Vector3(0, 236, 0), 3.0, 0.8, 8, white)
+			K.cyl(mb, Vector3(0, 140, 0), Vector3(0, 146, 0), 6.4, 15.0, 24, conc)
+			K.cyl(mb, Vector3(0, 146, 0), Vector3(0, 160, 0), 15.0, 15.5, 24, glass)
+			K.cyl(mb, Vector3(0, 160, 0), Vector3(0, 164, 0), 15.5, 8.0, 24, conc)
+			K.cyl(mb, Vector3(0, 164, 0), Vector3(0, 236, 0), 3.0, 0.8, 8, white)
 			for k in 3:
-				mb.add_cylinder(Vector3(0, 180 + k * 18.0, 0), Vector3(0, 188 + k * 18.0, 0), 2.6 - k * 0.5, 2.4 - k * 0.5, 8, red)
+				K.cyl(mb, Vector3(0, 180 + k * 18.0, 0), Vector3(0, 188 + k * 18.0, 0), 2.6 - k * 0.5, 2.4 - k * 0.5, 8, red)
 			_aviation_light(Vector3(0, 236.5, 0))
 			boxes.append([Vector3(0, 80, 0), Vector3(8, 80, 8)])
 			boxes.append([Vector3(0, 190, 0), Vector3(15, 46, 15)])
 		_:
 			# Berlin: tapering shaft, the steel sphere with its window band, red-and-white mast
 			K.prism(mb, K.ngon(12, 9.0), 0.0, 200.0, conc, 0.6)
-			mb.add_cylinder(Vector3(0, 0, 0), Vector3(0, 6, 0), 26.0, 24.0, 12, _c(Color(0.7, 0.7, 0.68), K.PUNCHED))
+			K.cyl(mb, Vector3(0, 0, 0), Vector3(0, 6, 0), 26.0, 24.0, 12, _c(Color(0.7, 0.7, 0.68), K.PUNCHED))
 			mb.add_sphere(Vector3(0, 212, 0), Vector3(16, 16, 16), 24, 14, steel)
-			mb.add_cylinder(Vector3(0, 205, 0), Vector3(0, 211, 0), 15.6, 16.2, 24, glass)
-			mb.add_cylinder(Vector3(0, 211, 0), Vector3(0, 213, 0), 16.2, 16.2, 24, _c(Color(0.5, 0.52, 0.56), K.METAL))
-			mb.add_cylinder(Vector3(0, 226, 0), Vector3(0, 300, 0), 3.0, 2.0, 10, white)
+			K.cyl(mb, Vector3(0, 205, 0), Vector3(0, 211, 0), 15.6, 16.2, 24, glass)
+			K.cyl(mb, Vector3(0, 211, 0), Vector3(0, 213, 0), 16.2, 16.2, 24, _c(Color(0.5, 0.52, 0.56), K.METAL))
+			K.cyl(mb, Vector3(0, 226, 0), Vector3(0, 300, 0), 3.0, 2.0, 10, white)
 			for k in 4:
-				mb.add_cylinder(Vector3(0, 300 + k * 16.0, 0), Vector3(0, 308 + k * 16.0, 0), 1.9 - k * 0.3, 1.8 - k * 0.3, 8, red)
-				mb.add_cylinder(Vector3(0, 308 + k * 16.0, 0), Vector3(0, 316 + k * 16.0, 0), 1.8 - k * 0.3, 1.6 - k * 0.3, 8, white)
+				K.cyl(mb, Vector3(0, 300 + k * 16.0, 0), Vector3(0, 308 + k * 16.0, 0), 1.9 - k * 0.3, 1.8 - k * 0.3, 8, red)
+				K.cyl(mb, Vector3(0, 308 + k * 16.0, 0), Vector3(0, 316 + k * 16.0, 0), 1.8 - k * 0.3, 1.6 - k * 0.3, 8, white)
 			_aviation_light(Vector3(0, 365, 0))
 			_aviation_light(Vector3(0, 228, 3.2), 0.6)
 			boxes.append([Vector3(0, 110, 0), Vector3(9, 110, 9)])
@@ -1235,9 +1235,9 @@ func _reunion(mb: MeshBuilder, boxes: Array) -> void:
 	for k in 4:
 		var a := TAU * k / 4.0 + PI * 0.25
 		var p := Vector3(cos(a) * 4.5, 0, sin(a) * 4.5)
-		mb.add_cylinder(p, p + Vector3(0, 150, 0), 2.6, 2.6, 10, conc)
-	mb.add_cylinder(Vector3(0, 146, 0), Vector3(0, 150, 0), 12.0, 14.0, 20, conc)
-	mb.add_cylinder(Vector3(0, 150, 0), Vector3(0, 156, 0), 14.0, 15.5, 24, _c(Color(0.3, 0.36, 0.42), K.RIBBON))
+		K.cyl(mb, p, p + Vector3(0, 150, 0), 2.6, 2.6, 10, conc)
+	K.cyl(mb, Vector3(0, 146, 0), Vector3(0, 150, 0), 12.0, 14.0, 20, conc)
+	K.cyl(mb, Vector3(0, 150, 0), Vector3(0, 156, 0), 14.0, 15.5, 24, _c(Color(0.3, 0.36, 0.42), K.RIBBON))
 	mb.add_sphere(Vector3(0, 162, 0), Vector3(18, 16, 18), 24, 12, _c(Color(0.88, 0.88, 0.84), K.METAL))
 	# the ball's lights
 	for i in 6:
@@ -1257,7 +1257,7 @@ func _brandenburg(mb: MeshBuilder, boxes: Array) -> void:
 	for k in 6:
 		var x := -26.0 + k * 10.4
 		for zz in [-4.5, 4.5]:
-			mb.add_cylinder(Vector3(x, 1.2, zz), Vector3(x, 15, zz), 0.95, 0.85, 12, sand)
+			K.cyl(mb, Vector3(x, 1.2, zz), Vector3(x, 15, zz), 0.95, 0.85, 12, sand)
 			mb.add_box(Vector3(x, 15.2, zz), Vector3(2.2, 0.4, 2.2), sand)
 		if k < 5:
 			mb.add_box(Vector3(x + 5.2, 7.5, 0), Vector3(1.6, 13.0, 7.6), sand)
@@ -1267,7 +1267,7 @@ func _brandenburg(mb: MeshBuilder, boxes: Array) -> void:
 	K.loft2(mb, K.rect(20.0, 5.0), 23.0, K.rect(14.0, 3.5), 24.5, sand)
 	# quadriga: chariot, goddess and four horses
 	mb.add_box(Vector3(0, 26.0, 0), Vector3(2.4, 3.0, 2.0), bronze)
-	mb.add_cylinder(Vector3(0, 27.5, 0), Vector3(0, 30.5, 0), 0.6, 0.4, 6, bronze)
+	K.cyl(mb, Vector3(0, 27.5, 0), Vector3(0, 30.5, 0), 0.6, 0.4, 6, bronze)
 	for hk in 4:
 		var hx := -2.7 + hk * 1.8
 		mb.add_box(Vector3(hx, 26.3, -2.6), Vector3(0.9, 1.5, 3.0), bronze)
@@ -1275,7 +1275,7 @@ func _brandenburg(mb: MeshBuilder, boxes: Array) -> void:
 	for sx in [-1.0, 1.0]:
 		mb.add_box(Vector3(sx * 40.0, 7.0, 0), Vector3(14, 14, 10), _c(Color(0.84, 0.78, 0.64), K.PUNCHED))
 		for k2 in 4:
-			mb.add_cylinder(Vector3(sx * (34.5 + k2 * 3.6), 0, 5.5), Vector3(sx * (34.5 + k2 * 3.6), 12, 5.5), 0.6, 0.55, 8, sand)
+			K.cyl(mb, Vector3(sx * (34.5 + k2 * 3.6), 0, 5.5), Vector3(sx * (34.5 + k2 * 3.6), 12, 5.5), 0.6, 0.55, 8, sand)
 	boxes.append([Vector3(0, 12, 0), Vector3(48, 13, 7)])
 
 
@@ -1294,12 +1294,12 @@ func _sagrada(mb: MeshBuilder, boxes: Array) -> void:
 		var b: Vector3 = sp[0]
 		var h: float = sp[1]
 		var r0 := 4.8 if h > 150.0 else 3.4
-		mb.add_cylinder(b, b + Vector3(0, h * 0.55, 0), r0, r0 * 0.85, 12, stone)
-		mb.add_cylinder(b + Vector3(0, h * 0.55, 0), b + Vector3(0, h * 0.82, 0), r0 * 0.85, r0 * 0.5, 12, stone)
+		K.cyl(mb, b, b + Vector3(0, h * 0.55, 0), r0, r0 * 0.85, 12, stone)
+		K.cyl(mb, b + Vector3(0, h * 0.55, 0), b + Vector3(0, h * 0.82, 0), r0 * 0.85, r0 * 0.5, 12, stone)
 		for k in 4:
 			var y := h * (0.3 + k * 0.13)
-			_fine.add_cylinder(b + Vector3(0, y, 0), b + Vector3(0, y + 2.0, 0), r0 * (0.93 - k * 0.1), r0 * (0.93 - k * 0.1), 12, dark, false)
-		mb.add_cone(b + Vector3(0, h * 0.82, 0), b + Vector3(0, h * 0.97, 0), r0 * 0.5, 8, stone.lightened(0.08))
+			K.cyl(_fine, b + Vector3(0, y, 0), b + Vector3(0, y + 2.0, 0), r0 * (0.93 - k * 0.1), r0 * (0.93 - k * 0.1), 12, dark, false)
+		K.cone(mb, b + Vector3(0, h * 0.82, 0), b + Vector3(0, h * 0.97, 0), r0 * 0.5, 8, stone.lightened(0.08))
 		mb.add_sphere(b + Vector3(0, h * 0.98, 0), Vector3(1.6, 1.8, 1.6), 8, 5, gold)
 	mb.add_sphere(Vector3(0, 172.0 * 0.98 + 3.0, 0), Vector3(2.6, 2.6, 2.6), 10, 6, _c(Color(1, 0.95, 0.8), K.LAMP))
 	boxes.append([Vector3(0, 60, 0), Vector3(32, 60, 48)])
@@ -1318,18 +1318,18 @@ func _atomium(mb: MeshBuilder, boxes: Array) -> void:
 				corners.append(c + Basis.from_euler(Vector3(0.62, 0, 0.78)) * Vector3(sx, sy, sz) * 24.0)
 	for i in corners.size():
 		var p: Vector3 = corners[i]
-		mb.add_cylinder(c, p, 1.6, 1.6, 10, steel)
+		K.cyl(mb, c, p, 1.6, 1.6, 10, steel)
 		for j in range(i + 1, corners.size()):
 			var q: Vector3 = corners[j]
 			if absf(p.distance_to(q) - 48.0) < 1.0:
-				mb.add_cylinder(p, q, 1.5, 1.5, 10, steel)
+				K.cyl(mb, p, q, 1.5, 1.5, 10, steel)
 		mb.add_sphere(p, Vector3(9, 9, 9), 18, 12, steel)
-		mb.add_cylinder(p + Vector3(0, -0.6, 0), p + Vector3(0, 0.6, 0), 9.05, 9.05, 18, win, false)
+		K.cyl(mb, p + Vector3(0, -0.6, 0), p + Vector3(0, 0.6, 0), 9.05, 9.05, 18, win, false)
 	mb.add_sphere(c, Vector3(9, 9, 9), 18, 12, steel)
-	mb.add_cylinder(Vector3(0, 0, 0), c, 2.2, 2.2, 10, steel)
+	K.cyl(mb, Vector3(0, 0, 0), c, 2.2, 2.2, 10, steel)
 	for k in 3:
 		var a := TAU * k / 3.0
-		mb.add_cylinder(Vector3(cos(a) * 14.0, 0, sin(a) * 14.0), corners[k * 2] as Vector3, 1.2, 1.2, 8, steel)
+		K.cyl(mb, Vector3(cos(a) * 14.0, 0, sin(a) * 14.0), corners[k * 2] as Vector3, 1.2, 1.2, 8, steel)
 	boxes.append([c, Vector3(34, 46, 34)])
 
 
@@ -1351,17 +1351,17 @@ func _castle(mb: MeshBuilder, boxes: Array) -> void:
 	for k2 in 4:
 		var p := Vector3((k2 % 2) * 120.0 - 60.0, 38, (k2 / 2) * 60.0 - 30.0)
 		K.prism(mb, K.ngon(12, 7.0, 0.0, p.x, p.z), 38.0, 84.0, wall)
-		mb.add_cone(p + Vector3(0, 46, 0), p + Vector3(0, 64, 0), 8.0, 12, roof)
-		mb.add_cone(p + Vector3(0, 63, 0), p + Vector3(0, 67, 0), 0.6, 6, gold)
+		K.cone(mb, p + Vector3(0, 46, 0), p + Vector3(0, 64, 0), 8.0, 12, roof)
+		K.cone(mb, p + Vector3(0, 63, 0), p + Vector3(0, 67, 0), 0.6, 6, gold)
 	K.prism(mb, K.ngon(12, 9.0), 60.0, 100.0, wall)
-	mb.add_cone(Vector3(0, 100, 0), Vector3(0, 126, 0), 10.5, 12, roof)
-	mb.add_cone(Vector3(0, 125, 0), Vector3(0, 130, 0), 0.8, 6, gold)
+	K.cone(mb, Vector3(0, 100, 0), Vector3(0, 126, 0), 10.5, 12, roof)
+	K.cone(mb, Vector3(0, 125, 0), Vector3(0, 130, 0), 0.8, 6, gold)
 	if fairy:
 		for k3 in 6:
 			var a := TAU * k3 / 6.0
 			var tp := Vector3(cos(a) * 22.0, 0, sin(a) * 14.0)
 			K.prism(mb, K.ngon(10, 4.0, 0.0, tp.x, tp.z), 50.0, 82.0 + (k3 % 3) * 6.0, wall)
-			mb.add_cone(tp + Vector3(0, 82.0 + (k3 % 3) * 6.0, 0), tp + Vector3(0, 96.0 + (k3 % 3) * 6.0, 0), 4.8, 10, roof)
+			K.cone(mb, tp + Vector3(0, 82.0 + (k3 % 3) * 6.0, 0), tp + Vector3(0, 96.0 + (k3 % 3) * 6.0, 0), 4.8, 10, roof)
 	boxes.append([Vector3(0, 45, 0), Vector3(90, 45, 55)])
 	boxes.append([Vector3(0, 90, 0), Vector3(10, 32, 10)])
 
@@ -1378,9 +1378,9 @@ func _twin_church(mb: MeshBuilder, boxes: Array) -> void:
 		K.prism(mb, K.rect(8.0, 8.0, b.x, b.z), 0.0, 72.0, brick)
 		K.prism(mb, K.chamfer_rect(7.6, 7.6, 2.4), 72.0, 99.0, brickw)
 		mb.add_sphere(b + Vector3(0, 106, 0), Vector3(8.0, 9.0, 8.0), 16, 10, copper)
-		mb.add_cylinder(b + Vector3(0, 99, 0), b + Vector3(0, 102, 0), 7.2, 7.8, 16, copper)
-		mb.add_cylinder(b + Vector3(0, 114, 0), b + Vector3(0, 116, 0), 2.4, 1.6, 10, copper)
-		mb.add_cone(b + Vector3(0, 116, 0), b + Vector3(0, 120, 0), 1.2, 8, _c(Color(0.85, 0.7, 0.3), K.METAL))
+		K.cyl(mb, b + Vector3(0, 99, 0), b + Vector3(0, 102, 0), 7.2, 7.8, 16, copper)
+		K.cyl(mb, b + Vector3(0, 114, 0), b + Vector3(0, 116, 0), 2.4, 1.6, 10, copper)
+		K.cone(mb, b + Vector3(0, 116, 0), b + Vector3(0, 120, 0), 1.2, 8, _c(Color(0.85, 0.7, 0.3), K.METAL))
 	boxes.append([Vector3(0, 55, -28), Vector3(20, 60, 9)])
 	boxes.append([Vector3(0, 20, 25), Vector3(20, 20, 45)])
 
@@ -1393,7 +1393,7 @@ func _burj(mb: MeshBuilder, boxes: Array) -> void:
 	var steel := _c(Color(0.84, 0.86, 0.9), K.METAL)
 	var plaza := _c(Color(0.78, 0.74, 0.66), K.STONE)
 	var water := _c(Color(0.18, 0.32, 0.4), K.METAL)
-	mb.add_cylinder(Vector3(0, -1, 0), Vector3(0, 0.4, 0), 120.0, 120.0, 40, plaza)
+	K.cyl(mb, Vector3(0, -1, 0), Vector3(0, 0.4, 0), 120.0, 120.0, 40, plaza)
 	K.prism(mb, K.xform_poly(K.stadium(150.0, 55.0, 10), 0.0, Vector2(0.0, 175.0)), -0.6, 0.6, water)
 	var tiers := 27
 	var top := 585.0
@@ -1416,10 +1416,10 @@ func _burj(mb: MeshBuilder, boxes: Array) -> void:
 	K.prism(mb, K.ngon(6, 9.0, PI / 6.0), top, 640.0, steel, 0.65)
 	for k2 in 6:
 		var a2 := TAU * k2 / 6.0
-		_fine.add_cylinder(Vector3(cos(a2) * 8.5, top, sin(a2) * 8.5), Vector3(cos(a2) * 5.0, 640.0, sin(a2) * 5.0), 0.5, 0.4, 4, steel, false)
-	mb.add_cylinder(Vector3(0, 640, 0), Vector3(0, 828, 0), 4.2, 0.5, 8, steel)
+		K.cyl(_fine, Vector3(cos(a2) * 8.5, top, sin(a2) * 8.5), Vector3(cos(a2) * 5.0, 640.0, sin(a2) * 5.0), 0.5, 0.4, 4, steel, false)
+	K.cyl(mb, Vector3(0, 640, 0), Vector3(0, 828, 0), 4.2, 0.5, 8, steel)
 	for ry in [660.0, 700.0, 740.0]:
-		mb.add_cylinder(Vector3(0, ry, 0), Vector3(0, ry + 1.5, 0), 4.4 - (ry - 640.0) * 0.019, 4.4 - (ry - 640.0) * 0.019, 8, steel)
+		K.cyl(mb, Vector3(0, ry, 0), Vector3(0, ry + 1.5, 0), 4.4 - (ry - 640.0) * 0.019, 4.4 - (ry - 640.0) * 0.019, 8, steel)
 	_aviation_light(Vector3(0, 828.5, 0), 1.2)
 	_aviation_light(Vector3(0, 641.0, 6.2), 0.8)
 	boxes.append([Vector3(0, 240, 0), Vector3(40, 240, 40)])
@@ -1441,25 +1441,25 @@ func _petronas(mb: MeshBuilder, boxes: Array) -> void:
 			var y1: float = t[1]
 			var r: float = t[2]
 			K.prism(mb, K.xform_poly(K.petronas_plan(r, 64), 0.0, Vector2(cx, 0.0)), y0, y1, steel)
-		mb.add_cylinder(Vector3(cx, 345, 0), Vector3(cx, 362, 0), 12.0, 10.5, 24, steel)
-		mb.add_cylinder(Vector3(cx, 362, 0), Vector3(cx, 375, 0), 10.0, 7.5, 24, steel)
+		K.cyl(mb, Vector3(cx, 345, 0), Vector3(cx, 362, 0), 12.0, 10.5, 24, steel)
+		K.cyl(mb, Vector3(cx, 362, 0), Vector3(cx, 375, 0), 10.0, 7.5, 24, steel)
 		for k in 4:
 			var y2 := 375.0 + k * 4.0
-			mb.add_cylinder(Vector3(cx, y2, 0), Vector3(cx, y2 + 2.6, 0), 6.5 - k * 1.2, 5.8 - k * 1.2, 16, metal)
-			mb.add_cylinder(Vector3(cx, y2 + 2.6, 0), Vector3(cx, y2 + 4.0, 0), 5.8 - k * 1.2, 5.6 - k * 1.2, 16, metal)
-		mb.add_cylinder(Vector3(cx, 391, 0), Vector3(cx, 452, 0), 2.2, 0.35, 10, metal)
+			K.cyl(mb, Vector3(cx, y2, 0), Vector3(cx, y2 + 2.6, 0), 6.5 - k * 1.2, 5.8 - k * 1.2, 16, metal)
+			K.cyl(mb, Vector3(cx, y2 + 2.6, 0), Vector3(cx, y2 + 4.0, 0), 5.8 - k * 1.2, 5.6 - k * 1.2, 16, metal)
+		K.cyl(mb, Vector3(cx, 391, 0), Vector3(cx, 452, 0), 2.2, 0.35, 10, metal)
 		for k2 in 5:
 			mb.add_sphere(Vector3(cx, 398.0 + k2 * 9.0, 0), Vector3.ONE * (1.9 - k2 * 0.25), 8, 6, metal)
 		_aviation_light(Vector3(cx, 452.5, 0), 0.8)
 		# round annex ("bustle") on the outer side
-		mb.add_cylinder(Vector3(cx + sx * 26.0, 0, 18.0), Vector3(cx + sx * 26.0, 188.0, 18.0), 12.0, 12.0, 20, steel)
-		mb.add_cylinder(Vector3(cx + sx * 26.0, 188.0, 18.0), Vector3(cx + sx * 26.0, 194.0, 18.0), 12.0, 9.0, 20, metal)
+		K.cyl(mb, Vector3(cx + sx * 26.0, 0, 18.0), Vector3(cx + sx * 26.0, 188.0, 18.0), 12.0, 12.0, 20, steel)
+		K.cyl(mb, Vector3(cx + sx * 26.0, 188.0, 18.0), Vector3(cx + sx * 26.0, 194.0, 18.0), 12.0, 9.0, 20, metal)
 		boxes.append([Vector3(cx, 200, 0), Vector3(24, 200, 24)])
 	# skybridge at floors 41-42 with its inverted-V support legs
 	mb.add_box(Vector3(0, 172, 0), Vector3(62, 9, 6), _c(Color(0.5, 0.55, 0.6), K.RIBBON))
 	mb.add_box(Vector3(0, 177, 0), Vector3(62, 1.0, 6.6), metal)
 	for sx2 in [-1.0, 1.0]:
-		mb.add_cylinder(Vector3(0, 167.5, 0), Vector3(sx2 * 30.0, 120.0, 0), 1.2, 1.2, 8, metal)
+		K.cyl(mb, Vector3(0, 167.5, 0), Vector3(sx2 * 30.0, 120.0, 0), 1.2, 1.2, 8, metal)
 	boxes.append([Vector3(0, 172, 0), Vector3(31, 5, 4)])
 
 
@@ -1490,7 +1490,7 @@ func _mbs(mb: MeshBuilder, boxes: Array) -> void:
 	for k3 in 8:
 		var a := -PI * 0.5 + (k3 - 3.5) * 0.3
 		var base := Vector3(-120.0, 6.0, 120.0)
-		mb.add_cone(base, base + Vector3(cos(a) * 30.0, 30.0 - absf(k3 - 3.5) * 3.0, sin(a) * 30.0), 6.0, 6, cw)
+		K.cone(mb, base, base + Vector3(cos(a) * 30.0, 30.0 - absf(k3 - 3.5) * 3.0, sin(a) * 30.0), 6.0, 6, cw)
 	boxes.append([Vector3(30, 197, 0), Vector3(172, 5, 20)])
 
 
@@ -1504,8 +1504,8 @@ func _taipei101(mb: MeshBuilder, boxes: Array) -> void:
 	K.loft2(mb, K.notch_rect(35.0, 5.0), 0.0, K.notch_rect(28.0, 4.5), 100.0, g)
 	for side in 4:
 		var b := Basis(Vector3.UP, side * PI * 0.5)
-		mb.add_cylinder(b * Vector3(0, 96.0, 28.5), b * Vector3(0, 96.0, 29.8), 7.0, 7.0, 16, gold)
-		mb.add_cylinder(b * Vector3(0, 96.0, 29.0), b * Vector3(0, 96.0, 30.3), 4.0, 4.0, 12, trim)
+		K.cyl(mb, b * Vector3(0, 96.0, 28.5), b * Vector3(0, 96.0, 29.8), 7.0, 7.0, 16, gold)
+		K.cyl(mb, b * Vector3(0, 96.0, 29.0), b * Vector3(0, 96.0, 30.3), 4.0, 4.0, 12, trim)
 	for k in 8:
 		var y0 := 100.0 + k * 34.0
 		K.loft2(mb, K.notch_rect(22.0, 3.5), y0, K.notch_rect(27.5, 4.5), y0 + 34.0, g, true, false, trim)
@@ -1513,9 +1513,9 @@ func _taipei101(mb: MeshBuilder, boxes: Array) -> void:
 	K.prism(mb, K.notch_rect(19.0, 3.0), 372.0, 400.0, g, 1.0, true, trim)
 	K.loft2(mb, K.notch_rect(14.0, 2.5), 400.0, K.notch_rect(11.0, 2.0), 438.0, g, true, false, trim)
 	K.prism(mb, K.rect(7.0, 7.0), 438.0, 448.0, trim)
-	mb.add_cylinder(Vector3(0, 448, 0), Vector3(0, 508, 0), 3.2, 0.5, 8, _c(Color(0.86, 0.86, 0.86), K.METAL))
+	K.cyl(mb, Vector3(0, 448, 0), Vector3(0, 508, 0), 3.2, 0.5, 8, _c(Color(0.86, 0.86, 0.86), K.METAL))
 	for ry in [462.0, 478.0, 492.0]:
-		mb.add_cylinder(Vector3(0, ry, 0), Vector3(0, ry + 1.4, 0), 3.4 - (ry - 448.0) * 0.045, 3.4 - (ry - 448.0) * 0.045, 8, trim)
+		K.cyl(mb, Vector3(0, ry, 0), Vector3(0, ry + 1.4, 0), 3.4 - (ry - 448.0) * 0.045, 3.4 - (ry - 448.0) * 0.045, 8, trim)
 	_aviation_light(Vector3(0, 508.5, 0))
 	boxes.append([Vector3(0, 230, 0), Vector3(32, 230, 32)])
 
@@ -1572,7 +1572,7 @@ func _parthenon(mb: MeshBuilder, boxes: Array) -> void:
 		cols.append(Vector2(-33.0, -14.6 + j * 4.17))
 		cols.append(Vector2(33.0, -14.6 + j * 4.17))
 	for cp in cols:
-		mb.add_cylinder(Vector3(cp.x, y0 + 1.6, cp.y), Vector3(cp.x, y0 + 12.0, cp.y), 0.95, 0.78, 10, marble, false)
+		K.cyl(mb, Vector3(cp.x, y0 + 1.6, cp.y), Vector3(cp.x, y0 + 12.0, cp.y), 0.95, 0.78, 10, marble, false)
 		_fine.add_box(Vector3(cp.x, y0 + 12.2, cp.y), Vector3(2.0, 0.45, 2.0), marble)
 	K.prism(mb, K.rect(30.0, 12.0), y0 + 1.6, y0 + 10.0, marble2)
 	K.prism(mb, K.rect(35.0, 16.0), y0 + 12.4, y0 + 16.0, marble)
@@ -1599,7 +1599,7 @@ func _pagoda(mb: MeshBuilder, boxes: Array) -> void:
 				K.prism(mb, K.rect(70.0 - k * 6.0, 40.0 - k * 5.0), k * 2.6, k * 2.6 + 2.6, marble)
 			K.prism(mb, K.rect(32.0, 18.0), 7.8, 22.0, red)
 			for i in 12:
-				mb.add_cylinder(Vector3(-30.0 + i * 5.45, 7.8, 18.5), Vector3(-30.0 + i * 5.45, 21.0, 18.5), 0.6, 0.6, 8, red)
+				K.cyl(mb, Vector3(-30.0 + i * 5.45, 7.8, 18.5), Vector3(-30.0 + i * 5.45, 21.0, 18.5), 0.6, 0.6, 8, red)
 			_hip_roof(mb, 22.0, 38.0, 24.0, 4.0, 26.0, 0.0, yellow)
 			K.prism(mb, K.rect(28.0, 14.0), 26.5, 30.0, red)
 			_hip_roof(mb, 30.0, 34.0, 20.0, 9.0, 18.0, 6.0, yellow)
@@ -1648,7 +1648,7 @@ func _hip_roof(mb: MeshBuilder, y: float, ex: float, ez: float, rise: float, tx:
 	# upturned corners
 	for sx in [-1.0, 1.0]:
 		for sz in [-1.0, 1.0]:
-			mb.add_cone(Vector3(sx * ex, y - 0.2, sz * ez), Vector3(sx * (ex + 1.2), y + 1.4, sz * (ez + 1.2)), 0.5, 4, col)
+			K.cone(mb, Vector3(sx * ex, y - 0.2, sz * ez), Vector3(sx * (ex + 1.2), y + 1.4, sz * (ez + 1.2)), 0.5, 4, col)
 
 
 func _prang(mb: MeshBuilder, base: Vector3, h: float, r: float, col: Color, accent: Color) -> void:
@@ -1664,7 +1664,7 @@ func _prang(mb: MeshBuilder, base: Vector3, h: float, r: float, col: Color, acce
 		var off := Vector2(base.x, base.z)
 		K.loft2(mb, K.xform_poly(K.chamfer_rect(r0, r0, r0 * 0.35), 0.0, off), y, K.xform_poly(K.chamfer_rect(r1 * 1.05, r1 * 1.05, r1 * 0.37), 0.0, off), y + hh, col if k % 2 == 0 else accent)
 		y += hh
-	mb.add_cone(Vector3(base.x, y, base.z), Vector3(base.x, base.y + h, base.z), r * 0.16, 8, col)
+	K.cone(mb, Vector3(base.x, y, base.z), Vector3(base.x, base.y + h, base.z), r * 0.16, 8, col)
 
 
 func _onion_domes(mb: MeshBuilder, boxes: Array) -> void:
@@ -1680,7 +1680,7 @@ func _onion_domes(mb: MeshBuilder, boxes: Array) -> void:
 	K.prism(mb, K.ngon(8, 8.0, PI / 8.0), 12.0, 38.0, brick_p)
 	K.loft2(mb, K.ngon(8, 7.4, PI / 8.0), 38.0, K.ngon(8, 0.5, PI / 8.0), 56.0, _c(Color(0.86, 0.6, 0.3), K.STONE))
 	mb.add_sphere(Vector3(0, 57.5, 0), Vector3(2.2, 2.6, 2.2), 12, 8, gold)
-	mb.add_cone(Vector3(0, 59.5, 0), Vector3(0, 63.0, 0), 0.5, 6, gold)
+	K.cone(mb, Vector3(0, 59.5, 0), Vector3(0, 63.0, 0), 0.5, 6, gold)
 	var schemes := [[Color(0.85, 0.2, 0.2), Color(0.95, 0.9, 0.8)], [Color(0.2, 0.6, 0.35), Color(0.95, 0.8, 0.25)],
 		[Color(0.95, 0.75, 0.2), Color(0.2, 0.55, 0.35)], [Color(0.2, 0.4, 0.8), Color(0.95, 0.95, 0.9)],
 		[Color(0.2, 0.62, 0.4), Color(0.85, 0.25, 0.2)], [Color(0.9, 0.55, 0.15), Color(0.2, 0.5, 0.3)],
@@ -1693,10 +1693,10 @@ func _onion_domes(mb: MeshBuilder, boxes: Array) -> void:
 		var dh := 26.0 if big else 18.0
 		var dr := 5.6 if big else 4.2
 		K.prism(mb, K.ngon(8, dr * 1.15, PI / 8.0, b.x, b.z), 12.0, 12.0 + dh, brick_p)
-		mb.add_cylinder(b + Vector3(0, dh, 0), b + Vector3(0, dh + 3.0, 0), dr * 0.8, dr * 0.75, 12, white)
+		K.cyl(mb, b + Vector3(0, dh, 0), b + Vector3(0, dh + 3.0, 0), dr * 0.8, dr * 0.75, 12, white)
 		var sch: Array = schemes[i]
 		_onion(mb, b + Vector3(0, dh + 3.0, 0), dr, dr * 2.4, sch[0], sch[1])
-		mb.add_cone(b + Vector3(0, dh + 3.0 + dr * 2.4, 0), b + Vector3(0, dh + 6.0 + dr * 2.4, 0), 0.35, 6, gold)
+		K.cone(mb, b + Vector3(0, dh + 3.0 + dr * 2.4, 0), b + Vector3(0, dh + 6.0 + dr * 2.4, 0), 0.35, 6, gold)
 	boxes.append([Vector3(0, 30, 0), Vector3(34, 30, 34)])
 
 

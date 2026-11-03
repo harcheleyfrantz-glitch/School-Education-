@@ -307,6 +307,40 @@ static func wing_plan(angle: float, length: float, width: float, segs: int = 6) 
 	return xform_poly(out, angle, Vector2.ZERO)
 
 
+# ------------------------------------------------------------------ corrected primitives
+## MeshBuilder.add_cylinder winds its end caps and add_arch its barrel shell inside out (they
+## are culled from outside: discs and pod tops vanish from above, barrel roofs show only their
+## gables). These wrappers emit the same geometry with the faces turned the right way.
+static func cyl(mb: MeshBuilder, a: Vector3, b: Vector3, r_a: float, r_b: float, segs: int, c: Color, caps: bool = true) -> void:
+	var i0 := mb.indices.size()
+	mb.add_cylinder(a, b, r_a, r_b, segs, c, caps)
+	if caps:
+		_flip(mb, i0 + segs * 6)
+
+
+static func cone(mb: MeshBuilder, base_center: Vector3, tip: Vector3, r: float, segs: int, c: Color) -> void:
+	cyl(mb, base_center, tip, r, 0.0, segs, c, true)
+
+
+static func arch(mb: MeshBuilder, center: Vector3, width: float, rise: float, length: float, segs: int, c: Color) -> void:
+	var i0 := mb.indices.size()
+	mb.add_arch(center, width, rise, length, segs, c)
+	_flip(mb, i0, i0 + segs * 6)
+
+
+static func _flip(mb: MeshBuilder, from: int, to: int = -1) -> void:
+	var idx := mb.indices
+	mb.indices = PackedInt32Array()
+	var end := idx.size() if to < 0 else mini(to, idx.size())
+	var k := from
+	while k + 2 < end + 1 and k + 2 < idx.size():
+		var t := idx[k + 1]
+		idx[k + 1] = idx[k + 2]
+		idx[k + 2] = t
+		k += 3
+	mb.indices = idx
+
+
 # ------------------------------------------------------------------ structures
 static func bar(mb: MeshBuilder, a: Vector3, b: Vector3, r: float, c: Color, segs: int = 4) -> void:
 	mb.add_cylinder(a, b, r, r, segs, c, false)

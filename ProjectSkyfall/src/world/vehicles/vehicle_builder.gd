@@ -7,6 +7,7 @@ extends RefCounted
 ## (tug cradle, belt boom, catering lift, stairs, fire monitors).
 ## Vehicle frame: +X right, +Y up, -Z forward, origin on the ground at the footprint centre.
 
+const K := preload("res://src/world/models/model_kit.gd")
 const PAINT := 1.0
 const RUBBER := 0.8
 const METAL := 0.55
@@ -258,7 +259,7 @@ static func _bx(c: Dictionary, center: Vector3, size: Vector3, col: Color, cls: 
 
 static func _cy(c: Dictionary, a: Vector3, b: Vector3, r: float, col: Color, cls: float = METAL, segs: int = 10, r2: float = -1.0) -> void:
 	var mb: MeshBuilder = c.mb
-	mb.add_cylinder(a, b, r, r if r2 < 0.0 else r2, segs, _col(col, cls), true)
+	K.cyl(mb, a, b, r, r if r2 < 0.0 else r2, segs, _col(col, cls), true)
 
 
 static func _glass(c: Dictionary, center: Vector3, size: Vector3, b: Basis = Basis()) -> void:
@@ -461,7 +462,7 @@ static func _wheel_mesh(r: float, w: float, dual: bool) -> ArrayMesh:
 		var b := Basis(Vector3(1, 0, 0), dir, Vector3(1, 0, 0).cross(dir))
 		mb.add_rounded_box((p0 + p1) * 0.5, Vector3(0.025, (p1 - p0).length(), r * 0.09), _col(Color(0.66, 0.67, 0.7), METAL), 0.3, 6, 4, b)
 		var np := Vector3(xo - w * 0.015, 0, 0) + Vector3(0, cos(a + PI / nuts), sin(a + PI / nuts)) * r * 0.15
-		mb.add_cylinder(np, np + Vector3(0.025, 0, 0), r * 0.025, r * 0.022, 6, _col(Color(0.8, 0.8, 0.82), METAL), true)
+		K.cyl(mb, np, np + Vector3(0.025, 0, 0), r * 0.025, r * 0.022, 6, _col(Color(0.8, 0.8, 0.82), METAL), true)
 	var m := mb.commit()
 	_wheel_meshes[key] = m
 	return m
