@@ -834,17 +834,33 @@ static func _catering(c: Dictionary) -> void:
 
 
 static func _stairs(c: Dictionary) -> void:
-	## Passenger stairs truck: small cab, stair flight with handrails and a canopy at the top.
+	## Passenger stairs truck: glazed cab, stair flight with handrails on a braced support frame,
+	## a canopy over the top platform, hazard-striped chassis.
 	c.meta.length = 8.0
 	c.meta.width = 2.4
 	var m: Color = c.main
 	_rb(c, Vector3(0, 0.7, 0.3), Vector3(2.2, 0.4, 7.4), DARK, PAINT, 0.12)
+	for s0 in [-1.0, 1.0]:
+		_bx(c, Vector3(s0 * 1.11, 0.62, 0.9), Vector3(0.03, 0.22, 5.4), m, PAINT)
+		_stripes(c, Vector3(s0 * 1.115, 0.52, 4.0 if s0 > 0.0 else 3.4), Vector3(0, 0, -0.6 * s0), Vector3(0, 0.22, 0), 4, YELLOW, BLACK, 0.6)
+		_wheel_arch(c, Vector3(s0 * 1.02, 0.42, -2.5), 0.42, 0.3, BLACK, s0)
+		_wheel_arch(c, Vector3(s0 * 1.02, 0.42, 2.7), 0.42, 0.3, BLACK, s0)
+	_rb(c, Vector3(0, 0.62, -3.75), Vector3(2.3, 0.3, 0.2), BLACK, RUBBER, 0.3)
+	_rb(c, Vector3(0, 0.62, 4.02), Vector3(2.3, 0.3, 0.2), BLACK, RUBBER, 0.3)
 	var cab := Vector3(-0.55, 1.45, -2.9)
 	_rb(c, cab, Vector3(1.1, 1.3, 1.5), m, PAINT, 0.18)
 	_glass(c, cab + Vector3(0, 0.25, -0.76), Vector3(0.95, 0.6, 0.025), Basis(Vector3.RIGHT, deg_to_rad(-6.0)))
-	_glass(c, cab + Vector3(-0.56, 0.25, 0.0), Vector3(0.025, 0.6, 1.2))
+	for sg in [-1.0, 1.0]:
+		_glass(c, cab + Vector3(sg * 0.56, 0.25, 0.0), Vector3(0.025, 0.6, 1.2))
+	_glass(c, cab + Vector3(0, 0.3, 0.76), Vector3(0.8, 0.45, 0.025))
+	_rb(c, cab + Vector3(0, 0.68, 0.0), Vector3(1.16, 0.08, 1.56), m.darkened(0.15), PAINT, 0.3)
+	_grille(c, cab + Vector3(0, -0.35, -0.76), 0.6, 0.2, 4, Vector3(0, 0, -1))
 	_mirror(c, cab + Vector3(-0.56, 0.3, -0.7), -1.0)
-	_lamp(c, cab + Vector3(0, 0.75, 0), Vector3(0.16, 0.14, 0.16), AMBER, "beacon", 0.1)
+	_mirror(c, cab + Vector3(0.56, 0.3, -0.7), 1.0)
+	_lamp(c, cab + Vector3(0, 0.78, 0), Vector3(0.16, 0.14, 0.16), AMBER, "beacon", 0.1)
+	for sh in [-1.0, 1.0]:
+		_lamp(c, cab + Vector3(sh * 0.36, -0.42, -0.77), Vector3(0.2, 0.1, 0.04), Color(1, 0.97, 0.88), "head")
+		_lamp(c, Vector3(sh * 0.95, 0.75, 4.12), Vector3(0.16, 0.1, 0.04), Color(1, 0.08, 0.05), "head")
 	c.meta.stairs_pivot = Vector3(0.35, 1.0, 3.6)
 	_begin_part(c, "stairs", Vector3(0.35, 1.0, 3.6))
 	var piv := Vector3(0.35, 1.0, 3.6)
@@ -854,6 +870,7 @@ static func _stairs(c: Dictionary) -> void:
 	for i in steps:
 		var f := (float(i) + 0.5) / steps
 		_bx(c, piv + Vector3(0, rise * f, -run * f), Vector3(1.25, 0.05, 0.3), STEEL, METAL)
+		_bx(c, piv + Vector3(0, rise * f - 0.06, -run * f + 0.12), Vector3(1.25, 0.03, 0.06), Color(0.95, 0.75, 0.1), PAINT)
 	for s in [-1.0, 1.0]:
 		_rb(c, piv + Vector3(s * 0.66, rise * 0.5 - 0.15, -run * 0.5), Vector3(0.08, 0.3, 6.3), m, PAINT, 0.15,
 			Basis(Vector3.RIGHT, atan2(rise, run)))
@@ -864,12 +881,23 @@ static func _stairs(c: Dictionary) -> void:
 			_cy(c, base, base + Vector3(0, 0.95, 0), 0.022, STEEL, METAL, 6)
 			pts.append(base + Vector3(0, 0.95, 0))
 		_rail(c, pts, 0.025)
+		# braced support frame under the upper flight and the platform
+		var top_leg := piv + Vector3(s * 0.62, rise - 0.1, -run + 0.2)
+		var mid_leg := piv + Vector3(s * 0.62, rise * 0.55 - 0.1, -run * 0.55)
+		_cy(c, top_leg, Vector3(top_leg.x, piv.y - 0.05, top_leg.z), 0.06, DARK, PAINT, 8)
+		_cy(c, mid_leg, Vector3(mid_leg.x, piv.y - 0.05, mid_leg.z), 0.05, DARK, PAINT, 8)
+		_cy(c, Vector3(top_leg.x, piv.y + 0.2, top_leg.z), mid_leg, 0.035, DARK, PAINT, 6)
+		_cy(c, Vector3(top_leg.x, piv.y + 1.4, top_leg.z), Vector3(mid_leg.x, piv.y + 0.2, mid_leg.z), 0.03, DARK, PAINT, 6)
 	var top := piv + Vector3(0, rise, -run - 0.55)
 	_bx(c, top, Vector3(1.4, 0.06, 1.1), STEEL, METAL)
 	for x in [-0.66, 0.66]:
 		_cy(c, top + Vector3(x, 0, 0.5), top + Vector3(x, 2.15, 0.5), 0.03, m, PAINT, 6)
+		_rail(c, [top + Vector3(x, 0, 0.5), top + Vector3(x, 1.0, 0.5), top + Vector3(x, 1.0, -0.45)], 0.022)
 	_rb(c, top + Vector3(0, 2.2, 0.1), Vector3(1.55, 0.06, 1.4), m, PAINT, 0.3)
+	for x2 in [-0.74, 0.74]:
+		_rb(c, top + Vector3(x2, 1.75, 0.15), Vector3(0.03, 0.85, 1.25), Color(0.75, 0.8, 0.85), MATTE, 0.1)
 	_rb(c, top + Vector3(0, 0.0, -0.58), Vector3(1.35, 0.14, 0.1), BLACK, RUBBER, 0.3)
+	_lamp(c, top + Vector3(0, 2.1, 0.1), Vector3(0.5, 0.04, 0.2), Color(1, 0.96, 0.85), "head")
 	_end_part(c)
 	for s2 in [-1.0, 1.0]:
 		_wheel(c, Vector3(s2 * 1.02, 0.42, -2.5), 0.42, 0.28, true)
@@ -1023,24 +1051,54 @@ static func _follow_me(c: Dictionary) -> void:
 
 
 static func _bus(c: Dictionary) -> void:
-	## Low-floor apron bus with a full glasshouse and double doors on the right side.
+	## Low-floor apron bus: a full glasshouse, three double doors on each side, open wheel
+	## arches, roof air-conditioning pod, destination display, bus mirrors and bumpers.
 	c.meta.length = 13.0
 	c.meta.width = 3.0
 	var m: Color = c.main if c.main != YELLOW else WHITE
-	_rb(c, Vector3(0, 0.75, 0), Vector3(2.98, 0.85, 12.9), m, PAINT, 0.12, Basis(), 14, 8)
+	var acc: Color = c.accent if c.accent != DARK else Color(0.1, 0.3, 0.6)
+	# lower body in sections around the wheel arches (the wheels show through the openings)
+	for seg in [[-6.45, -5.2], [-4.0, 3.6], [4.8, 6.45]]:
+		var z0: float = seg[0]
+		var z1: float = seg[1]
+		_rb(c, Vector3(0, 0.75, (z0 + z1) * 0.5), Vector3(2.98, 0.85, z1 - z0), m, PAINT, 0.06, Basis(), 10, 6)
+	for wz in [-4.6, 4.2]:
+		_bx(c, Vector3(0, 1.08, wz), Vector3(2.98, 0.2, 1.22), m)
+		_bx(c, Vector3(0, 0.62, wz), Vector3(1.8, 0.9, 1.3), DARK)
+		for s0 in [-1.0, 1.0]:
+			_wheel_arch(c, Vector3(s0 * 1.38, 0.45, wz), 0.45, 0.24, BLACK, s0)
 	_rb(c, Vector3(0, 2.25, 0), Vector3(2.98, 0.4, 12.9), m, PAINT, 0.15, Basis(), 14, 8)
 	for s in [-1.0, 1.0]:
 		_glass(c, Vector3(s * 1.49, 1.6, 0), Vector3(0.03, 1.15, 12.4))
 		for i in 9:
 			_bx(c, Vector3(s * 1.5, 1.6, -5.6 + i * 1.4), Vector3(0.02, 1.15, 0.07), DARK, PAINT)
-		_bx(c, Vector3(s * 1.5, 0.9, 0), Vector3(0.012, 0.12, 12.6), c.accent if c.accent != DARK else Color(0.1, 0.3, 0.6), PAINT)
+		_bx(c, Vector3(s * 1.5, 0.9, 0), Vector3(0.012, 0.12, 12.6), acc, PAINT)
+		_bx(c, Vector3(s * 1.495, 0.37, 0), Vector3(0.02, 0.1, 12.7), BLACK, RUBBER)
+		# double doors: glazed leaves in dark frames down to the low floor
+		for dz in [-3.2, 0.0, 2.9]:
+			_bx(c, Vector3(s * 1.505, 1.2, dz), Vector3(0.025, 1.75, 1.45), DARK, PAINT)
+			for leaf in [-1.0, 1.0]:
+				_glass(c, Vector3(s * 1.52, 1.25, dz + leaf * 0.34), Vector3(0.02, 1.5, 0.6))
+			_bx(c, Vector3(s * 1.525, 1.2, dz), Vector3(0.02, 1.7, 0.04), BLACK, RUBBER)
+			_lamp(c, Vector3(s * 1.5, 2.12, dz), Vector3(0.04, 0.05, 0.5), AMBER, "steady")
+		_mirror(c, Vector3(s * 1.42, 2.05, -6.35), s, 0.42, 0.5)
 	_glass(c, Vector3(0, 1.65, -6.45), Vector3(2.7, 1.25, 0.03), Basis(Vector3.RIGHT, deg_to_rad(-4.0)))
 	_glass(c, Vector3(0, 1.75, 6.45), Vector3(2.5, 0.9, 0.03))
+	for wx in [-0.55, 0.55]:
+		_cy(c, Vector3(wx, 1.08, -6.5), Vector3(wx + 0.35, 1.75, -6.52), 0.012, BLACK, RUBBER, 4)
 	_rb(c, Vector3(0, 0.45, -6.45), Vector3(3.0, 0.28, 0.16), BLACK, RUBBER, 0.3)
+	_rb(c, Vector3(0, 0.45, 6.45), Vector3(3.0, 0.28, 0.16), BLACK, RUBBER, 0.3)
+	_grille(c, Vector3(0, 0.85, 6.47), 1.6, 0.42, 7, Vector3(0, 0, 1))
 	_rb(c, Vector3(0, 2.6, 0), Vector3(2.6, 0.12, 11.0), Color(0.75, 0.77, 0.8), MATTE, 0.3)
+	_rb(c, Vector3(0, 2.78, 1.2), Vector3(1.9, 0.3, 3.4), Color(0.84, 0.86, 0.88), MATTE, 0.35)
+	for k in 4:
+		_bx(c, Vector3(-0.55 + k * 0.36, 2.94, 1.2), Vector3(0.24, 0.02, 2.6), DARK, MATTE)
+	var lbm: MeshBuilder = c.lb
+	lbm.add_box(Vector3(0, 2.25, -6.452), Vector3(1.9, 0.26, 0.02), Color(1.0, 0.62, 0.12, LAMP_STEADY))
 	for s2 in [-1.0, 1.0]:
 		_lamp(c, Vector3(s2 * 1.15, 0.8, -6.48), Vector3(0.3, 0.13, 0.04), Color(1, 0.97, 0.88), "head")
 		_lamp(c, Vector3(s2 * 1.2, 0.9, 6.47), Vector3(0.2, 0.2, 0.04), Color(1, 0.08, 0.05), "head")
+		_lamp(c, Vector3(s2 * 1.32, 0.8, -6.47), Vector3(0.1, 0.1, 0.04), AMBER, "head")
 		_wheel(c, Vector3(s2 * 1.2, 0.45, -4.6), 0.45, 0.3, true)
 		_wheel(c, Vector3(s2 * 1.2, 0.45, 4.2), 0.45, 0.3)
 	_lamp(c, Vector3(0, 2.72, -4.0), Vector3(0.16, 0.14, 0.16), AMBER, "beacon", 0.3)
