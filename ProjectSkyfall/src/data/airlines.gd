@@ -353,6 +353,18 @@ static func livery_colors(code: String) -> Dictionary:
 	return out
 
 
+static func fare(code: String, nm: float, cls: String = "economy") -> int:
+	## Ticket price in the game currency: distance, the kind of airline (low-cost to private
+	## jet), its reputation, and the cabin class.
+	var al := get_al(code)
+	var k: float = {"lowcost": 0.55, "regional": 0.95, "mainline": 1.0, "cargo": 1.0, "charter": 4.5, "school": 0.4, "government": 0.0}.get(String(al.get("kind", "mainline")), 1.0)
+	k *= 0.75 + float(al.get("reputation", 65.0)) / 160.0
+	var base := (45.0 + nm * 0.16) * k
+	if cls == "business":
+		base *= 3.4
+	return int(round(base / 5.0) * 5.0)
+
+
 static func safety_stars(code: String) -> int:
 	## 1..5 stars from the airline's operating standards (training, maintenance, pressure).
 	return clampi(int(round((float(get_al(code).get("standards", 0.75)) - 0.45) / 0.1)), 1, 5)
