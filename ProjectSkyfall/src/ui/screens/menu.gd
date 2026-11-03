@@ -32,6 +32,8 @@ func setup(params: Dictionary) -> void:
 	row1.add_child(_career_card())
 	row1.add_child(ImageCard.make("World Map", "Free flight: any aircraft, any airport, any time of day", "home_worldmap",
 		func(): Game.goto("world_map"), {"icon_name": "globe"}))
+	row1.add_child(ImageCard.make("Air Traffic Control", "Be the tower controller at any airport", "ap:KJFK",
+		func(): Game.goto("tower", {"icao": String(Game.settings.get("tower_airport", "KJFK"))}), {"icon_name": "bell", "ribbon": "NEW", "ribbon_color": UIStyle.GREEN}))
 	var done := Activities.completed_count()
 	var total := Activities.SCENARIOS.size()
 	row2.add_child(ImageCard.make("Activities", "Discovery flights, landing challenges, bush trips and special missions", "act_bush",

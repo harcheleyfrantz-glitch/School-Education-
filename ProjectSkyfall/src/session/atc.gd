@@ -45,6 +45,7 @@ var _t := 0.0
 var _chatter_t := 30.0
 var _dev_cool := {}
 var _rng := RandomNumberGenerator.new()
+var _auto_clr_t := -100.0
 var _voice_ids := {}
 var auto_atc := false
 var go_around_issued := false
@@ -650,11 +651,24 @@ func _monitor(delta: float) -> void:
 		if gs > 3.0 and not clearance.taxi and not clearance.pushback and not vfr and state in ["delivery", "clr_rb", "ground_push", "push_rb"]:
 			if _deviate("taxi", 0.3, "Taxiing without clearance"):
 				_say("GND", "%s, stop immediately, you are not cleared to taxi." % callsign, "%s, stop immediately, you are not cleared to taxi." % spoken_cs, 0.6)
+		# the tower never leaves you waiting: lined up or holding short at the departure runway
+		# with nothing landing, you get your takeoff clearance without having to ask
+		var dthr := U.dist2d(n.x, n.z, float(dep_end.thr_x), float(dep_end.thr_z))
+		var dep_side := not state in ["landing", "handoff", "vacated", "taxi_in", "taxi_in_rb"]
+		if dep_side and not clearance.takeoff and (on_rwy or (dthr < 450.0 and gs < 4.0)) and _t - _auto_clr_t > 12.0:
+			var busy := bool(session.call("runway_traffic_soon", dep, 45.0)) if session.has_method("runway_traffic_soon") else false
+			if not busy:
+				_auto_clr_t = _t
+				clearance.lineup = true
+				clearance.takeoff = true
+				var w := Phraseology.wind(float(ac.weather.get("wind_dir", 0.0)), float(ac.weather.get("wind_kt", 0.0)))
+				_say("TWR", "%s, %s, runway %s, cleared for takeoff." % [callsign, w[0], dep_end.name], "%s, %s, %s, cleared for take off." % [spoken_cs, w[1], Phraseology.runway(dep_end.name)], 0.4)
+				state = "to_pending"
 		if on_rwy and gs > 2.0 and not (clearance.lineup or clearance.takeoff or clearance.landing) and not state in ["landing", "handoff", "vacated", "taxi_in", "taxi_in_rb"]:
-			if _deviate("incursion", 0.8, "Runway incursion: entered runway %s without clearance" % dep_end.name):
+			if _deviate("incursion", 0.8 if bool(session.call("runway_traffic_soon", dep, 60.0)) else 0.3, "Runway incursion: entered runway %s without clearance" % dep_end.name):
 				_say("TWR", "%s, you entered the runway without clearance, hold position! Pilot deviation, report on arrival." % callsign, "%s, hold position! You entered the runway without clearance." % spoken_cs, 0.5)
 		if gs > 40.0 and not clearance.takeoff and on_rwy and state != "landing" and not ac.get_meta("rejecting", false):
-			if _deviate("takeoff_noclr", 1.0, "Takeoff roll without takeoff clearance"):
+			if _deviate("takeoff_noclr", 1.0 if bool(session.call("runway_traffic_soon", dep, 60.0)) else 0.3, "Takeoff roll without takeoff clearance"):
 				_say("TWR", "%s, STOP, cancel takeoff, I say again, cancel takeoff!" % callsign, "%s, stop immediately, cancel take off, I say again, cancel take off!" % spoken_cs, 0.3)
 	else:
 		if absf(clearance.alt_m - _alt_clr_last) > 1.0:
