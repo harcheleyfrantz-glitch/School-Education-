@@ -39,6 +39,8 @@ const CRASH_TARGETS := {"route": "Follow the route", "city": "Crash into the nea
 	"sea": "Crash into the sea", "mountain": "Crash into a mountain", "ahead": "Crash straight ahead"}
 var traffic: TrafficManager = null
 var wreck: WreckPieces = null
+var escorts: Escorts = null
+var _tornado_done := false
 var phase := "preflight"
 var dep_icao := ""
 var arr_icao := ""
@@ -550,6 +552,7 @@ func _process(delta: float) -> void:
 	if ac.position.length() > 2048.0:
 		view.rebase(ac.position)
 	_apply_event_effects(delta)
+	_special_ops()
 	_update_pushback(delta)
 	_update_phase(delta)
 	_update_cabin(delta)
@@ -1251,6 +1254,29 @@ func _on_deviation(kind: String, severity: float, text: String) -> void:
 	toast.emit("ATC: " + text, "caution")
 
 
+func _special_ops() -> void:
+	## Presidential escorts join once airborne; tornado weather puts funnels on the route.
+	if bool(params.get("presidential", false)) and escorts == null and not ac.fdm.on_ground and float(ac.ra) > 120.0 and not ac.crashed_state:
+		escorts = Escorts.new()
+		escorts.name = "Escorts"
+		add_child(escorts)
+		escorts.setup(self, ac, view)
+		toast.emit("Two fighter escorts are joining you. Keep a steady course - and don't hit them.", "info")
+	if not _tornado_done and WeatherModel.override_preset == "tornado":
+		_tornado_done = true
+		var here := Vector2(ac.world_x(), ac.world_z())
+		var arr_ap := Airports.get_ap(arr_icao)
+		var to := (Vector2(float(arr_ap.x), float(arr_ap.z)) - here)
+		var dirv := to.normalized() if to.length() > 100.0 else Vector2.from_angle(randf() * TAU)
+		var side := Vector2(-dirv.y, dirv.x)
+		for k in 3:
+			var along := minf(to.length() * (0.25 + 0.3 * k), 9000.0 + 9000.0 * k)
+			var tn := Tornado.new()
+			tn.name = "Tornado%d" % k
+			view.dynamic_root.add_child(tn)
+			tn.setup(self, ac, view, here + dirv * along + side * randf_range(-2500.0, 2500.0))
+
+
 func wreck_pieces() -> WreckPieces:
 	## Loose wreckage (separated sections, engines, seats, luggage) flying and coming to rest.
 	if wreck == null:
@@ -1605,7 +1631,8 @@ func finish_flight(outcome: String) -> void:
 		"recorder": recorder.export(), "crash": crash_info, "aftermath": aftermath, "max_g": recorder.max_nz,
 		"weather": ac.weather, "fuel_planned": fuel_planned, "fuel_start": fuel_start, "accepted_defects": accepted_defects,
 		"walkaround": walk_frac, "emergency_declared": emergency != "", "phase": phase, "late_min": late,
-		"free_flight": bool(params.get("free_flight", false)), "aircraft_record": WorldSim.aircraft(ac.reg),
+		"free_flight": bool(params.get("free_flight", false)), "presidential": bool(params.get("presidential", false)),
+		"escort_intercepts": escorts.intercepts if escorts else 0, "aircraft_record": WorldSim.aircraft(ac.reg),
 		"autofly_landed": autofly and not (touchdown as Dictionary).is_empty(),
 		"captain": _captain_name()}, true)
 	if outcome in ["crashed", "ditched"] or not incidents.is_empty():

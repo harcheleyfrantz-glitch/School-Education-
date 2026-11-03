@@ -40,6 +40,20 @@ func _physics_process(delta: float) -> void:
 	var pts := []
 	for p in _probe:
 		pts.append([p[0], xf * (p[1] as Vector3)])
+	# the presidential escort fighters are solid too
+	var esc = session.get("escorts") if session else null
+	if esc != null:
+		for j in esc.boxes():
+			var jp: Vector3 = (j.node as Node3D).global_position
+			if jp.distance_to(ac.global_position) > 90.0:
+				continue
+			for p2 in pts:
+				if (p2[1] as Vector3).distance_to(jp) < 6.5:
+					esc.hit_jet(j)
+					ac.set_meta("breakup", "mid-air collision")
+					ac.call("_crash", {"cause_hint": "mid-air collision with escort fighter %s" % String(j.callsign), "collision": "the escort fighter %s" % String(j.callsign),
+						"hit_part": String(p2[0]), "midair": true, "escort": true, "other": {"callsign": String(j.callsign), "type_name": "fighter jet", "airline": "GOV", "aboard": 1}})
+					return
 	# other aircraft are solid at any height: on the ground, on approach and in the air
 	var hit := _hit_aircraft(pts)
 	if hit.is_empty():

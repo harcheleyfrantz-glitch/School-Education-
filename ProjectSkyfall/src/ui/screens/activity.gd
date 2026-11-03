@@ -362,7 +362,7 @@ static func _weather_text(s: Dictionary) -> Array:
 	if key == "crosswind":
 		wind = "%03d° %dG%d kt" % [int(dir), int(p.wind), int(p.wind) + 12]
 	var names := {"clear": "Clear skies", "few": "Few clouds", "scattered": "Scattered clouds", "overcast": "Overcast", "rain": "Heavy rain",
-		"storm": "Thunderstorms", "fog": "Fog · %d m" % int(p.vis), "snow": "Snow", "crosswind": "Strong crosswind"}
+		"storm": "Thunderstorms", "fog": "Fog · %d m" % int(p.vis), "snow": "Snow", "crosswind": "Strong crosswind", "hurricane": "Hurricane", "tornado": "Tornado outbreak"}
 	return [String(names.get(key, key.capitalize())), "Wind " + wind]
 
 
@@ -388,7 +388,7 @@ static func _wx_icon(key: String, hour: float) -> String:
 			return "cloud"
 		"rain":
 			return "rain"
-		"storm":
+		"storm", "hurricane", "tornado":
 			return "storm"
 		"fog":
 			return "fog"

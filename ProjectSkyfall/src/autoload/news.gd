@@ -189,9 +189,11 @@ func _accident(res: Dictionary, cons: Dictionary) -> void:
 	var r := U.rng(U.hash_str(String(inc.id)))
 	var video := {"type": "reconstruction", "incident": inc.id}
 	var verb := "ditches" if ditch else ("crashes" if fatal > 0 or float(af.get("severity", 0.5)) > 0.4 else "crash-lands")
+	if bool(res.get("presidential", false)):
+		_presidential(inc, res, d, fatal, aboard, place, crash)
 	inc["midair"] = bool(crash.get("midair", false))
 	inc["other"] = crash.get("other", {})
-	if bool(inc.midair):
+	if bool(inc.midair) and not bool(crash.get("escort", false)) and not bool(crash.get("attack", false)):
 		# a mid-air collision: two aircraft, two airlines, one story
 		var oth: Dictionary = inc.other
 		var oal := Airlines.get_al(String(oth.get("airline", "")))
@@ -452,6 +454,9 @@ func _advance_story(s: Dictionary) -> void:
 		return
 	if String(s.kind) == "debate":
 		_debate_story(s)
+		return
+	if String(s.kind) == "pres_anniv":
+		_pres_anniv_story(s)
 		return
 	if String(s.kind) != "accident":
 		stories.erase(s)
@@ -757,10 +762,63 @@ const NPC_CAUSES := ["a loss of control after an engine failure on approach", "t
 	"a bird strike that took out both engines", "spatial disorientation at night", "a jammed elevator trim"]
 
 
+func _presidential(inc: Dictionary, res: Dictionary, d: Dictionary, fatal: int, aboard: int, place: String, crash: Dictionary) -> void:
+	## The presidential aircraft is lost: the biggest story in years, on every outlet, and it
+	## comes back on every anniversary.
+	var dead := fatal > 0 and float(res.get("aftermath", {}).get("severity", 0.5)) > 0.45
+	inc["presidential"] = true
+	inc["president_killed"] = dead
+	var why := String(crash.get("cause_hint", "crashed"))
+	var escort := bool(crash.get("escort", false))
+	var attack := bool(crash.get("attack", false))
+	var head := "PRESIDENT KILLED IN PLANE CRASH" if dead else "PRESIDENT SURVIVES PLANE CRASH"
+	var sub := ("Calderra One collided with its own fighter escort %s" % place) if escort else (("Calderra One struck by a hostile drone %s" % place) if attack else ("Calderra One %s %s" % [why, place]))
+	for o in ["skyline", "herald", "gazette", "aeroweek"]:
+		publish(o, "breaking", head + (" - " + sub if o == "skyline" else ""),
+			"%s. %s" % [sub, "The president and %d others on board were killed." % maxi(fatal - 1, 0) if dead else "The president was pulled from the wreckage alive and taken to hospital."],
+			["The nation is in shock. Parliament has been recalled and flags fly at half mast across Calderra.",
+			"World leaders sent messages of condolence within the hour." if dead else "The president's office says the head of state is conscious and in a stable condition.",
+			"The pilot, %s, %s." % [d.pilot, "is among the dead" if res.get("aftermath", {}).get("player_injury", 0) == 4 else "is being questioned by investigators"],
+			"An international commission of inquiry has been ordered. It is the worst disaster in the history of the state flight."],
+			{"importance": 3, "incident": inc.id, "place": place, "video": {"type": "reconstruction", "incident": inc.id}, "tags": ["accident", "president", "GOV"]})
+	if escort:
+		publish("herald", "news", "How did a presidential jet fly into its own escort?", "Defence experts struggle to explain how the president's aircraft came to collide with a fighter flying in formation beside it.",
+			["Escort fighters normally hold several hundred metres off the wingtip.", "Questions are being asked of the transport pilot's handling of the aircraft."],
+			{"importance": 3, "incident": inc.id, "tags": ["president", "escort"], "t": WorldSim.clock + 6.0 * 3600.0})
+	for k in 12:
+		var who := _citizen(U.rng(U.hash_str(String(inc.id)) + k))
+		post(who, _pick(U.rng(k + 7), ["I can't believe this. The PRESIDENT. #CalderraOne", "Where were you when Calderra One went down? I'll never forget this day.",
+			"This is the biggest news of my lifetime.", "Thoughts with the families. And with the whole country tonight. #CalderraOne", "How does this even happen with fighter escorts?!"]),
+			{"importance": 3, "spread": 1.0})
+	# anniversaries for years to come
+	stories.append({"id": _id("S"), "kind": "pres_anniv", "incident": inc.id, "stage": 0, "years": [1, 2, 3, 5, 10, 20, 25, 50], "dead": dead,
+		"next_t": WorldSim.clock + 365.0 * 86400.0})
+
+
+func _pres_anniv_story(s: Dictionary) -> void:
+	var years: Array = s.years
+	var st := int(s.stage)
+	if st >= years.size():
+		stories.erase(s)
+		return
+	var y := int(years[st])
+	var inc := _find_incident(String(s.incident))
+	var place := String(inc.get("place", ""))
+	publish("herald", "news", "%d years since Calderra One: a nation remembers" % y if y > 1 else "One year since Calderra One",
+		"%d %s ago the presidential aircraft came down %s. %s" % [y, "year" if y == 1 else "years", place,
+			"Thousands gathered at the memorial to the president and everyone who died." if bool(s.dead) else "The president, who survived, laid a wreath at the crash site."],
+		["Schoolchildren who were not yet born learn about the day in history lessons.", "The state flight's rules on escorts and routing were rewritten after the accident.",
+		"Documentaries about the crash are still among the most watched programmes in the country."],
+		{"importance": 3, "incident": String(s.incident), "tags": ["president", "anniversary"], "video": {"type": "reconstruction", "incident": String(s.incident), "pkg": "anniversary"}})
+	s.stage = st + 1
+	if int(s.stage) < years.size():
+		s.next_t = float(inc.get("clock", WorldSim.clock)) + float(years[int(s.stage)]) * 365.0 * 86400.0
+
+
 func npc_accident(r: RandomNumberGenerator, force_repeat: bool = false) -> Dictionary:
 	## Another airline's flight is lost: a synthetic track, casualties and the full news cycle
 	## (coverage, bystander videos, the filmer's briefing) exactly as for the player's own.
-	var code: String = Airlines.ORDER[r.randi() % Airlines.ORDER.size()]
+	var code: String = Airlines.pick_for_accident(r)
 	var al := Airlines.get_al(code)
 	var fleet: Dictionary = al.get("fleet", {"s320": 1})
 	var types: Array = fleet.keys()
@@ -834,6 +892,20 @@ func npc_accident(r: RandomNumberGenerator, force_repeat: bool = false) -> Dicti
 	_accident(res, {})
 	var inc: Dictionary = incidents[incidents.size() - 1]
 	inc["npc"] = true
+	# the airline's record comes under the spotlight
+	var stars := Airlines.safety_stars(code)
+	if stars <= 3:
+		var prior := 0
+		for i0 in incidents:
+			if String(i0.get("airline", "")) == code:
+				prior += 1
+		publish("herald", "news", "%s's safety record under scrutiny after crash" % String(al.get("name", "")),
+			"%s has one of the weakest safety ratings in the industry (%d out of 5 stars)%s." % [String(al.get("name", "")), stars,
+				", and this is its %s accident on record" % ["", "first", "second", "third", "fourth", "fifth"][mini(prior, 5)] if prior >= 2 else ""],
+			["Former pilots describe tight schedules, short rest periods and pressure to fly in marginal weather.",
+			"Unions have repeatedly warned the regulator about training standards at the airline.",
+			"%s said it \"meets or exceeds every regulatory requirement\"." % String(al.get("name", ""))],
+			{"importance": 2, "incident": inc.id, "tags": ["safety", code], "t": WorldSim.clock + 20.0 * 3600.0})
 	if not repeat_of.is_empty():
 		inc["repeat_of"] = String(repeat_of.id)
 		var days := maxi(int((WorldSim.clock - float(repeat_of.get("clock", WorldSim.clock))) / 86400.0), 0)

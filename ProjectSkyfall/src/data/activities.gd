@@ -9,6 +9,8 @@ const CATEGORIES := {
 		"blurb": "Scenic flights through the most beautiful corners of Calderra and Westmark. No pressure - just you, the light and the view."},
 	"landing": {"title": "Landing Challenges", "shot": "act_landing", "accent": Color(1.0, 0.72, 0.22),
 		"blurb": "Short final, hard conditions, one chance. Crosswinds, gusts, fog, night and short strips - every touchdown is scored."},
+	"special": {"title": "Special Missions", "shot": "act_landing", "accent": Color(1.0, 0.35, 0.3),
+		"blurb": "Apply to fly the president with a fighter escort, land in a hurricane, or thread a path through a tornado outbreak."},
 	"bush": {"title": "Bush Trips", "shot": "act_bush", "accent": Color(0.42, 0.9, 0.55),
 		"blurb": "Multi-leg journeys between small fields in the trainer and the turboprop. Navigate by sight, leg by leg."},
 }
@@ -117,6 +119,22 @@ const SCENARIOS := [
 		"hour": 11.3, "weather": "rain", "difficulty": 4,
 		"desc": "Sideways rain over the North Atlantic and a short 1,800 metre runway in a valley between sea cliffs. Get down on the numbers and stop before the end.",
 		"objective": "Land on runway 30 at Vagar.", "tags": ["Rain", "1800 m runway", "Cliffs"]},
+	{"id": "state_one", "category": "special", "title": "Calderra One", "place": "Presidential transport · Port Calder to Rivermouth",
+		"type": "w380", "airline": "GOV", "dep": "SKPC", "arr": "SKRV", "start": "runway", "hour": 10.5, "weather": "few", "difficulty": 4, "presidential": true,
+		"desc": "Apply for the presidential transport squadron. Fly the head of state in the four-engine Skyliner with two fighter jets on your wingtips. Hostile drones may come for you - your escorts will deal with them. Fly smooth, and whatever you do, do not hit an escort.",
+		"objective": "Fly the president safely to Rivermouth.", "tags": ["President", "Fighter escort", "Application"]},
+	{"id": "state_one_ny", "category": "special", "title": "Calderra One to New York", "place": "Presidential visit · Washington to New York JFK",
+		"type": "s321", "airline": "GOV", "dep": "KIAD", "arr": "KJFK", "start": "runway", "hour": 15.0, "weather": "scattered", "difficulty": 4, "presidential": true,
+		"desc": "A state visit to the United Nations. Short hop up the coast with the escort pair, past the Manhattan skyline into JFK.",
+		"objective": "Bring the president into New York JFK.", "tags": ["President", "Fighter escort", "New York"]},
+	{"id": "hurricane_miami", "category": "special", "title": "Into the Hurricane", "place": "Miami · a category 4 hurricane",
+		"type": "s320", "airline": "LBA", "dep": "KJFK", "arr": "KMIA", "start": "air", "dist_km": 22.0, "alt_ft": 4000.0, "hour": 16.0, "weather": "hurricane", "difficulty": 5,
+		"desc": "The last flight into Miami before the airport closes. Eighty-knot winds, torrential rain and violent turbulence. Most crews would divert. You have to get it on the ground.",
+		"objective": "Land at Miami in the hurricane.", "tags": ["Hurricane", "Extreme wind", "Rain"]},
+	{"id": "tornado_alley", "category": "special", "title": "Tornado Alley", "place": "Chicago · a tornado outbreak",
+		"type": "rj90", "airline": "MPN", "dep": "CYYZ", "arr": "KORD", "start": "air", "dist_km": 35.0, "alt_ft": 3000.0, "hour": 17.5, "weather": "tornado", "difficulty": 5,
+		"desc": "Supercells over the plains and tornadoes on the ground between you and O'Hare. Spot the funnels, stay well clear of them - fly into one and the aircraft will not survive.",
+		"objective": "Dodge the tornadoes and land at Chicago O'Hare.", "tags": ["Tornado", "Storm", "Avoidance"]},
 	{"id": "bermuda_night", "category": "landing", "title": "Bermuda by Night", "place": "Bermuda · runway 12 at night",
 		"type": "tp72", "airline": "IHA", "dep": "KJFK", "arr": "TXKF", "start": "air", "arr_rwy": "12", "dist_km": 12.0, "alt_ft": 2400.0,
 		"hour": 22.8, "weather": "clear", "difficulty": 3,
@@ -262,6 +280,19 @@ static func launch(scn: Dictionary, leg: int = -1) -> void:
 		"weather": String(scn.get("weather", "few")), "instant_boarding": true,
 		"pax": mini(AircraftTypes.seat_count(t), 2 if spec.category == "trainer" else 40) if AircraftTypes.is_passenger(t) else 0,
 		"fuel": float(spec.max_fuel) * (0.55 if lg.size() > 1 else 0.4)}
+	if bool(scn.get("presidential", false)):
+		# you have to be accepted into the squadron first
+		if not bool(Game.settings.get("state_pilot", false)):
+			var flights := Achievements.unlocked("first_flight") or Achievements.stat("activities") >= 1.0
+			if not flights:
+				Game.notify("Application to the presidential squadron rejected: complete at least one flight or activity first.", "warning")
+				return
+			Game.settings["state_pilot"] = true
+			Game.save_settings()
+			Game.notify("Application approved! Welcome to the presidential transport squadron.", "success")
+		p.presidential = true
+		p.callsign = "Calderra One"
+		p.pax = 60
 	if scn.has("dep_rwy"):
 		p.dep_rwy = String(scn.dep_rwy)
 	if scn.has("arr_rwy"):

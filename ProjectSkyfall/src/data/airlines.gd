@@ -4,6 +4,18 @@ class_name Airlines
 const ORDER := ["SKF", "CLK", "LMN", "NWC", "APX", "HFA", "WMA", "AUR", "PEL", "VTX", "LBA", "THA", "LUE", "GGP", "MPN", "AUN", "IHA", "SOL", "TFX"]
 
 const DATA := {
+	"GOV": {
+		"name": "Calderra State Flight", "callsign": "CALDERRA", "iata": "CS", "kind": "government",
+		"hubs": ["SKPC"], "country": "Calderra", "reg_prefix": "CR-G",
+		"fleet": {"w380": 1, "s321": 1},
+		"livery": {"body": "f7f7f2", "belly": "1d3a6e", "stripe": "c9a227", "stripe2": "1d3a6e", "tail": "1d3a6e", "tail2": "c9a227", "logo": "c9a227", "logo_shape": 7,
+			"art": "c9a227", "engine": "1d3a6e", "engine2": "c9a227", "engine_style": 3, "tip": "c9a227", "text": "1d3a6e",
+			"belly_h": -0.35, "nose_dip": 0.05, "rise_t": 0.55, "rise_h": 0.6, "stripes": [0.05, 0.02, 0.1, 0.006], "stripe_t": [0.04, 0.96],
+			"title": "REPUBLIC OF CALDERRA", "title_style": "serif", "title_size": 0.95},
+		"pay": 2.0, "reputation": 99, "ceo": "The Presidential Office", "spokes": "Marta Ellison",
+		"desc": "The presidential transport squadron: the head of state, two fighter escorts, no margin for error.",
+		"standards": 0.99,
+	},
 	"SKF": {
 		"name": "Skyfall Air", "callsign": "SKYFALL", "iata": "SF", "kind": "mainline",
 		"hubs": ["SKPC"], "country": "Calderra", "reg_prefix": "CR-S",
@@ -295,6 +307,45 @@ static func livery_colors(code: String) -> Dictionary:
 		else:
 			out[k] = l[k]
 	return out
+
+
+static func safety_stars(code: String) -> int:
+	## 1..5 stars from the airline's operating standards (training, maintenance, pressure).
+	return clampi(int(round((float(get_al(code).get("standards", 0.75)) - 0.45) / 0.1)), 1, 5)
+
+
+static func safety_label(code: String) -> String:
+	var n := safety_stars(code)
+	return "%s %s" % ["★".repeat(n) + "☆".repeat(5 - n), ["", "Poor", "Below average", "Average", "Good", "Excellent"][n]]
+
+
+static func crash_weight(code: String) -> float:
+	## How likely this airline is to be the one in the next accident: weaker standards and
+	## busier short-haul flying (more takeoffs and landings) both push it up.
+	var al := get_al(code)
+	var w := pow(1.12 - float(al.get("standards", 0.75)), 2.0) * 10.0
+	match String(al.get("kind", "")):
+		"regional", "lowcost":
+			w *= 1.4
+		"school":
+			w *= 1.2
+		"cargo":
+			w *= 1.15
+	if code == "IHA":
+		w *= 1.3   # the hardest island airports in the world
+	return w
+
+
+static func pick_for_accident(r: RandomNumberGenerator) -> String:
+	var total := 0.0
+	for c in ORDER:
+		total += crash_weight(c)
+	var x := r.randf() * total
+	for c2 in ORDER:
+		x -= crash_weight(c2)
+		if x <= 0.0:
+			return c2
+	return ORDER[0]
 
 
 static func operates_type(code: String, type_id: String) -> bool:

@@ -12,6 +12,8 @@ const PRESETS := {
 	"storm": {"cover": 0.9, "base_ft": 2200.0, "wind": 24.0, "dir": 230.0, "vis": 4000.0, "precip": "thunderstorm", "turb": 0.65, "storm": 0.9, "temp_off": -4.0},
 	"fog": {"cover": 1.0, "base_ft": 200.0, "wind": 2.0, "dir": 180.0, "vis": 350.0, "precip": "none", "turb": 0.02, "storm": 0.0, "temp_off": -2.0},
 	"snow": {"cover": 1.0, "base_ft": 1500.0, "wind": 15.0, "dir": 340.0, "vis": 3000.0, "precip": "snow", "turb": 0.25, "storm": 0.2, "temp_off": -24.0},
+	"hurricane": {"cover": 1.0, "base_ft": 800.0, "wind": 82.0, "dir": 120.0, "vis": 1200.0, "precip": "thunderstorm", "turb": 1.7, "storm": 1.0, "temp_off": 2.0},
+	"tornado": {"cover": 0.95, "base_ft": 1600.0, "wind": 30.0, "dir": 210.0, "vis": 6000.0, "precip": "thunderstorm", "turb": 0.9, "storm": 1.0, "temp_off": 4.0},
 	"crosswind": {"cover": 0.35, "base_ft": 3800.0, "wind": 26.0, "dir": 0.0, "vis": 25000.0, "precip": "none", "turb": 0.45, "storm": 0.1, "temp_off": 0.0},
 }
 

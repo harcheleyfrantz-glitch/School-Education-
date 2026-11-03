@@ -36,6 +36,8 @@ const LIST := [
 	{"id": "front_page", "title": "Front Page", "desc": "Make the news with a crash.", "icon": "news", "group": "Drama"},
 	{"id": "survivor", "title": "Survivor", "desc": "Walk away from a crash.", "icon": "user", "group": "Drama"},
 	{"id": "big_sky", "title": "Big Sky Theory", "desc": "Collide with another aircraft in flight.", "icon": "bell", "group": "Drama"},
+	{"id": "state_pilot", "title": "Calderra One", "desc": "Fly the president safely to their destination.", "icon": "star", "group": "Flying"},
+	{"id": "history", "title": "History Books", "desc": "Crash the presidential aircraft.", "icon": "bell", "group": "Drama"},
 	{"id": "not_the_tower", "title": "Not The Tower!", "desc": "Crash into a famous landmark.", "icon": "bell", "group": "Drama"},
 	{"id": "keyboard_pilot", "title": "Keyboard Pilot", "desc": "Post a comment under a story.", "icon": "news", "group": "Drama"},
 	{"id": "talk_of_town", "title": "Talk of the Town", "desc": "Get comments written by Claude under a story.", "icon": "news", "group": "Drama"},
@@ -131,6 +133,8 @@ static func on_flight_result(res: Dictionary, cons: Dictionary = {}) -> void:
 	_add("hours", float(res.get("block_hours", 0.0)))
 	if outcome in ["crashed", "ditched"]:
 		unlock("front_page")
+		if bool(res.get("presidential", false)):
+			unlock("history")
 		if not bool(cons.get("dead", false)):
 			unlock("survivor")
 		if bool(res.get("crash", {}).get("midair", false)):
@@ -145,6 +149,8 @@ static func on_flight_result(res: Dictionary, cons: Dictionary = {}) -> void:
 		_check_goals()
 		return
 	unlock("first_flight")
+	if bool(res.get("presidential", false)):
+		unlock("state_pilot")
 	var td: Dictionary = res.get("touchdown", {})
 	var vs := absf(float(td.get("vs_fpm", 999.0)))
 	if not td.is_empty():

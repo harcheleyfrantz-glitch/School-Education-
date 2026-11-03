@@ -4,7 +4,7 @@ extends ScreenBase
 
 const WEATHER := [["live", "Live", "globe"], ["clear", "Clear", "sun"], ["few", "Few", "cloud"], ["scattered", "Scattered", "cloud"],
 	["overcast", "Overcast", "cloud"], ["rain", "Rain", "rain"], ["storm", "Storm", "storm"], ["fog", "Fog", "fog"], ["snow", "Snow", "snow"],
-	["crosswind", "Crosswind", "wind"]]
+	["crosswind", "Crosswind", "wind"], ["hurricane", "Hurricane", "storm"], ["tornado", "Tornado", "storm"]]
 
 var cfg := {"type": "s320", "airline": "SKF", "dep": "SKPC", "arr": "SKRV", "start": "gate", "hour": 18.5, "weather": "live", "events": "realistic"}
 var map: WorldMapView
