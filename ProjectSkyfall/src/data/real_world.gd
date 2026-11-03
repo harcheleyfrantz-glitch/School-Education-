@@ -121,6 +121,8 @@ const POLYS := [
 	],
 ]
 const ISLANDS := [
+	[Vector2(817.9, 1067.8), Vector2(13.0, 9.0)],
+	[Vector2(793.4, 1072.2), Vector2(5.0, 5.0)],
 	[Vector2(676.2, 1419.4), Vector2(10.0, 7.5)],
 	[Vector2(772.2, 1363.0), Vector2(8.3, 18.3)],
 	[Vector2(771.4, 1409.5), Vector2(12.0, 27.0)],
@@ -155,6 +157,14 @@ const ISLANDS := [
 ]
 const RISES := [
 	[Vector2(-960.3, 1410.6), Vector2(90.0, 140.0), 950.0],
+	[Vector2(-1183.9, 1496.8), Vector2(30.0, 30.0), 620.0],
+	[Vector2(812.3, 1227.0), Vector2(35.0, 25.0), 420.0],
+	[Vector2(760.4, 1249.1), Vector2(22.0, 14.0), 380.0],
+	[Vector2(-699.0, 1545.5), Vector2(40.0, 30.0), 230.0],
+	[Vector2(-898.9, 1567.6), Vector2(35.0, 35.0), 120.0],
+	[Vector2(-998.1, 1415.0), Vector2(30.0, 30.0), 700.0],
+	[Vector2(802.9, 961.6), Vector2(20.0, 18.0), 170.0],
+	[Vector2(486.5, 1437.1), Vector2(8.0, 8.0), 90.0],
 	[Vector2(-724.2, 1388.5), Vector2(90.0, 60.0), 190.0],
 	[Vector2(-503.8, 1156.3), Vector2(110.0, 70.0), 450.0],
 	[Vector2(-362.1, 1101.0), Vector2(50.0, 40.0), 500.0],
@@ -275,6 +285,10 @@ const PARKS := [
 	{"name": "Champ de Mars", "x": 661070.0, "z": 1224770.0, "hw": 250.0, "hd": 550.0},
 	{"name": "Bois de Boulogne", "x": 658470.0, "z": 1221920.0, "hw": 1100.0, "hd": 1400.0},
 	{"name": "Villa Borghese", "x": 834870.0, "z": 1359670.0, "hw": 500.0, "hd": 450.0},
+	{"name": "Theme Parks", "x": -663340.0, "z": 1660440.0, "hw": 2200.0, "hd": 1800.0},
+	{"name": "English Garden", "x": 808830.0, "z": 1233420.0, "hw": 350.0, "hd": 1400.0},
+	{"name": "Tiergarten", "x": 836450.0, "z": 1128010.0, "hw": 1100.0, "hd": 450.0},
+	{"name": "Montjuic", "x": 664970.0, "z": 1375120.0, "hw": 700.0, "hd": 600.0},
 ]
 ## Landmarks: kind picks the model in Landmarks; x, z metres; yaw = heading of the model's forward axis.
 const LANDMARKS := [
@@ -310,6 +324,22 @@ const LANDMARKS := [
 	{"id": "colosseum", "name": "Colosseum", "kind": "colosseum", "x": 835770.0, "z": 1361770.0, "yaw": 20.0, "icao": "LIRF", "city": "Rome"},
 	{"id": "stpeter", "name": "St Peter's Basilica", "kind": "dome_church", "x": 832070.0, "z": 1360970.0, "yaw": 90.0, "icao": "LIRF", "city": "Rome"},
 	{"id": "church", "name": "Hallgrimskirkja", "kind": "church_tower", "x": 285110.0, "z": 878240.0, "yaw": 0.0, "icao": "BIKF", "city": "Reykjavik"},
+	{"id": "atldt", "name": "Downtown Atlanta", "kind": "skyline_atlanta", "x": -697960.0, "z": 1539720.0, "yaw": 0.0, "icao": "KATL", "city": "Atlanta"},
+	{"id": "dalldt", "name": "Downtown Dallas", "kind": "skyline_dallas", "x": -888480.0, "z": 1574090.0, "yaw": 0.0, "icao": "KDFW", "city": "Dallas"},
+	{"id": "reunion", "name": "Reunion Tower", "kind": "reunion", "x": -889380.0, "z": 1574590.0, "yaw": 0.0, "icao": "KDFW", "city": "Dallas"},
+	{"id": "dendt", "name": "Downtown Denver", "kind": "skyline_denver", "x": -1003100.0, "z": 1421170.0, "yaw": 0.0, "icao": "KDEN", "city": "Denver"},
+	{"id": "needle", "name": "Space Needle", "kind": "space_needle", "x": -1310610.0, "z": 1234820.0, "yaw": 0.0, "icao": "KSEA", "city": "Seattle"},
+	{"id": "seadt", "name": "Downtown Seattle", "kind": "skyline_seattle", "x": -1309610.0, "z": 1236320.0, "yaw": 0.0, "icao": "KSEA", "city": "Seattle"},
+	{"id": "strip", "name": "The Las Vegas Strip", "kind": "skyline_vegas", "x": -1184590.0, "z": 1490560.0, "yaw": 0.0, "icao": "KLAS", "city": "Las Vegas"},
+	{"id": "strat", "name": "Strat Tower", "kind": "tv_tower", "x": -1184290.0, "z": 1487960.0, "yaw": 0.0, "icao": "KLAS", "city": "Las Vegas"},
+	{"id": "castle", "name": "Fairytale Castle", "kind": "castle", "x": -663340.0, "z": 1659940.0, "yaw": 0.0, "icao": "KMCO", "city": "Orlando"},
+	{"id": "fradt", "name": "Frankfurt skyline", "kind": "skyline_frankfurt", "x": 770140.0, "z": 1182760.0, "yaw": 0.0, "icao": "EDDF", "city": "Frankfurt"},
+	{"id": "frauen", "name": "Frauenkirche", "kind": "twin_towers_church", "x": 808330.0, "z": 1234920.0, "yaw": 0.0, "icao": "EDDM", "city": "Munich"},
+	{"id": "tvtower", "name": "Berlin TV Tower", "kind": "tv_tower", "x": 839050.0, "z": 1127710.0, "yaw": 0.0, "icao": "EDDB", "city": "Berlin"},
+	{"id": "brandenburg", "name": "Brandenburg Gate", "kind": "brandenburg", "x": 837050.0, "z": 1128010.0, "yaw": 0.0, "icao": "EDDB", "city": "Berlin"},
+	{"id": "sagrada", "name": "Sagrada Familia", "kind": "sagrada", "x": 666970.0, "z": 1372420.0, "yaw": 0.0, "icao": "LEBL", "city": "Barcelona"},
+	{"id": "atomium", "name": "Atomium", "kind": "atomium", "x": 693750.0, "z": 1170520.0, "yaw": 0.0, "icao": "EBBR", "city": "Brussels"},
+	{"id": "edcastle", "name": "Edinburgh Castle", "kind": "castle", "x": 582570.0, "z": 1058340.0, "yaw": 0.0, "icao": "EGPH", "city": "Edinburgh"},
 ]
 const LABELS := [
 	["NORTH AMERICA", Vector2(-913.1, 1255.8)],
@@ -329,6 +359,17 @@ const LABELS := [
 	["ITALY", Vector2(826.5, 1344.2)],
 	["IRELAND", Vector2(503.8, 1118.7)],
 	["AFRICA", Vector2(629.7, 1676.0)],
+	["GERMANY", Vector2(793.4, 1162.9)],
+	["NORWAY", Vector2(771.4, 932.9)],
+	["SWEDEN", Vector2(875.3, 928.5)],
+	["DENMARK", Vector2(774.6, 1054.5)],
+	["SWITZERLAND", Vector2(758.8, 1261.3)],
+	["AUSTRIA", Vector2(856.4, 1243.6)],
+	["BELGIUM", Vector2(702.1, 1176.2)],
+	["PORTUGAL", Vector2(502.2, 1417.2)],
+	["BALTIC SEA", Vector2(928.8, 1034.6)],
+	["TEXAS", Vector2(-928.8, 1609.6)],
+	["ROCKY MOUNTAINS", Vector2(-1078.4, 1366.3)],
 	["PACIFIC OCEAN", Vector2(-1338.2, 1565.4)],
 	["CARIBBEAN", Vector2(-598.2, 1817.5)],
 ]
@@ -385,8 +426,20 @@ static func center_name(x: float, z: float, country: String) -> String:
 	var ll := to_lonlat(x, z)
 	match country:
 		"United States":
-			if ll.x < -104.0:
+			if ll.x < -117.0 and ll.y > 44.0:
+				return "Seattle Center"
+			if ll.x < -112.0:
 				return "Los Angeles Center" if ll.y < 37.0 else "Oakland Center"
+			if ll.x < -102.0:
+				return "Denver Center" if ll.y > 36.5 else "Albuquerque Center"
+			if ll.x < -93.5 and ll.y < 36.5:
+				return "Fort Worth Center"
+			if ll.x < -88.0 and ll.y < 33.0:
+				return "Houston Center"
+			if ll.x < -80.0 and ll.y < 36.0 and ll.y > 31.0:
+				return "Atlanta Center"
+			if ll.y < 31.0 and ll.y > 27.0 and ll.x > -84.0:
+				return "Jacksonville Center"
 			if ll.x < -84.0:
 				return "Chicago Center"
 			if ll.y < 30.0:
@@ -411,7 +464,21 @@ static func center_name(x: float, z: float, country: String) -> String:
 		"Iceland", "Greenland":
 			return "Reykjavik Control"
 		"Portugal":
-			return "Santa Maria Oceanic"
+			return "Lisboa Control" if ll.x > -10.5 else "Santa Maria Oceanic"
+		"Germany":
+			return "Bremen Radar" if ll.y > 52.0 else ("Langen Radar" if ll.x < 10.5 else "Munich Radar")
+		"Switzerland":
+			return "Zurich Radar"
+		"Austria":
+			return "Wien Radar"
+		"Denmark":
+			return "Copenhagen Control"
+		"Norway":
+			return "Polaris Control"
+		"Sweden":
+			return "Stockholm Control"
+		"Belgium":
+			return "Brussels Control"
 		"Bermuda":
 			return "New York Oceanic"
 		"Faroe Islands":

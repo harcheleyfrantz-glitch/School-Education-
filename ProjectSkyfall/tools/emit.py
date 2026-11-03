@@ -168,8 +168,20 @@ static func center_name(x: float, z: float, country: String) -> String:
 	var ll := to_lonlat(x, z)
 	match country:
 		"United States":
-			if ll.x < -104.0:
+			if ll.x < -117.0 and ll.y > 44.0:
+				return "Seattle Center"
+			if ll.x < -112.0:
 				return "Los Angeles Center" if ll.y < 37.0 else "Oakland Center"
+			if ll.x < -102.0:
+				return "Denver Center" if ll.y > 36.5 else "Albuquerque Center"
+			if ll.x < -93.5 and ll.y < 36.5:
+				return "Fort Worth Center"
+			if ll.x < -88.0 and ll.y < 33.0:
+				return "Houston Center"
+			if ll.x < -80.0 and ll.y < 36.0 and ll.y > 31.0:
+				return "Atlanta Center"
+			if ll.y < 31.0 and ll.y > 27.0 and ll.x > -84.0:
+				return "Jacksonville Center"
 			if ll.x < -84.0:
 				return "Chicago Center"
 			if ll.y < 30.0:
@@ -194,7 +206,21 @@ static func center_name(x: float, z: float, country: String) -> String:
 		"Iceland", "Greenland":
 			return "Reykjavik Control"
 		"Portugal":
-			return "Santa Maria Oceanic"
+			return "Lisboa Control" if ll.x > -10.5 else "Santa Maria Oceanic"
+		"Germany":
+			return "Bremen Radar" if ll.y > 52.0 else ("Langen Radar" if ll.x < 10.5 else "Munich Radar")
+		"Switzerland":
+			return "Zurich Radar"
+		"Austria":
+			return "Wien Radar"
+		"Denmark":
+			return "Copenhagen Control"
+		"Norway":
+			return "Polaris Control"
+		"Sweden":
+			return "Stockholm Control"
+		"Belgium":
+			return "Brussels Control"
 		"Bermuda":
 			return "New York Oceanic"
 		"Faroe Islands":

@@ -99,6 +99,7 @@ func on_flight_result(res: Dictionary, cons: Dictionary) -> void:
 	elif outcome in ["landed", "diverted"]:
 		_flight_story(res, cons)
 		_milestones(res)
+		NewsExtra.on_flight(res, _flight_desc(res))
 
 
 const HOUR_MILESTONES := [50, 100, 250, 500, 1000, 2500, 5000, 10000]
@@ -645,6 +646,7 @@ func _daily(day: int) -> void:
 		_daily_story(day, r)
 	if r.randf() < 0.45:
 		_spotter_vlog(day, r)
+	NewsExtra.daily(day, U.rng(U.hash_ints(WorldSim.world_seed, day, 2027)))
 	if day % 7 == 0:
 		var week := latest(40).filter(func(a): return float(a.t) > float(day - 7) * 86400.0 and String(a.get("kind", "")) != "roundup")
 		if week.size() >= 3:

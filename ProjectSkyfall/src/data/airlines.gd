@@ -1,7 +1,7 @@
 class_name Airlines
 ## Fictional operators. Livery colours feed the aircraft paint shader.
 
-const ORDER := ["SKF", "CLK", "LMN", "NWC", "APX", "HFA", "WMA", "AUR", "PEL", "VTX", "LBA", "THA", "LUE", "GGP", "MPN", "AUN", "IHA", "SOL", "TFX"]
+const ORDER := ["SKF", "CLK", "LMN", "NWC", "APX", "HFA", "WMA", "AUR", "PEL", "VTX", "LBA", "THA", "LUE", "GGP", "MPN", "AUN", "IHA", "SOL", "TFX", "LSA", "RHA", "NRD", "ALP"]
 
 const DATA := {
 	"GOV": {
@@ -19,7 +19,7 @@ const DATA := {
 	"SKF": {
 		"name": "Skyfall Air", "callsign": "SKYFALL", "iata": "SF", "kind": "mainline",
 		"hubs": ["SKPC"], "country": "Calderra", "reg_prefix": "CR-S",
-		"fleet": {"s320": 18, "s321": 6, "w350": 6, "w380": 2, "rj90": 8},
+		"fleet": {"s320": 18, "s321": 6, "w350": 6, "w380": 2, "rj90": 8, "s319": 4, "w280": 3},
 		"livery": {"body": "f4f6f9", "belly": "1c3f74", "stripe": "f28c28", "stripe2": "f6a03c", "tail": "1c3f74", "tail2": "f28c28", "logo": "f6a03c", "logo_shape": 0,
 			"art": "f28c28", "engine": "1c3f74", "engine2": "f28c28", "engine_style": 1, "tip": "1c3f74", "text": "1c3f74",
 			"belly_h": -0.62, "nose_dip": -0.12, "rise_t": 0.6, "rise_h": 0.9, "stripes": [0.07, 0.022, 0.125, 0.008], "stripe_t": [0.08, 0.97],
@@ -31,7 +31,7 @@ const DATA := {
 	"CLK": {
 		"name": "Coastal Link", "callsign": "COASTAL", "iata": "CL", "kind": "regional",
 		"hubs": ["SKPC", "SKSB"], "country": "Calderra", "reg_prefix": "CR-C",
-		"fleet": {"tp72": 10, "tp50": 6, "rj90": 6, "rj70": 4},
+		"fleet": {"tp72": 10, "tp50": 6, "rj90": 6, "rj70": 4, "tp90": 3, "rj100": 2},
 		"livery": {"body": "ffffff", "belly": "e8eef0", "stripe": "13a6a6", "tail": "0f8f94", "tail2": "13a6a6", "logo": "ffffff", "logo_shape": 1,
 			"art": "ffffff", "engine": "e6ebee", "engine_style": 3, "tip": "0f8f94", "text": "0f8f94",
 			"belly_h": -0.75, "stripes": [0.6, 0.012, 0.0, 0.0], "flow_t": 0.64, "flow_h": 1.2, "title": "COASTAL LINK", "title_style": "italic"},
@@ -65,7 +65,7 @@ const DATA := {
 	"APX": {
 		"name": "Apex Executive", "callsign": "APEX", "iata": "AX", "kind": "charter",
 		"hubs": ["SKPC", "SKSB"], "country": "Calderra", "reg_prefix": "CR-X",
-		"fleet": {"bj6": 6},
+		"fleet": {"bj6": 6, "bj8": 2},
 		"livery": {"body": "fbfaf7", "belly": "1d1d1f", "stripe": "c9a227", "stripe2": "c9a227", "tail": "1d1d1f", "tail2": "c9a227", "logo": "c9a227",
 			"logo_shape": 4, "art": "c9a227", "engine": "1d1d1f", "tip": "1d1d1f", "text": "1d1d1f", "reg_col": "1d1d1f",
 			"belly_h": -0.82, "nose_dip": -0.1, "rise_t": 0.5, "rise_h": 0.7, "stripes": [0.035, 0.012, 0.07, 0.005],
@@ -99,7 +99,7 @@ const DATA := {
 	"AUR": {
 		"name": "Aurelia International", "callsign": "AURELIA", "iata": "AU", "kind": "mainline",
 		"hubs": ["WMSK", "WMIA"], "country": "Westmark", "reg_prefix": "WM-A",
-		"fleet": {"w380": 4, "w350": 6, "s321": 4},
+		"fleet": {"w380": 4, "w350": 6, "s321": 4, "w390": 2, "w280": 2},
 		"livery": {"body": "f7f3ea", "belly": "6b1d2f", "stripe": "c9a24b", "stripe2": "6b1d2f", "tail": "6b1d2f", "tail2": "c9a24b", "logo": "c9a24b", "logo_shape": 4,
 			"art": "c9a24b", "engine": "6b1d2f", "engine2": "c9a24b", "engine_style": 1, "tip": "c9a24b", "text": "6b1d2f",
 			"belly_h": -0.55, "nose_dip": -0.05, "rise_t": 0.62, "rise_h": 1.0, "stripes": [0.04, 0.015, 0.09, 0.006], "stripe_t": [0.1, 0.96],
@@ -111,7 +111,7 @@ const DATA := {
 	"PEL": {
 		"name": "Pelican Island Air", "callsign": "PELICAN", "iata": "PI", "kind": "regional",
 		"hubs": ["SKIM", "SKSB"], "country": "Calderra", "reg_prefix": "CR-P",
-		"fleet": {"tp50": 8, "tp72": 4},
+		"fleet": {"tp50": 8, "tp72": 4, "tp90": 2},
 		"livery": {"body": "ffffff", "belly": "35b6e8", "stripe": "ff7a3d", "stripe2": "ffd23f", "tail": "35b6e8", "tail2": "ff7a3d", "logo": "ffd23f", "logo_shape": 1,
 			"art": "ff7a3d", "engine": "35b6e8", "engine2": "ffffff", "engine_style": 2, "tip": "ff7a3d", "text": "1d6f9a",
 			"belly_h": -0.35, "nose_dip": 0.3, "rise_t": 0.45, "rise_h": 1.5, "stripes": [0.0, 0.0, 0.0, 0.0], "flow_t": 0.7, "flow_h": 1.1,
@@ -135,7 +135,7 @@ const DATA := {
 	"LBA": {
 		"name": "Liberty Atlantic", "callsign": "LIBERTY", "iata": "LT", "kind": "mainline",
 		"hubs": ["KJFK", "KBOS"], "country": "United States", "reg_prefix": "N",
-		"fleet": {"w380": 2, "w350": 8, "s321": 10, "s320": 12, "rj70": 6},
+		"fleet": {"w380": 2, "w350": 8, "s321": 10, "s320": 12, "rj70": 6, "w390": 2, "s319": 4},
 		"livery": {"body": "f6f7f9", "belly": "15264a", "stripe": "c8102e", "stripe2": "15264a", "tail": "15264a", "tail2": "c8102e", "logo": "ffffff", "logo_shape": 6,
 			"art": "c8102e", "engine": "15264a", "engine2": "c8102e", "engine_style": 1, "tip": "c8102e", "text": "15264a",
 			"belly_h": -0.5, "nose_dip": -0.1, "rise_t": 0.62, "rise_h": 0.8, "stripes": [0.05, 0.02, 0.1, 0.008], "title": "LIBERTY ATLANTIC", "title_style": "wide", "title_size": 0.95},
@@ -146,7 +146,7 @@ const DATA := {
 	"THA": {
 		"name": "Thames Air", "callsign": "THAMES", "iata": "TQ", "kind": "mainline",
 		"hubs": ["EGLL"], "country": "United Kingdom", "reg_prefix": "G-T",
-		"fleet": {"w380": 3, "w350": 6, "s321": 8, "s320": 10},
+		"fleet": {"w380": 3, "w350": 6, "s321": 8, "s320": 10, "w390": 2, "s319": 3},
 		"livery": {"body": "ffffff", "belly": "3b1f5c", "stripe": "c9a227", "stripe2": "3b1f5c", "tail": "3b1f5c", "tail2": "c9a227", "logo": "c9a227", "logo_shape": 4,
 			"art": "c9a227", "engine": "3b1f5c", "engine2": "c9a227", "engine_style": 1, "tip": "c9a227", "text": "3b1f5c",
 			"belly_h": -0.6, "rise_t": 0.55, "rise_h": 1.1, "stripes": [0.04, 0.012, 0.08, 0.006], "title": "THAMES AIR", "title_style": "light", "title_size": 1.1},
@@ -157,7 +157,7 @@ const DATA := {
 	"LUE": {
 		"name": "Air Lumiere", "callsign": "LUMIERE", "iata": "LQ", "kind": "mainline",
 		"hubs": ["LFPG"], "country": "France", "reg_prefix": "F-L",
-		"fleet": {"w350": 6, "s320": 12, "s321": 6, "rj90": 6},
+		"fleet": {"w350": 6, "s320": 12, "s321": 6, "rj90": 6, "w280": 2, "s319": 4},
 		"livery": {"body": "ffffff", "belly": "ffffff", "stripe": "1aa39a", "stripe2": "ff6f61", "tail": "1aa39a", "tail2": "ff6f61", "logo": "ffffff", "logo_shape": 1,
 			"art": "ff6f61", "engine": "ffffff", "engine2": "1aa39a", "engine_style": 3, "tip": "ff6f61", "text": "1aa39a",
 			"belly_h": -0.8, "stripes": [0.0, 0.0, 0.0, 0.0], "flow_t": 0.7, "flow_h": 1.0, "title": "air lumiere", "title_style": "italic", "title_size": 1.4},
@@ -168,7 +168,7 @@ const DATA := {
 	"GGP": {
 		"name": "Golden Gate Pacific", "callsign": "GOLDEN GATE", "iata": "GG", "kind": "mainline",
 		"hubs": ["KSFO", "KLAX"], "country": "United States", "reg_prefix": "N",
-		"fleet": {"w350": 4, "s321": 8, "s320": 8, "rj70": 6},
+		"fleet": {"w350": 4, "s321": 8, "s320": 8, "rj70": 6, "w280": 2},
 		"livery": {"body": "fdf6ec", "belly": "b22a1e", "stripe": "f39c2b", "stripe2": "ffd166", "stripe3": "b22a1e", "tail": "b22a1e", "tail2": "f39c2b", "logo": "ffd166", "logo_shape": 0,
 			"art": "f39c2b", "engine": "b22a1e", "engine2": "f39c2b", "engine_style": 2, "tip": "f39c2b", "text": "b22a1e",
 			"belly_h": -0.4, "nose_dip": 0.2, "rise_t": 0.5, "rise_h": 1.4, "stripes": [0.06, 0.02, 0.0, 0.0], "flow_t": 0.74, "flow_h": 0.9, "title": "GOLDEN GATE", "title_style": "wide"},
@@ -179,7 +179,7 @@ const DATA := {
 	"MPN": {
 		"name": "Maple Northern", "callsign": "MAPLE", "iata": "MN", "kind": "regional",
 		"hubs": ["CYYZ"], "country": "Canada", "reg_prefix": "C-M",
-		"fleet": {"s320": 6, "rj90": 8, "tp72": 6},
+		"fleet": {"s320": 6, "rj90": 8, "tp72": 6, "tp90": 4, "rj100": 3},
 		"livery": {"body": "ffffff", "belly": "e8eaec", "stripe": "d52b1e", "tail": "d52b1e", "tail2": "ffffff", "logo": "ffffff", "logo_shape": 5,
 			"art": "d52b1e", "engine": "d52b1e", "engine_style": 1, "tip": "d52b1e", "text": "d52b1e",
 			"belly_h": -0.75, "stripes": [0.08, 0.025, 0.0, 0.0], "title": "MAPLE NORTHERN", "title_style": "bold"},
@@ -190,7 +190,7 @@ const DATA := {
 	"AUN": {
 		"name": "Aurora Nordic", "callsign": "AURORA", "iata": "AN", "kind": "regional",
 		"hubs": ["BIKF", "EKVG"], "country": "Iceland", "reg_prefix": "TF-",
-		"fleet": {"s320": 4, "rj90": 4, "tp72": 4, "tp50": 4},
+		"fleet": {"s320": 4, "rj90": 4, "tp72": 4, "tp50": 4, "tp90": 3},
 		"livery": {"body": "0d1b3d", "belly": "081129", "stripe": "39e5a1", "stripe2": "7a5cff", "stripe3": "39e5a1", "tail": "0d1b3d", "tail2": "39e5a1", "logo": "39e5a1", "logo_shape": 2,
 			"art": "39e5a1", "engine": "7a5cff", "engine2": "39e5a1", "engine_style": 1, "tip": "39e5a1", "text": "ffffff", "reg_col": "ffffff",
 			"belly_h": -0.9, "rise_h": 0.0, "event_art": 1.0, "title": "AURORA NORDIC", "title_style": "light", "title_size": 1.1},
@@ -212,13 +212,57 @@ const DATA := {
 	"SOL": {
 		"name": "Sol Iberica", "callsign": "SOLAR", "iata": "SI", "kind": "lowcost",
 		"hubs": ["LEMD"], "country": "Spain", "reg_prefix": "EC-",
-		"fleet": {"s320": 10, "s321": 6},
+		"fleet": {"s320": 10, "s321": 6, "s319": 3},
 		"livery": {"body": "ffd23f", "belly": "ff7b00", "stripe": "c1121f", "tail": "ff7b00", "tail2": "c1121f", "logo": "ffd23f", "logo_shape": 2,
 			"art": "c1121f", "engine": "c1121f", "engine2": "ffd23f", "engine_style": 1, "tip": "c1121f", "text": "c1121f", "reg_col": "c1121f",
 			"belly_h": -0.55, "rise_t": 0.5, "rise_h": 1.2, "stripes": [0.0, 0.0, 0.0, 0.0], "flow_t": 0.8, "flow_h": 0.8, "title": "SOL", "title_style": "wide", "title_size": 2.2, "title_pos": 0.07},
 		"pay": 0.78, "reputation": 55, "ceo": "Javier Ortega", "spokes": "Lucia Navarro",
 		"desc": "Bright, cheap and always on time (mostly): Madrid to the sun spots of Europe.",
 		"standards": 0.6,
+	},
+	"LSA": {
+		"name": "Lone Star Airways", "callsign": "LONE STAR", "iata": "LS", "kind": "mainline",
+		"hubs": ["KDFW", "KATL"], "country": "United States", "reg_prefix": "N",
+		"fleet": {"s320": 8, "s321": 6, "w280": 3, "rj100": 6},
+		"livery": {"body": "f6f4ef", "belly": "8c1d18", "stripe": "1f3b73", "stripe2": "c8a24a", "tail": "8c1d18", "tail2": "f6f4ef", "logo": "f6f4ef", "logo_shape": 7,
+			"art": "c8a24a", "engine": "1f3b73", "engine2": "c8a24a", "engine_style": 1, "tip": "8c1d18", "text": "1f3b73",
+			"belly_h": -0.7, "stripes": [0.06, 0.02, 0.11, 0.008], "title": "LONE STAR", "title_style": "wide", "title_size": 1.1},
+		"pay": 1.0, "reputation": 66, "ceo": "Ray Holloway", "spokes": "Carmen Diaz",
+		"desc": "Big Texas hospitality from Dallas and Atlanta to every corner of the United States. Thunderstorms included.",
+		"standards": 0.8,
+	},
+	"RHA": {
+		"name": "Rheinland Air", "callsign": "RHEINLAND", "iata": "RH", "kind": "mainline",
+		"hubs": ["EDDF", "EDDM"], "country": "Germany", "reg_prefix": "D-",
+		"fleet": {"s319": 4, "s320": 8, "s321": 4, "w350": 3, "w390": 2},
+		"livery": {"body": "ffffff", "belly": "0f2a4a", "stripe": "f2b705", "tail": "0f2a4a", "tail2": "f2b705", "logo": "f2b705", "logo_shape": 4,
+			"art": "f2b705", "engine": "0f2a4a", "engine2": "ffffff", "engine_style": 3, "tip": "f2b705", "text": "0f2a4a",
+			"belly_h": -0.8, "stripes": [0.0, 0.0, 0.0, 0.0], "title": "RHEINLAND", "title_style": "bold", "title_size": 1.15},
+		"pay": 1.08, "reputation": 80, "ceo": "Katrin Vogel", "spokes": "Jonas Becker",
+		"desc": "Punctual to the minute: Frankfurt and Munich to the world, with the strictest training department in Europe.",
+		"standards": 0.93,
+	},
+	"NRD": {
+		"name": "Nordlys", "callsign": "NORDLYS", "iata": "NL", "kind": "regional",
+		"hubs": ["ENGM", "ESSA", "EKCH"], "country": "Norway", "reg_prefix": "LN-",
+		"fleet": {"tp90": 6, "rj100": 4, "s319": 3},
+		"livery": {"body": "f4f7fa", "belly": "f4f7fa", "stripe": "33c3a0", "stripe2": "6a5acd", "tail": "1b2f4b", "tail2": "33c3a0", "logo": "33c3a0", "logo_shape": 3,
+			"art": "6a5acd", "engine": "1b2f4b", "engine2": "33c3a0", "engine_style": 2, "tip": "33c3a0", "text": "1b2f4b",
+			"belly_h": -0.6, "stripes": [0.0, 0.0, 0.0, 0.0], "flow_t": 0.82, "flow_h": 0.7, "title": "nordlys", "title_style": "light", "title_size": 1.3},
+		"pay": 0.9, "reputation": 70, "ceo": "Ingrid Solberg", "spokes": "Erik Lund",
+		"desc": "Northern lights on the tail: short hops between Oslo, Stockholm and Copenhagen, in snow, wind and endless winter night.",
+		"standards": 0.86,
+	},
+	"ALP": {
+		"name": "Alpenflug", "callsign": "ALPINE", "iata": "AP", "kind": "regional",
+		"hubs": ["LSZH", "LOWW"], "country": "Switzerland", "reg_prefix": "HB-",
+		"fleet": {"rj90": 4, "rj100": 4, "s319": 2, "bj8": 1},
+		"livery": {"body": "ffffff", "belly": "ffffff", "stripe": "d1201f", "tail": "d1201f", "tail2": "ffffff", "logo": "ffffff", "logo_shape": 5,
+			"art": "d1201f", "engine": "d1201f", "engine2": "ffffff", "engine_style": 0, "tip": "d1201f", "text": "d1201f",
+			"belly_h": -0.9, "stripes": [0.0, 0.0, 0.0, 0.0], "title": "ALPENFLUG", "title_style": "bold", "title_size": 1.0},
+		"pay": 1.05, "reputation": 77, "ceo": "Matthias Keller", "spokes": "Sophie Brunner",
+		"desc": "Mountain flying specialists: Zurich and Vienna, steep approaches, foehn winds and spotless cabins.",
+		"standards": 0.9,
 	},
 	"TFX": {
 		"name": "Transatlantic Freight", "callsign": "FREIGHTER", "iata": "TX", "kind": "cargo",

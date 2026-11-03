@@ -34,12 +34,12 @@ func setup(params: Dictionary) -> void:
 		func(): Game.goto("world_map"), {"icon_name": "globe"}))
 	var done := Activities.completed_count()
 	var total := Activities.SCENARIOS.size()
-	row2.add_child(ImageCard.make("Activities", "Discovery flights, landing challenges and bush trips", "act_bush",
+	row2.add_child(ImageCard.make("Activities", "Discovery flights, landing challenges, bush trips and special missions", "act_bush",
 		func(): Game.goto("activities"), {"ribbon": "NEW", "progress": float(done) / float(total), "progress_text": "%d/%d" % [done, total],
 			"icon_name": "trophy"}))
 	row2.add_child(ImageCard.make("Passenger Journey", "Book a seat on any departure and ride along in the cabin", "home_passenger",
 		func(): Game.goto("passenger"), {"icon_name": "user"}))
-	row2.add_child(ImageCard.make("Hangar", "Eleven aircraft and their liveries, up close", "home_hangar",
+	row2.add_child(ImageCard.make("Hangar", "Seventeen aircraft and their liveries, up close", "home_hangar",
 		func(): Game.goto("hangar"), {"icon_name": "hangar"}))
 	row2.add_child(ImageCard.make("Achievements", "%d of %d unlocked: butter landings, landmarks, island hopping and more" % [Achievements.unlocked_count(), Achievements.LIST.size()],
 		"act_landing", func(): Game.goto("achievements"), {"icon_name": "medal", "progress": float(Achievements.unlocked_count()) / float(Achievements.LIST.size()),
@@ -64,7 +64,15 @@ func _featured() -> Array:
 	out.append(ImageCard.make("Fly the Stratos 320", "Golden hour over the Port Calder coast. Pick an aircraft, an airport and a time of day on the world map.",
 		"home_featured", func(): Game.goto("world_map", {"type": "s320", "airline": "SKF"}), {"ribbon": "FEATURED", "ribbon_color": UIStyle.ACCENT,
 			"title_size": 28, "kenburns": true}))
-	out.append(ImageCard.make("New York, London, Paris", "The real world is here: 21 new airports from JFK and Heathrow to Bermuda and the Faroes, with the Statue of Liberty, Big Ben and the Eiffel Tower to fly past.",
+	var daily := Activities.get_scenario(Activities.daily_id())
+	if not daily.is_empty():
+		var done_today := Achievements.has_daily(Activities.daily_key())
+		out.append(ImageCard.make("Daily Challenge: %s" % String(daily.title), ("Done for today - come back tomorrow for a new one. " if done_today else "A new challenge every day. ") + String(daily.place),
+			"scn:" + String(daily.id), func(): Game.goto("activity", {"category": String(daily.category), "focus": String(daily.id)}),
+			{"ribbon": "DONE TODAY" if done_today else "DAILY", "ribbon_color": UIStyle.GREEN if done_today else UIStyle.RED, "title_size": 28, "kenburns": true}))
+	out.append(ImageCard.make("Special Missions", "Fly the president with a fighter escort, glide out of a volcanic ash cloud, land in a hurricane, an earthquake or a blizzard.",
+		"scn:ash_iceland", func(): Game.goto("activity", {"category": "special"}), {"ribbon": "NEW", "ribbon_color": UIStyle.RED, "title_size": 28, "kenburns": true}))
+	out.append(ImageCard.make("New York, London, Paris", "The real world: 41 airports from JFK, Atlanta and Las Vegas to Heathrow, Berlin and Stockholm, with the Statue of Liberty, the Space Needle and the Eiffel Tower to fly past.",
 		"scn:hudson_run", func(): Game.goto("activity", {"category": "discovery", "focus": "hudson_run"}), {"ribbon": "NEW WORLD", "ribbon_color": UIStyle.GOLD,
 			"title_size": 28, "kenburns": true}))
 	out.append(ImageCard.make("Landing Challenges", "Trade-wind crosswinds, fog, mountain gusts and night approaches. How good is your touchdown?",

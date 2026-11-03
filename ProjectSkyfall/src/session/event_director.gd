@@ -32,6 +32,11 @@ const CATALOG := {
 	"crosswind": [["approach"], 0.12, 0.2, "Strong gusty crosswind"],
 	"dest_closed": [["cruise"], 0.015, 0.4, "Destination closed"],
 	"maintenance": [["gate"], 0.15, 0.1, "Maintenance finding"],
+	"earthquake": [["gate", "taxi", "approach"], 0.004, 0.5, "Earthquake"],
+	"lightning": [["climb", "descent", "approach"], 0.02, 0.2, "Lightning strike"],
+	"celebrity": [["cruise"], 0.03, 0.02, "Celebrity on board"],
+	"proposal": [["cruise"], 0.02, 0.01, "Marriage proposal in the cabin"],
+	"birth": [["cruise"], 0.002, 0.3, "Baby born on board"],
 }
 
 var session: Node
@@ -268,6 +273,23 @@ func _start(ev: Dictionary) -> void:
 			WorldSim.close_airport(arr, 2.0, ["a disabled aircraft on the runway", "a security alert", "a runway inspection", "fog below minima"][_rng.randi() % 4])
 			decision_needed.emit(ev, [["divert", "Divert to the alternate"], ["hold", "Hold and wait"]])
 			message.emit("ATC: %s is closed. State intentions." % Airports.get_ap(arr).short, "warning")
+		"earthquake":
+			var hz = session.get("hazards")
+			if hz:
+				hz.start_quake(_rng.randf_range(5.6, 7.3), true)
+		"lightning":
+			var hz2 = session.get("hazards")
+			if hz2:
+				hz2._lightning()
+		"celebrity":
+			var who: String = ["pop star Kayla Brooks", "Hollywood actor Daniel Reyes", "football legend Marco Silva", "tennis champion Anya Volkova", "TV chef Jamie Okafor"][_rng.randi() % 5]
+			ev.who = who
+			message.emit("Purser: we have %s in business class tonight. The cabin is buzzing - phones are out." % who, "info")
+		"proposal":
+			message.emit("Purser: a passenger in row 14 has just proposed over the PA - she said yes! The whole cabin is clapping.", "success")
+		"birth":
+			ev.level = 1.0
+			message.emit("Purser: we have a passenger in labour! There's a midwife on board helping... it's a girl! Mother and baby are fine. Request priority to land.", "warning")
 		"maintenance":
 			var finding = ["a worn main tyre", "a hydraulic seep on the nose gear", "a cracked landing light lens", "an inoperative APU generator"][_rng.randi() % 4]
 			ev.finding = finding

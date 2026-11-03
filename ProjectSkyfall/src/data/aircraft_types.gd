@@ -3,7 +3,7 @@ class_name AircraftTypes
 ## Aerodynamic derivatives are per radian. Elevator/aileron/rudder derivatives use the
 ## convention "positive input = nose up / roll right / nose right".
 
-const ORDER := ["t172", "tp50", "tp72", "rj70", "rj90", "s320", "s321", "w350", "w380", "bj6", "f4"]
+const ORDER := ["t172", "tp50", "tp72", "tp90", "rj70", "rj90", "rj100", "s319", "s320", "s321", "w280", "w350", "w390", "w380", "bj6", "bj8", "f4"]
 
 ## Every type: the hand-written ones below plus the family variants built from them.
 static var TYPES: Dictionary = _build_types()
@@ -281,6 +281,63 @@ const VARIANTS := {
 		"cabin": [{"cls": "business", "rows": 3, "layout": "2-2", "pitch": 0.95, "seat_w": 0.55},
 			{"cls": "economy", "rows": 29, "layout": "3-3", "pitch": 0.76, "seat_w": 0.45}],
 		"doors": [0.13, 0.36, 0.62, 0.88], "fa": 5, "hourly_cost": 7400, "rating_hours": 1200.0, "range_nm": 3200, "tailstrike": 9.5}],
+	"s319": ["s320", {
+		"name": "Stratos 319", "short": "S319", "role": "Short-fuselage narrow-body airliner",
+		"blurb": "The shortest Stratos: 138 seats, long legs and short-field performance. Perfect for thin routes and hot, high airports.",
+		"length": 33.8, "empty_mass": 40600.0, "mtow": 75500.0, "max_fuel": 23800.0, "max_payload": 17700.0,
+		"nose_gear_x": -11.2, "main_gear_x": 1.35, "vr": 138, "v2": 145, "vref": 129, "vapp": 134,
+		"winglet": "split",
+		"cabin": [{"cls": "business", "rows": 2, "layout": "2-2", "pitch": 0.96, "seat_w": 0.56},
+			{"cls": "economy", "rows": 22, "layout": "3-3", "pitch": 0.79, "seat_w": 0.46}],
+		"doors": [0.17, 0.85], "overwing": [0.43, 0.43], "fa": 3, "hourly_cost": 6200, "rating_hours": 700.0, "range_nm": 3700, "tailstrike": 13.0}],
+	"rj100": ["rj90", {
+		"name": "Meridian RJ-100", "short": "RJ100", "role": "Stretched regional jet",
+		"blurb": "The biggest Meridian: 100 seats, bigger fans and the range to link the regional hubs with the capitals.",
+		"length": 36.2, "static_thrust": 78000.0, "fan_diam": 1.55, "empty_mass": 25200.0, "mtow": 47800.0, "max_fuel": 10500.0, "max_payload": 12000.0,
+		"nose_gear_x": -14.0, "main_gear_x": 1.3, "vr": 140, "v2": 146, "vref": 132, "vapp": 138, "winglet": "split",
+		"cabin": [{"cls": "business", "rows": 3, "layout": "1-2", "pitch": 0.97, "seat_w": 0.56},
+			{"cls": "economy", "rows": 23, "layout": "2-2", "pitch": 0.79, "seat_w": 0.47}],
+		"doors": [0.13, 0.87], "fa": 3, "hourly_cost": 4900, "rating_hours": 300.0, "range_nm": 2300, "tailstrike": 10.5}],
+	"tp90": ["tp72", {
+		"name": "Kestrel TP-90", "short": "TP90", "role": "High-speed regional turboprop",
+		"blurb": "Turboprop economy at jet-like speed: 78 seats, six-bladed props and a cruise of 360 knots on the busy short-haul shuttles.",
+		"length": 32.8, "span": 28.4, "height": 8.3, "fuse_w": 2.7, "fuse_h": 2.85, "wing_area": 63.1, "mac": 2.4,
+		"power_kw": 3780.0, "static_thrust": 58000.0, "prop_diam": 4.1,
+		"empty_mass": 17800.0, "mtow": 29500.0, "max_fuel": 5300.0, "max_payload": 8700.0,
+		"gear_height": 2.3, "nose_gear_x": -13.4, "main_gear_x": 1.0, "gear_track": 8.0,
+		"vs0": 100, "vs1": 112, "vr": 118, "v2": 124, "vref": 120, "vapp": 126, "vmo": 285,
+		"cruise_ias": 260, "cruise_tas": 360, "cruise_alt": 25000, "ceiling": 27000, "climb_fpm": 2400,
+		"cabin": [{"cls": "economy", "rows": 20, "layout": "2-2", "pitch": 0.79, "seat_w": 0.46}],
+		"doors": [0.1, 0.88], "fa": 2, "hourly_cost": 2900, "rating_hours": 120.0, "range_nm": 1100, "tailstrike": 9.0}],
+	"w280": ["w350", {
+		"name": "Atlas W-280", "short": "W280", "role": "Mid-size long-haul twin",
+		"blurb": "Atlas's smallest twin-aisle: 240 seats, a quiet composite cabin with big windows and the range to open new long routes.",
+		"length": 56.7, "static_thrust": 280000.0, "fan_diam": 2.85,
+		"empty_mass": 119000.0, "mtow": 228000.0, "max_fuel": 101000.0, "max_payload": 41000.0,
+		"nose_gear_x": -20.5, "main_gear_x": 2.2, "vr": 152, "v2": 160, "vref": 140, "vapp": 145,
+		"cabin": [{"cls": "business", "rows": 6, "layout": "1-2-1", "pitch": 1.15, "seat_w": 0.62},
+			{"cls": "economy", "rows": 26, "layout": "3-3-3", "pitch": 0.81, "seat_w": 0.45}],
+		"doors": [0.11, 0.33, 0.86], "fa": 8, "hourly_cost": 13500, "rating_hours": 2600.0, "range_nm": 7300, "tailstrike": 10.0}],
+	"w390": ["w350", {
+		"name": "Atlas W-390", "short": "W390", "role": "Long-range twin-engine jumbo",
+		"blurb": "The biggest twin ever built: two enormous fans, 396 seats and folding-tip wings wider than a football pitch.",
+		"length": 73.9, "span": 64.8, "height": 18.6, "fuse_w": 6.2, "fuse_h": 6.25, "wing_area": 436.0, "mac": 8.0,
+		"static_thrust": 460000.0, "fan_diam": 3.3,
+		"empty_mass": 168000.0, "mtow": 351000.0, "max_fuel": 145000.0, "max_payload": 69000.0,
+		"gear_height": 4.9, "nose_gear_x": -27.5, "main_gear_x": 2.8, "gear_track": 11.0,
+		"vr": 165, "v2": 172, "vref": 149, "vapp": 154,
+		"cabin": [{"cls": "business", "rows": 8, "layout": "1-2-1", "pitch": 1.2, "seat_w": 0.62},
+			{"cls": "premium", "rows": 6, "layout": "2-4-2", "pitch": 0.97, "seat_w": 0.5},
+			{"cls": "economy", "rows": 32, "layout": "3-4-3", "pitch": 0.81, "seat_w": 0.45}],
+		"doors": [0.09, 0.29, 0.6, 0.86], "fa": 12, "hourly_cost": 21000, "rating_hours": 3500.0, "range_nm": 7300, "tailstrike": 8.5}],
+	"bj8": ["bj6", {
+		"name": "Vantage BJ-8 Horizon", "short": "BJ8", "role": "Ultra-long-range business jet",
+		"blurb": "New York to Tokyo without stopping: four cabin zones, a real bed and Mach 0.925 when the client is in a hurry.",
+		"length": 33.5, "span": 31.7, "height": 8.2, "fuse_w": 2.8, "fuse_h": 2.95, "wing_area": 130.0,
+		"static_thrust": 82000.0, "empty_mass": 27000.0, "mtow": 47000.0, "max_fuel": 21500.0, "max_payload": 3000.0,
+		"nose_gear_x": -12.4, "main_gear_x": 1.1, "winglet": "sharklet",
+		"cabin": [{"cls": "vip", "rows": 5, "layout": "1-1", "pitch": 1.9, "seat_w": 0.75}],
+		"hourly_cost": 7200, "rating_hours": 800.0, "range_nm": 7700}],
 	"w380": ["f4", {
 		"name": "Atlas W-380 Skyliner", "short": "W380", "category": "widebody", "role": "Four-engine double-deck airliner",
 		"blurb": "The biggest passenger aircraft in the world: four engines, an upper deck and over 400 seats. Flagship of the long-haul fleets.",

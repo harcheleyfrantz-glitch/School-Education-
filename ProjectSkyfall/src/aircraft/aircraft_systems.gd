@@ -273,7 +273,8 @@ func _update_engines(dt: float, fdm: FlightModel, sigma: float, on_ground: bool)
 		# starting
 		if e.starting:
 			e.start_t += dt
-			var need_bleed := etype == "turbofan"
+			# in flight above ~200 kt the airflow spins the engine for a windmill relight
+			var need_bleed := etype == "turbofan" and not (not on_ground and fdm.ias > 100.0)
 			if need_bleed and not bleed_ok:
 				e.starting = false
 			elif e.start_t < 12.0:

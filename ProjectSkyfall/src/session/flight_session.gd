@@ -40,6 +40,7 @@ const CRASH_TARGETS := {"route": "Follow the route", "city": "Crash into the nea
 var traffic: TrafficManager = null
 var wreck: WreckPieces = null
 var escorts: Escorts = null
+var hazards: WeatherHazards = null
 var _tornado_done := false
 var phase := "preflight"
 var dep_icao := ""
@@ -1222,7 +1223,47 @@ func open_fms() -> void:
 
 
 # ================================================================== aircraft signals
+static func landing_grade(vs: float) -> Array:
+	## [grade, comment] for a touchdown rate in feet per minute.
+	if vs < 60.0:
+		return ["A+", "BUTTER!"]
+	if vs < 120.0:
+		return ["A", "Smooth!"]
+	if vs < 200.0:
+		return ["B", "Nice landing."]
+	if vs < 350.0:
+		return ["C", "A bit firm."]
+	if vs < 600.0:
+		return ["D", "Hard landing."]
+	return ["F", "Ouch - that will need an inspection."]
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	# F10: photo (the HUD hides for the shot), saved to the screenshots folder
+	if event is InputEventKey and event.pressed and not event.echo and (event as InputEventKey).keycode == KEY_F10:
+		_photo()
+
+
+func _photo() -> void:
+	var hud_layer := get_node_or_null("HUD") as CanvasLayer
+	if hud_layer:
+		hud_layer.visible = false
+	await RenderingServer.frame_post_draw
+	var img := get_viewport().get_texture().get_image()
+	if hud_layer:
+		hud_layer.visible = true
+	DirAccess.make_dir_recursive_absolute("user://screenshots")
+	var dt := Time.get_datetime_dict_from_system()
+	var path := "user://screenshots/skyfall_%04d%02d%02d_%02d%02d%02d.png" % [dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second]
+	img.save_png(path)
+	toast.emit("Photo saved: %s" % ProjectSettings.globalize_path(path), "success")
+	Achievements.on_photo()
+
+
 func _on_touchdown(info: Dictionary) -> void:
+	if touchdown.is_empty() and mode == "pilot" and phase in ["final", "approach", "landing", "flare"]:
+		var g := landing_grade(absf(float(info.vs_fpm)))
+		toast.emit("Touchdown %d fpm - Grade %s. %s" % [int(absf(float(info.vs_fpm))), g[0], g[1]], "success" if String(g[0]).begins_with("A") else ("info" if g[0] in ["B", "C"] else "warning"))
 	if touchdown.is_empty() or phase in ["final", "approach"]:
 		touchdown = info
 	recorder.mark("touchdown", "Touchdown %d fpm" % int(info.vs_fpm))
@@ -1255,7 +1296,13 @@ func _on_deviation(kind: String, severity: float, text: String) -> void:
 
 
 func _special_ops() -> void:
-	## Presidential escorts join once airborne; tornado weather puts funnels on the route.
+	## Presidential escorts join once airborne; tornado weather puts funnels on the route;
+	## natural hazards (earthquakes, ash, hail, lightning) run all flight.
+	if hazards == null:
+		hazards = WeatherHazards.new()
+		hazards.name = "Hazards"
+		add_child(hazards)
+		hazards.setup(self, ac, view)
 	if bool(params.get("presidential", false)) and escorts == null and not ac.fdm.on_ground and float(ac.ra) > 120.0 and not ac.crashed_state:
 		escorts = Escorts.new()
 		escorts.name = "Escorts"
@@ -1632,7 +1679,8 @@ func finish_flight(outcome: String) -> void:
 		"weather": ac.weather, "fuel_planned": fuel_planned, "fuel_start": fuel_start, "accepted_defects": accepted_defects,
 		"walkaround": walk_frac, "emergency_declared": emergency != "", "phase": phase, "late_min": late,
 		"free_flight": bool(params.get("free_flight", false)), "presidential": bool(params.get("presidential", false)),
-		"escort_intercepts": escorts.intercepts if escorts else 0, "aircraft_record": WorldSim.aircraft(ac.reg),
+		"escort_intercepts": escorts.intercepts if escorts else 0, "hazards": hazards.summary() if hazards else {},
+		"weather_preset": WeatherModel.override_preset, "aircraft_record": WorldSim.aircraft(ac.reg),
 		"autofly_landed": autofly and not (touchdown as Dictionary).is_empty(),
 		"captain": _captain_name()}, true)
 	if outcome in ["crashed", "ditched"] or not incidents.is_empty():

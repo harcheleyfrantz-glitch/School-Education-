@@ -29,6 +29,12 @@ const SKYLINES := {
 	"skyline_miami": [1200.0, 650.0, 34, 80.0, 260.0, 0.75, 20],
 	"skyline_boston": [850.0, 650.0, 18, 80.0, 240.0, 0.6, 21],
 	"skyline_madrid": [500.0, 500.0, 9, 110.0, 250.0, 0.8, 22],
+	"skyline_atlanta": [1100.0, 800.0, 30, 90.0, 300.0, 0.6, 23],
+	"skyline_dallas": [1000.0, 800.0, 28, 90.0, 280.0, 0.6, 24],
+	"skyline_denver": [800.0, 650.0, 20, 80.0, 220.0, 0.65, 25],
+	"skyline_seattle": [900.0, 650.0, 24, 80.0, 280.0, 0.6, 26],
+	"skyline_vegas": [600.0, 3200.0, 34, 90.0, 210.0, 0.8, 27],
+	"skyline_frankfurt": [800.0, 600.0, 16, 110.0, 270.0, 0.7, 28],
 }
 
 
@@ -153,6 +159,22 @@ func _build(lm: Dictionary) -> void:
 				_windmills(plain, boxes)
 			"church_tower":
 				_church_tower(plain, boxes)
+			"space_needle":
+				_space_needle(plain, boxes)
+			"tv_tower":
+				_tv_tower(plain, boxes)
+			"reunion":
+				_reunion(plain, boxes)
+			"brandenburg":
+				_brandenburg(plain, boxes)
+			"sagrada":
+				_sagrada(plain, boxes)
+			"atomium":
+				_atomium(plain, boxes)
+			"castle":
+				_castle(plain, boxes)
+			"twin_towers_church":
+				_twin_church(plain, boxes)
 	if plain.vcount() > 0:
 		var mi := MeshInstance3D.new()
 		mi.mesh = plain.commit()
@@ -621,3 +643,124 @@ func _church_tower(mb: MeshBuilder, boxes: Array) -> void:
 	mb.add_box(Vector3(0, 12, 30), Vector3(26, 24, 46), c)
 	mb.add_box(Vector3(0, 25, 30), Vector3(26, 2, 46), Color(0.3, 0.32, 0.34))
 	boxes.append([Vector3(0, 36, 6), Vector3(26, 36, 30)])
+
+
+# ================================================================== second-wave landmarks
+func _space_needle(mb: MeshBuilder, boxes: Array) -> void:
+	## Seattle: three pairs of curved legs pinched at the waist, the flying-saucer top house, spire.
+	var white := Color(0.9, 0.9, 0.88)
+	for k in 3:
+		var a := TAU * k / 3.0
+		var foot := Vector3(cos(a), 0, sin(a)) * 18.0
+		var waist := Vector3(cos(a), 0, sin(a)) * 4.0 + Vector3(0, 115, 0)
+		var top := Vector3(cos(a), 0, sin(a)) * 9.0 + Vector3(0, 158, 0)
+		mb.add_cylinder(foot, waist, 1.6, 1.2, 6, white)
+		mb.add_cylinder(waist, top, 1.2, 1.1, 6, white)
+	mb.add_cylinder(Vector3(0, 0, 0), Vector3(0, 160, 0), 2.6, 2.6, 8, Color(0.75, 0.75, 0.73))
+	mb.add_cylinder(Vector3(0, 155, 0), Vector3(0, 162, 0), 8.0, 21.0, 24, Color(0.85, 0.55, 0.2))
+	mb.add_cylinder(Vector3(0, 162, 0), Vector3(0, 168, 0), 21.0, 16.0, 24, Color(0.3, 0.38, 0.45))
+	mb.add_cylinder(Vector3(0, 168, 0), Vector3(0, 172, 0), 16.0, 6.0, 20, white)
+	mb.add_cylinder(Vector3(0, 172, 0), Vector3(0, 184, 0), 1.2, 0.3, 6, white)
+	boxes.append([Vector3(0, 80, 0), Vector3(12, 80, 12)])
+	boxes.append([Vector3(0, 165, 0), Vector3(21, 10, 21)])
+
+
+func _tv_tower(mb: MeshBuilder, boxes: Array) -> void:
+	## A concrete shaft with a sphere and a red-and-white antenna (Berlin, Las Vegas).
+	var conc := Color(0.82, 0.81, 0.78)
+	mb.add_cylinder(Vector3(0, 0, 0), Vector3(0, 200, 0), 9.0, 5.0, 12, conc)
+	mb.add_sphere(Vector3(0, 212, 0), Vector3(16, 16, 16), 18, 12, Color(0.55, 0.6, 0.66))
+	mb.add_cylinder(Vector3(0, 226, 0), Vector3(0, 300, 0), 3.0, 2.0, 8, Color(0.92, 0.92, 0.9))
+	for k in 4:
+		mb.add_cylinder(Vector3(0, 300 + k * 16.0, 0), Vector3(0, 308 + k * 16.0, 0), 1.9 - k * 0.3, 1.8 - k * 0.3, 6, Color(0.85, 0.15, 0.12))
+		mb.add_cylinder(Vector3(0, 308 + k * 16.0, 0), Vector3(0, 316 + k * 16.0, 0), 1.8 - k * 0.3, 1.6 - k * 0.3, 6, Color(0.95, 0.95, 0.95))
+	boxes.append([Vector3(0, 110, 0), Vector3(9, 110, 9)])
+	boxes.append([Vector3(0, 212, 0), Vector3(16, 16, 16)])
+	boxes.append([Vector3(0, 300, 0), Vector3(3, 70, 3)])
+
+
+func _reunion(mb: MeshBuilder, boxes: Array) -> void:
+	## Dallas: a tall shaft carrying a lattice ball that lights up at night.
+	var conc := Color(0.78, 0.77, 0.74)
+	mb.add_cylinder(Vector3(0, 0, 0), Vector3(0, 150, 0), 7.0, 6.0, 10, conc)
+	mb.add_sphere(Vector3(0, 158, 0), Vector3(18, 16, 18), 16, 10, Color(0.85, 0.85, 0.8))
+	boxes.append([Vector3(0, 85, 0), Vector3(18, 85, 18)])
+
+
+func _brandenburg(mb: MeshBuilder, boxes: Array) -> void:
+	## Berlin: twelve Doric columns, the attic and the quadriga on top.
+	var sand := Color(0.82, 0.76, 0.62)
+	for k in 6:
+		var x := -26.0 + k * 10.4
+		for zz in [-4.5, 4.5]:
+			mb.add_cylinder(Vector3(x, 0, zz), Vector3(x, 15, zz), 0.9, 0.85, 10, sand)
+	mb.add_box(Vector3(0, 17.5, 0), Vector3(62, 5, 12), sand)
+	mb.add_box(Vector3(0, 21.5, 0), Vector3(40, 3, 10), sand)
+	mb.add_box(Vector3(0, 24.0, 0), Vector3(6, 3, 4), Color(0.3, 0.42, 0.34))
+	for sx in [-1.0, 1.0]:
+		mb.add_box(Vector3(sx * 40.0, 7.0, 0), Vector3(14, 14, 10), sand)
+	boxes.append([Vector3(0, 12, 0), Vector3(48, 13, 7)])
+
+
+func _sagrada(mb: MeshBuilder, boxes: Array) -> void:
+	## Barcelona: the forest of tapering spires over the nave.
+	var stone := Color(0.72, 0.66, 0.55)
+	mb.add_box(Vector3(0, 22, 0), Vector3(60, 44, 90), stone)
+	var spires := [[Vector3(-14, 0, -45), 98.0], [Vector3(-5, 0, -45), 107.0], [Vector3(5, 0, -45), 107.0], [Vector3(14, 0, -45), 98.0],
+		[Vector3(-14, 0, 45), 100.0], [Vector3(-5, 0, 45), 112.0], [Vector3(5, 0, 45), 112.0], [Vector3(14, 0, 45), 100.0],
+		[Vector3(0, 0, 0), 172.0], [Vector3(-16, 0, -5), 135.0], [Vector3(16, 0, -5), 135.0], [Vector3(0, 0, 18), 138.0]]
+	for sp in spires:
+		var b: Vector3 = sp[0]
+		var h: float = sp[1]
+		mb.add_cylinder(b, b + Vector3(0, h * 0.8, 0), 4.6 if h > 150.0 else 3.2, 2.2, 10, stone)
+		mb.add_cone(b + Vector3(0, h * 0.8, 0), b + Vector3(0, h, 0), 2.4, 8, stone.lightened(0.08))
+		mb.add_sphere(b + Vector3(0, h, 0), Vector3(1.4, 1.4, 1.4), 6, 4, Color(0.9, 0.75, 0.3))
+	boxes.append([Vector3(0, 60, 0), Vector3(32, 60, 48)])
+	boxes.append([Vector3(0, 140, 0), Vector3(6, 32, 6)])
+
+
+func _atomium(mb: MeshBuilder, boxes: Array) -> void:
+	## Brussels: nine steel spheres on the corners and centre of a giant iron crystal.
+	var steel := Color(0.85, 0.87, 0.9)
+	var c := Vector3(0, 52, 0)
+	var corners := []
+	for sx in [-1.0, 1.0]:
+		for sy in [-1.0, 1.0]:
+			for sz in [-1.0, 1.0]:
+				corners.append(c + Basis.from_euler(Vector3(0.62, 0, 0.78)) * Vector3(sx, sy, sz) * 24.0)
+	for p in corners:
+		mb.add_cylinder(c, p, 1.6, 1.6, 8, steel)
+		mb.add_sphere(p, Vector3(9, 9, 9), 14, 10, steel)
+	mb.add_sphere(c, Vector3(9, 9, 9), 14, 10, steel)
+	mb.add_cylinder(Vector3(0, 0, 0), c, 2.0, 2.0, 8, steel)
+	boxes.append([c, Vector3(34, 46, 34)])
+
+
+func _castle(mb: MeshBuilder, boxes: Array) -> void:
+	## A castle on its rock (Edinburgh), or the fairytale castle at the theme parks.
+	var rock := Color(0.38, 0.36, 0.33)
+	var wall := Color(0.62, 0.6, 0.56)
+	mb.add_rounded_box(Vector3(0, 20, 0), Vector3(180, 40, 110), rock, 0.5, 10, 6)
+	mb.add_box(Vector3(0, 52, 0), Vector3(120, 24, 60), wall)
+	for k in 4:
+		var p := Vector3((k % 2) * 110.0 - 55.0, 40, (k / 2) * 52.0 - 26.0)
+		mb.add_cylinder(p, p + Vector3(0, 46, 0), 7.0, 7.0, 10, wall)
+		mb.add_cone(p + Vector3(0, 46, 0), p + Vector3(0, 62, 0), 8.0, 10, Color(0.25, 0.32, 0.5))
+	mb.add_cylinder(Vector3(0, 60, 0), Vector3(0, 98, 0), 9.0, 8.0, 12, wall)
+	mb.add_cone(Vector3(0, 98, 0), Vector3(0, 122, 0), 10.0, 12, Color(0.25, 0.32, 0.5))
+	boxes.append([Vector3(0, 45, 0), Vector3(90, 45, 55)])
+	boxes.append([Vector3(0, 90, 0), Vector3(10, 32, 10)])
+
+
+func _twin_church(mb: MeshBuilder, boxes: Array) -> void:
+	## Munich's Frauenkirche: a brick hall with twin towers under green onion domes.
+	var brick := Color(0.6, 0.36, 0.28)
+	mb.add_box(Vector3(0, 19, 25), Vector3(40, 38, 90), brick)
+	mb.add_box(Vector3(0, 40, 25), Vector3(40, 4, 90), Color(0.45, 0.25, 0.2))
+	for sx in [-1.0, 1.0]:
+		var b := Vector3(sx * 11.0, 0, -28)
+		mb.add_box(b + Vector3(0, 50, 0), Vector3(16, 100, 16), brick)
+		mb.add_sphere(b + Vector3(0, 106, 0), Vector3(8.5, 9, 8.5), 12, 8, Color(0.3, 0.55, 0.42))
+		mb.add_cone(b + Vector3(0, 112, 0), b + Vector3(0, 118, 0), 2.0, 6, Color(0.85, 0.7, 0.3))
+	boxes.append([Vector3(0, 55, -28), Vector3(20, 60, 9)])
+	boxes.append([Vector3(0, 20, 25), Vector3(20, 20, 45)])

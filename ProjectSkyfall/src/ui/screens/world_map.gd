@@ -4,7 +4,8 @@ extends ScreenBase
 
 const WEATHER := [["live", "Live", "globe"], ["clear", "Clear", "sun"], ["few", "Few", "cloud"], ["scattered", "Scattered", "cloud"],
 	["overcast", "Overcast", "cloud"], ["rain", "Rain", "rain"], ["storm", "Storm", "storm"], ["fog", "Fog", "fog"], ["snow", "Snow", "snow"],
-	["crosswind", "Crosswind", "wind"], ["hurricane", "Hurricane", "storm"], ["tornado", "Tornado", "storm"]]
+	["crosswind", "Crosswind", "wind"], ["hurricane", "Hurricane", "storm"], ["tornado", "Tornado", "storm"],
+	["blizzard", "Blizzard", "snow"], ["hail", "Hail", "storm"], ["volcanic_ash", "Volcanic ash", "fog"], ["heatwave", "Heatwave", "sun"], ["earthquake", "Earthquake", "bell"]]
 
 var cfg := {"type": "s320", "airline": "SKF", "dep": "SKPC", "arr": "SKRV", "start": "gate", "hour": 18.5, "weather": "live", "events": "realistic"}
 var map: WorldMapView
@@ -93,11 +94,38 @@ static func _airlines_for(t: String) -> Array:
 	return out
 
 
+func _surprise() -> void:
+	## A random route that one of the airlines actually flies, with a random aircraft from its
+	## fleet, a random time of day and (one time in three) wild weather.
+	var r := RandomNumberGenerator.new()
+	r.randomize()
+	var codes: Array = WorldSim.ROUTES.keys()
+	var code := String(codes[r.randi() % codes.size()])
+	var rts: Array = WorldSim.ROUTES[code]
+	var rt: Array = rts[r.randi() % rts.size()]
+	if String(rt[0]) == String(rt[1]):
+		return _surprise()
+	var flip := r.randf() < 0.5
+	cfg.dep = String(rt[1] if flip else rt[0])
+	cfg.arr = String(rt[0] if flip else rt[1])
+	cfg.type = String(rt[2])
+	cfg.airline = code
+	cfg.hour = snappedf(r.randf_range(5.0, 23.5), 0.25)
+	var calm := ["clear", "few", "scattered", "overcast", "rain"]
+	var wild := ["storm", "fog", "snow", "crosswind", "hurricane", "tornado", "blizzard", "hail", "volcanic_ash", "heatwave", "earthquake"]
+	cfg.weather = String(wild[r.randi() % wild.size()]) if r.randf() < 0.33 else String(calm[r.randi() % calm.size()])
+	_rebuild()
+	_sync()
+
+
 func _rebuild() -> void:
 	for c in _panel.get_children():
 		c.queue_free()
 	_panel.add_child(UIStyle.caps("Free flight", 12, UIStyle.ACCENT, 800, 3))
 	_panel.add_child(UIStyle.title("Flight plan", 28, Color.WHITE))
+	var surprise := UIStyle.button("Surprise me: random flight", func(): _surprise(), 0, UIStyle.ACCENT)
+	surprise.custom_minimum_size = Vector2(0, 34)
+	_panel.add_child(surprise)
 	_panel.add_child(_airport_card("Departure", String(cfg.dep), UIStyle.GREEN))
 	var swap := UIStyle.button("Swap departure and arrival", func():
 		var d: String = cfg.dep

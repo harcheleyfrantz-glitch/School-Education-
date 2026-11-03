@@ -1098,6 +1098,9 @@ func _build_wings(mb: MeshBuilder) -> void:
 		# wingtip
 		if wl == "sharklet" or wl == "blended":
 			_winglet(mb, side, wl)
+		elif wl == "split":
+			_winglet(mb, side, "sharklet")
+			_ventral_tip(mb, side)
 		elif wl == "none":
 			_round_tip(mb, side)
 		_k.anchors["wingtip_" + sn] = _spt(_wsec(side, semi), 0.3, true)
@@ -1266,6 +1269,24 @@ func _winglet(mb: MeshBuilder, side: float, kind: String) -> void:
 		var top: Dictionary = secs[n - 1]
 		var te := _spt(top, 1.0, true)
 		mb.add_cylinder(te - Vector3(0, 0, 0.02), te + Vector3(0, -0.05, 0.22), 0.008, 0.004, 4, _c(P_DARK), false)
+
+
+## The lower half of a split-scimitar winglet: a short fin swept down and back from the tip.
+func _ventral_tip(mb: MeshBuilder, side: float) -> void:
+	var tip := _wsec(side, _W.semi)
+	var ct: float = tip.c
+	var length := ct * 0.5
+	var n := 6 if hi else 3
+	var secs := []
+	var le0: Vector3 = tip.le + Vector3(0, 0, ct * 0.18)
+	var T := Vector3(side * 0.3, -0.95, 0.0).normalized()
+	var cd := Vector3(0, 0, 1)
+	var td := cd.cross(T).normalized() * side
+	for i in n + 1:
+		var u := float(i) / n
+		var le := le0 + T * (u * length) + Vector3(0, 0, u * length * 0.75)
+		secs.append(_sec(le, cd, td, ct * lerpf(0.6, 0.28, u), lerpf(0.09, 0.07, u), u, 0.0))
+	_surf(mb, secs, 0.0, 1.0, P_WINGLET, 6 if hi else 3, {"side": 0.0 if side > 0.0 else 1.0, "cap1": true, "uv2": "zy"})
 
 
 ## Rounded wingtip closing a plain wing.

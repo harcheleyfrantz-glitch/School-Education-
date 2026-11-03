@@ -24,7 +24,7 @@ func setup(params: Dictionary) -> void:
 		var list := Activities.by_category(cat)
 		var done := Activities.completed_count(cat)
 		var c := ImageCard.make(String(info.title), String(info.blurb), String(info.shot), func(): Game.goto("activity", {"category": cat}),
-			{"top_band": true, "badge": str(list.size()), "title_size": 22, "progress": float(done) / float(maxi(list.size(), 1)),
+			{"top_band": true, "badge": str(list.size()), "title_size": 17, "progress": float(done) / float(maxi(list.size(), 1)),
 				"progress_text": "%d/%d complete" % [done, list.size()], "icon_name": "trophy"})
 		c.custom_minimum_size = Vector2(260, 0)
 		c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -38,7 +38,9 @@ func _fit(row: HBoxContainer) -> void:
 	if not is_instance_valid(row):
 		return
 	var h := row.size.y
-	var w := minf(h * 0.78, (body.size.x - 36.0) / 3.0)
+	var n := maxi(row.get_child_count(), 1)
+	var gap := float(row.get_theme_constant("separation"))
+	var w := minf(h * 0.78, (body.size.x - 36.0 - gap * float(n - 1)) / float(n))
 	for c in row.get_children():
 		(c as Control).custom_minimum_size.x = w
 		(c as Control).size_flags_horizontal = Control.SIZE_SHRINK_CENTER

@@ -15,6 +15,10 @@ const LIST := [
 	{"id": "type_rated", "title": "Type Rated", "desc": "Fly five different aircraft types.", "icon": "plane", "group": "Flying", "goal": 5, "stat": "types"},
 	{"id": "queen", "title": "Queen of the Skies", "desc": "Fly the four-engine Atlas W-380 Skyliner.", "icon": "plane", "group": "Flying"},
 	{"id": "crew_rest", "title": "Crew Rest", "desc": "Let auto-fly bring the aircraft in to land.", "icon": "user", "group": "Flying"},
+	{"id": "butter_streak", "title": "Butter Streak", "desc": "Make five landings in a row under 150 feet per minute.", "icon": "trophy", "group": "Flying"},
+	{"id": "fresh_off_line", "title": "Fresh Off the Line", "desc": "Fly three of the new types: S319, RJ-100, TP-90, W-280, W-390, BJ-8.", "icon": "plane", "group": "Flying", "goal": 3, "stat": "new_types"},
+	{"id": "five_star", "title": "Five Stars", "desc": "Earn a five-star review from your passengers.", "icon": "star", "group": "Flying"},
+	{"id": "shutterbug", "title": "Shutterbug", "desc": "Take a photo in flight (F10).", "icon": "star", "group": "Flying"},
 	# ---------------------------------------------------------------- places
 	{"id": "big_apple", "title": "The Big Apple", "desc": "Land at New York JFK.", "icon": "pin", "group": "Places"},
 	{"id": "mind_gap", "title": "Mind the Gap", "desc": "Land at London Heathrow.", "icon": "pin", "group": "Places"},
@@ -25,6 +29,9 @@ const LIST := [
 	{"id": "globetrotter", "title": "Globetrotter", "desc": "Land in five different countries.", "icon": "globe", "group": "Places", "goal": 5, "stat": "countries"},
 	{"id": "new_horizons", "title": "New Horizons", "desc": "Fly from Calderra or Westmark to the real world.", "icon": "globe", "group": "Places"},
 	{"id": "the_pond", "title": "Across the Pond", "desc": "Fly between North America and Europe in one flight.", "icon": "globe", "group": "Places"},
+	{"id": "coast_to_coast", "title": "Coast to Coast", "desc": "Land at five of the new cities: Atlanta, Dallas, Denver, Seattle, Las Vegas, Berlin, Stockholm and more.", "icon": "globe", "group": "Places", "goal": 5, "stat": "new_airports"},
+	{"id": "mile_high", "title": "Mile High", "desc": "Land at Denver, a mile above sea level.", "icon": "pin", "group": "Places"},
+	{"id": "viking", "title": "Viking Route", "desc": "Land at Oslo, Stockholm and Copenhagen.", "icon": "pin", "group": "Places", "goal": 3, "stat": "nordic"},
 	# ---------------------------------------------------------------- sightseeing
 	{"id": "sightseer", "title": "Sightseer", "desc": "Fly low past three famous landmarks.", "icon": "star", "group": "Sightseeing", "goal": 3, "stat": "landmarks"},
 	{"id": "seen_it_all", "title": "Seen It All", "desc": "Fly low past fifteen landmarks.", "icon": "star", "group": "Sightseeing", "goal": 15, "stat": "landmarks"},
@@ -42,7 +49,19 @@ const LIST := [
 	{"id": "keyboard_pilot", "title": "Keyboard Pilot", "desc": "Post a comment under a story.", "icon": "news", "group": "Drama"},
 	{"id": "talk_of_town", "title": "Talk of the Town", "desc": "Get comments written by Claude under a story.", "icon": "news", "group": "Drama"},
 	{"id": "couch_pilot", "title": "Couch Pilot", "desc": "Watch a news report.", "icon": "play", "group": "Drama"},
+	# ---------------------------------------------------------------- nature
+	{"id": "solid_ground", "title": "Solid Ground?", "desc": "Land through an earthquake.", "icon": "bell", "group": "Nature"},
+	{"id": "gliding", "title": "We Are Gliding", "desc": "Survive an all-engine flameout in volcanic ash and land.", "icon": "plane", "group": "Nature"},
+	{"id": "hail_mary", "title": "Hail Mary", "desc": "Land after hail has cracked your windscreen.", "icon": "storm", "group": "Nature"},
+	{"id": "zapped", "title": "Zapped", "desc": "Get hit by lightning.", "icon": "storm", "group": "Nature"},
+	{"id": "eye_of_storm", "title": "Eye of the Storm", "desc": "Land in a hurricane.", "icon": "wind", "group": "Nature"},
+	{"id": "twister", "title": "Twister", "desc": "Land in a tornado outbreak.", "icon": "wind", "group": "Nature"},
+	{"id": "whiteout", "title": "Whiteout", "desc": "Land in a blizzard.", "icon": "snow", "group": "Nature"},
+	{"id": "stork", "title": "Special Delivery", "desc": "A baby is born on board your flight.", "icon": "user", "group": "Drama"},
+	{"id": "cupid", "title": "Cupid", "desc": "Someone proposes on your flight.", "icon": "user", "group": "Drama"},
 	# ---------------------------------------------------------------- activities
+	{"id": "daily", "title": "Daily Pilot", "desc": "Complete a daily challenge.", "icon": "clock", "group": "Activities"},
+	{"id": "regular", "title": "Regular", "desc": "Complete seven daily challenges.", "icon": "clock", "group": "Activities", "goal": 7, "stat": "dailies"},
 	{"id": "challenger", "title": "Challenger", "desc": "Complete five activities.", "icon": "trophy", "group": "Activities", "goal": 5, "stat": "activities"},
 	{"id": "gold", "title": "Gold Standard", "desc": "Win a gold medal in an activity.", "icon": "trophy", "group": "Activities"},
 ]
@@ -131,6 +150,17 @@ static func on_flight_result(res: Dictionary, cons: Dictionary = {}) -> void:
 	if type_id == "w380":
 		unlock("queen")
 	_add("hours", float(res.get("block_hours", 0.0)))
+	var hz: Dictionary = res.get("hazards", {})
+	if hz.has("lightning"):
+		unlock("zapped")
+	for e in res.get("events", []):
+		match String(e.get("id", "")):
+			"birth":
+				unlock("stork")
+			"proposal":
+				unlock("cupid")
+	if type_id in ["s319", "rj100", "tp90", "w280", "w390", "bj8"]:
+		_add("new_types", type_id)
 	if outcome in ["crashed", "ditched"]:
 		unlock("front_page")
 		if bool(res.get("presidential", false)):
@@ -158,6 +188,10 @@ static func on_flight_result(res: Dictionary, cons: Dictionary = {}) -> void:
 			unlock("butter")
 		if vs < 150.0:
 			_add("soft_landings", 1.0)
+		var st: Dictionary = _store().stats
+		st["butter_run"] = (float(st.get("butter_run", 0.0)) + 1.0) if vs < 150.0 else 0.0
+		if float(st.butter_run) >= 5.0:
+			unlock("butter_streak")
 	var hour := float(U.clock_to_date(float(res.get("clock", WorldSim.clock))).hours_f)
 	if hour >= 22.0 or hour < 5.0:
 		unlock("night_owl")
@@ -197,6 +231,27 @@ static func on_flight_result(res: Dictionary, cons: Dictionary = {}) -> void:
 					unlock("the_pond")
 	if bool(res.get("autofly_landed", false)):
 		unlock("crew_rest")
+	if hz.has("earthquake"):
+		unlock("solid_ground")
+	if hz.has("ash"):
+		unlock("gliding")
+	if hz.has("hail"):
+		unlock("hail_mary")
+	match String(res.get("weather_preset", "")):
+		"hurricane":
+			unlock("eye_of_storm")
+		"tornado":
+			unlock("twister")
+		"blizzard":
+			unlock("whiteout")
+	if arr in ["KATL", "KDFW", "KDEN", "KSEA", "KLAS", "KMSY", "KMCO", "EDDF", "EDDM", "LSZH", "LOWW", "EKCH", "ENGM", "ESSA", "EDDB", "LEBL", "EBBR", "LPPT", "EGCC", "EGPH"]:
+		_add("new_airports", arr)
+	if arr == "KDEN":
+		unlock("mile_high")
+	if arr in ["ENGM", "ESSA", "EKCH"]:
+		_add("nordic", arr)
+	if int(res.get("pax", 0)) > 0 and NewsExtra.review_stars(res) >= 5:
+		unlock("five_star")
 	_check_goals()
 
 
@@ -213,3 +268,18 @@ static func on_activity(score: float, medal: String) -> void:
 	if medal == "gold":
 		unlock("gold")
 	_check_goals()
+
+
+static func on_daily(key: String) -> void:
+	_add("dailies", key)
+	unlock("daily")
+	_check_goals()
+
+
+static func has_daily(key: String) -> bool:
+	var v: Variant = (_store().stats as Dictionary).get("dailies", [])
+	return typeof(v) == TYPE_ARRAY and key in (v as Array)
+
+
+static func on_photo() -> void:
+	unlock("shutterbug")

@@ -109,6 +109,10 @@ func _scores(v: VBoxContainer) -> void:
 	if not td.is_empty():
 		v.add_child(UIStyle.label("Touchdown %d ft/min · %.1f m from centreline · %d m past the threshold · %.2f g" % [int(absf(float(td.get("vs_fpm", 0.0)))),
 			absf(float(td.get("centerline", 0.0))), int(td.get("dist_from_thr", 0.0)), float(td.get("g", 1.0))], 15, UIStyle.DIM))
+		v.add_child(UIStyle.label("Landing grade: %s" % FlightSession.landing_grade(absf(float(td.get("vs_fpm", 0.0))))[0], 16, UIStyle.TEXT, true))
+	if int(result.get("pax", 0)) > 0 and String(result.get("outcome", "")) in ["landed", "diverted"]:
+		var stars := NewsExtra.review_stars(result)
+		v.add_child(UIStyle.label("Passenger rating: %s%s" % ["★".repeat(stars), "☆".repeat(5 - stars)], 18, UIStyle.GOLD if stars >= 4 else (UIStyle.AMBER if stars >= 3 else UIStyle.RED), true))
 	var notes: Array = result.get("notes", [])
 	if not notes.is_empty():
 		var txt := ""

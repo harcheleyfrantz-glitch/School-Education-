@@ -14,7 +14,7 @@ const CATEGORIES := {
 	"bush": {"title": "Bush Trips", "shot": "act_bush", "accent": Color(0.42, 0.9, 0.55),
 		"blurb": "Multi-leg journeys between small fields in the trainer and the turboprop. Navigate by sight, leg by leg."},
 }
-const ORDER := ["discovery", "landing", "bush"]
+const ORDER := ["discovery", "landing", "bush", "special"]
 const MEDALS := [["gold", 90.0], ["silver", 78.0], ["bronze", 60.0]]
 const MEDAL_COLORS := {"gold": Color(1.0, 0.8, 0.28), "silver": Color(0.8, 0.85, 0.9), "bronze": Color(0.85, 0.55, 0.32), "": Color(0.45, 0.5, 0.56)}
 const SETTINGS_KEY := "activity_records"
@@ -135,6 +135,97 @@ const SCENARIOS := [
 		"type": "rj90", "airline": "MPN", "dep": "CYYZ", "arr": "KORD", "start": "air", "dist_km": 35.0, "alt_ft": 3000.0, "hour": 17.5, "weather": "tornado", "difficulty": 5,
 		"desc": "Supercells over the plains and tornadoes on the ground between you and O'Hare. Spot the funnels, stay well clear of them - fly into one and the aircraft will not survive.",
 		"objective": "Dodge the tornadoes and land at Chicago O'Hare.", "tags": ["Tornado", "Storm", "Avoidance"]},
+	# ---------------------------------------------------------------- special missions (wave 2)
+	{"id": "quake_relief", "category": "special", "title": "Earthquake Relief", "place": "San Francisco · during an earthquake",
+		"type": "s320", "airline": "GGP", "dep": "KLAX", "arr": "KSFO", "start": "air", "dist_km": 30.0, "alt_ft": 4000.0, "hour": 11.0, "weather": "earthquake", "difficulty": 4,
+		"desc": "Relief supplies for the Bay Area. Somewhere on your approach the ground will start to shake: dust over the city, fires, cracks in a runway and aftershocks while you roll out. Listen to the tower.",
+		"objective": "Land at San Francisco through the earthquake.", "tags": ["Earthquake", "Relief", "Runway closure"]},
+	{"id": "ash_iceland", "category": "special", "title": "Into the Ash", "place": "Iceland · a volcanic eruption",
+		"type": "w350", "airline": "THA", "dep": "EGLL", "arr": "BIKF", "start": "air", "dist_km": 120.0, "alt_ft": 30000.0, "hour": 22.5, "weather": "volcanic_ash", "difficulty": 5,
+		"desc": "Night over the North Atlantic, and a smell of sulphur in the cockpit. Every engine is about to flame out. Glide the silent jet down out of the ash cloud, relight the engines and bring it into Keflavik.",
+		"objective": "Survive the flameout and land at Keflavik.", "tags": ["Volcanic ash", "All engines out", "Night"]},
+	{"id": "hail_denver", "category": "special", "title": "Hailstorm over Denver", "place": "Denver · supercell thunderstorms",
+		"type": "s319", "airline": "LSA", "dep": "KDFW", "arr": "KDEN", "start": "air", "dist_km": 30.0, "alt_ft": 10500.0, "hour": 17.0, "weather": "hail", "difficulty": 4,
+		"desc": "A supercell sits right over the Mile High City. Hailstones will hammer the airframe and crack the windscreen, lightning will hit you, and the air is thin. Land anyway.",
+		"objective": "Land at Denver through the hailstorm.", "tags": ["Hail", "Lightning", "High altitude"]},
+	{"id": "blizzard_oslo", "category": "special", "title": "Arctic Blizzard", "place": "Oslo · a whiteout",
+		"type": "tp90", "airline": "NRD", "dep": "ESSA", "arr": "ENGM", "start": "air", "dist_km": 20.0, "alt_ft": 3500.0, "hour": 15.5, "weather": "blizzard", "difficulty": 5,
+		"desc": "Gale-force snow, 350 metres of visibility and ice on the wings. The approach lights appear at the very last moment - or not at all.",
+		"objective": "Land at Oslo in the blizzard.", "tags": ["Blizzard", "Icing", "Low visibility"]},
+	{"id": "heat_vegas", "category": "special", "title": "Too Hot to Fly", "place": "Las Vegas · 47 degrees",
+		"type": "w390", "airline": "RHA", "dep": "KLAS", "arr": "KLAX", "start": "runway", "hour": 15.0, "weather": "heatwave", "difficulty": 4,
+		"desc": "The biggest twin in the world, heavy, in thin desert air. Every metre of runway counts: the engines make less thrust and the wings less lift. Get it airborne and over the mountains to Los Angeles.",
+		"objective": "Take off from Las Vegas and land at Los Angeles.", "tags": ["Heatwave", "Heavy", "Desert"]},
+	{"id": "hurricane_nola", "category": "special", "title": "Hurricane Hunters", "place": "New Orleans · hurricane landfall",
+		"type": "w280", "airline": "LSA", "dep": "KATL", "arr": "KMSY", "start": "air", "dist_km": 25.0, "alt_ft": 4500.0, "hour": 18.0, "weather": "hurricane", "difficulty": 5,
+		"desc": "The hurricane is coming ashore and this is the last flight in to evacuate stranded families. Eighty-knot winds, rain like a waterfall. One attempt.",
+		"objective": "Land at New Orleans in the hurricane.", "tags": ["Hurricane", "Evacuation", "Extreme wind"]},
+	{"id": "lightning_orlando", "category": "special", "title": "Lightning Alley", "place": "Orlando · afternoon thunderstorms",
+		"type": "rj100", "airline": "LSA", "dep": "KATL", "arr": "KMCO", "start": "air", "dist_km": 25.0, "alt_ft": 5000.0, "hour": 16.0, "weather": "storm", "difficulty": 3,
+		"desc": "Central Florida, four o'clock, thunderstorms as regular as clockwork. Expect a lightning strike or two on the way down.",
+		"objective": "Land at Orlando through the thunderstorms.", "tags": ["Lightning", "Storms", "Theme parks"]},
+	{"id": "mercy_flight", "category": "special", "title": "Mercy Flight", "place": "Edinburgh to London · a heart for transplant",
+		"type": "bj8", "airline": "APX", "dep": "EGPH", "arr": "EGLL", "start": "runway", "hour": 23.0, "weather": "rain", "difficulty": 3,
+		"desc": "A donor heart in a cool box in the cabin and a surgical team waiting at the hospital. Rain, night and a slot into the busiest airport in Europe. Every minute counts.",
+		"objective": "Fly the organ to London Heathrow.", "tags": ["Medical", "Night", "Business jet"]},
+	{"id": "celebrity_charter", "category": "special", "title": "Celebrity Charter", "place": "Los Angeles to Las Vegas · VIP flight",
+		"type": "bj8", "airline": "APX", "dep": "KLAX", "arr": "KLAS", "start": "runway", "hour": 19.5, "weather": "clear", "difficulty": 2,
+		"desc": "A world-famous pop star, her entourage and a very short flight to a sold-out show on the Strip. Make the landing as smooth as the champagne.",
+		"objective": "Land the star softly at Las Vegas.", "tags": ["VIP", "Sunset", "Business jet"]},
+	{"id": "alpine_zurich", "category": "special", "title": "Alpine Approach", "place": "Zurich · snow in the mountains",
+		"type": "rj100", "airline": "ALP", "dep": "LOWW", "arr": "LSZH", "start": "air", "dist_km": 25.0, "alt_ft": 6000.0, "hour": 9.0, "weather": "snow", "difficulty": 3,
+		"desc": "Snow showers over the Swiss plateau and the Alps glittering to the south. Precision flying, Swiss style.",
+		"objective": "Land at Zurich in the snow.", "tags": ["Snow", "Mountains", "Precision"]},
+	{"id": "state_one_berlin", "category": "special", "title": "Calderra One to Berlin", "place": "State visit · Frankfurt to Berlin",
+		"type": "s321", "airline": "GOV", "dep": "EDDF", "arr": "EDDB", "start": "runway", "hour": 11.0, "weather": "few", "difficulty": 4, "presidential": true,
+		"desc": "The president's European tour continues. Fighter escort, hostile drones over the border, and a red carpet waiting at Berlin Brandenburg.",
+		"objective": "Bring the president safely to Berlin.", "tags": ["President", "Fighter escort", "Europe"]},
+	# ---------------------------------------------------------------- discovery (wave 2)
+	{"id": "emerald_city", "category": "discovery", "title": "The Emerald City", "place": "Seattle · the Space Needle",
+		"type": "bj6", "airline": "APX", "dep": "KSFO", "arr": "KSEA", "start": "air", "at_lm": "needle", "at_off": Vector2(-3.0, -8.0), "alt_ft": 1800.0,
+		"hour": 18.0, "weather": "few", "difficulty": 2,
+		"desc": "Down Puget Sound past the Space Needle and the downtown towers, with the Cascades glowing in the evening sun. Then land at Sea-Tac.",
+		"objective": "Pass the Space Needle, then land at Seattle.", "tags": ["Seattle", "Landmarks", "Evening"]},
+	{"id": "berlin_night", "category": "discovery", "title": "Berlin by Night", "place": "Berlin · the TV Tower and the Brandenburg Gate",
+		"type": "bj6", "airline": "APX", "dep": "EDDF", "arr": "EDDB", "start": "air", "at_lm": "tvtower", "at_off": Vector2(-9.0, -4.0), "alt_ft": 2000.0,
+		"hour": 21.5, "weather": "clear", "difficulty": 2,
+		"desc": "The TV Tower's silver ball over Alexanderplatz and the Brandenburg Gate floodlit below. A slow orbit of the capital, then Berlin Brandenburg.",
+		"objective": "Fly past the TV Tower, then land at Berlin.", "tags": ["Berlin", "Night", "Landmarks"]},
+	{"id": "gaudi_coast", "category": "discovery", "title": "Gaudi's Coast", "place": "Barcelona · Sagrada Familia and the beaches",
+		"type": "bj6", "airline": "APX", "dep": "LEMD", "arr": "LEBL", "start": "air", "at_lm": "sagrada", "at_off": Vector2(8.0, 6.0), "alt_ft": 2000.0,
+		"hour": 19.0, "weather": "clear", "difficulty": 2,
+		"desc": "In from the Mediterranean over the beaches to the spires of the Sagrada Familia, then round to land beside the sea at El Prat.",
+		"objective": "Fly past the Sagrada Familia, then land at Barcelona.", "tags": ["Barcelona", "Coast", "Golden hour"]},
+	{"id": "vegas_strip", "category": "discovery", "title": "The Strip at Night", "place": "Las Vegas · neon in the desert",
+		"type": "bj6", "airline": "APX", "dep": "KLAX", "arr": "KLAS", "start": "air", "at_lm": "strip", "at_off": Vector2(0.0, 9.0), "alt_ft": 2800.0,
+		"hour": 21.8, "weather": "clear", "difficulty": 2,
+		"desc": "Fly the length of the Strip at night: towers, neon and the Strat Tower blazing in the dark desert. Then land on the runway right beside it.",
+		"objective": "Fly over the Strip, then land at Las Vegas.", "tags": ["Las Vegas", "Night", "City lights"]},
+	{"id": "brussels_atomium", "category": "discovery", "title": "The Atomium", "place": "Brussels · the capital of Europe",
+		"type": "tp90", "airline": "NRD", "dep": "EGLL", "arr": "EBBR", "start": "air", "at_lm": "atomium", "at_off": Vector2(-7.0, -5.0), "alt_ft": 2000.0,
+		"hour": 12.0, "weather": "scattered", "difficulty": 1,
+		"desc": "Nine giant steel spheres shining over Brussels. Circle the Atomium in a nimble turboprop, then land at Brussels Airport.",
+		"objective": "Fly past the Atomium, then land at Brussels.", "tags": ["Brussels", "Turboprop", "Landmarks"]},
+	# ---------------------------------------------------------------- landing challenges (wave 2)
+	{"id": "edinburgh_wind", "category": "landing", "title": "Edinburgh Gale", "place": "Edinburgh · runway 24 in a gale",
+		"type": "s319", "airline": "THA", "dep": "EGLL", "arr": "EGPH", "start": "air", "dist_km": 14.0, "alt_ft": 3000.0, "hour": 14.0, "weather": "crosswind", "wind": 330.0, "difficulty": 4,
+		"desc": "A Scottish gale straight across the runway, with the castle on its rock off to the left. Hold the wing down and kick it straight.",
+		"objective": "Land on runway 24 at Edinburgh.", "tags": ["Crosswind", "Scotland", "Gusts"]},
+	{"id": "munich_fog", "category": "landing", "title": "Bavarian Fog", "place": "Munich · fog on the plain",
+		"type": "s320", "airline": "RHA", "dep": "EDDF", "arr": "EDDM", "start": "air", "dist_km": 16.0, "alt_ft": 4000.0, "hour": 7.5, "weather": "fog", "difficulty": 3,
+		"desc": "Autumn fog lies thick over the Bavarian plain. The runway lights appear at a hundred feet. Trust the instruments.",
+		"objective": "Land at Munich in fog.", "tags": ["Fog", "ILS", "Morning"]},
+	# ---------------------------------------------------------------- bush trips (wave 2)
+	{"id": "nordic_hops", "category": "bush", "title": "Nordic Hops", "place": "Oslo · Stockholm · Copenhagen · Edinburgh",
+		"type": "tp90", "airline": "NRD", "legs": [["ENGM", "ESSA"], ["ESSA", "EKCH"], ["EKCH", "EGPH"]], "start": "runway", "hour": 9.5,
+		"weather": "scattered", "difficulty": 2, "cruise_ft": 17000.0,
+		"desc": "Three Scandinavian capitals and a hop across the North Sea to Scotland, in the fast new TP-90 turboprop.",
+		"objective": "Complete all three legs.", "tags": ["3 legs", "Scandinavia", "Turboprop"]},
+	{"id": "southern_states", "category": "bush", "title": "Southern Swing", "place": "Dallas · New Orleans · Atlanta · Orlando",
+		"type": "rj100", "airline": "LSA", "legs": [["KDFW", "KMSY"], ["KMSY", "KATL"], ["KATL", "KMCO"]], "start": "runway", "hour": 10.0,
+		"weather": "few", "difficulty": 2, "cruise_ft": 28000.0,
+		"desc": "Barbecue in Texas, jazz in New Orleans, the busiest airport on earth and the theme parks of Florida - in one day.",
+		"objective": "Complete all three legs.", "tags": ["3 legs", "USA", "Regional jet"]},
 	{"id": "bermuda_night", "category": "landing", "title": "Bermuda by Night", "place": "Bermuda · runway 12 at night",
 		"type": "tp72", "airline": "IHA", "dep": "KJFK", "arr": "TXKF", "start": "air", "arr_rwy": "12", "dist_km": 12.0, "alt_ft": 2400.0,
 		"hour": 22.8, "weather": "clear", "difficulty": 3,
@@ -198,6 +289,22 @@ static func get_scenario(id: String) -> Dictionary:
 		if String(s.id) == id:
 			return s
 	return {}
+
+
+static func daily_id() -> String:
+	## Today's daily challenge (the real calendar date, so it changes every day for everyone).
+	var d := Time.get_date_dict_from_system()
+	var key := "%04d-%02d-%02d" % [int(d.year), int(d.month), int(d.day)]
+	var ids := []
+	for a in SCENARIOS:
+		if String(a.get("category", "")) != "bush" and not bool(a.get("presidential", false)):
+			ids.append(String(a.id))
+	return String(ids[absi(U.hash_str(key)) % ids.size()])
+
+
+static func daily_key() -> String:
+	var d := Time.get_date_dict_from_system()
+	return "%04d-%02d-%02d" % [int(d.year), int(d.month), int(d.day)]
 
 
 static func legs(scn: Dictionary) -> Array:
@@ -377,6 +484,8 @@ static func consume(params: Dictionary) -> Dictionary:
 	Game.save_settings()
 	if complete:
 		Achievements.on_activity(final_score, medal_for(final_score))
+		if id == daily_id():
+			Achievements.on_daily(daily_key())
 	return {"id": id, "category": String(scn.category), "score": final_score, "leg_score": score, "leg": leg, "legs": lg.size(),
 		"complete": complete, "leg_ok": leg_ok, "new_best": new_best, "medal": medal_for(final_score) if complete else "",
 		"best": float(r.get("best", final_score)), "outcome": outcome, "touchdown": res.get("touchdown", {})}

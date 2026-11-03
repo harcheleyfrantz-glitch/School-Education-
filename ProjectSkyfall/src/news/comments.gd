@@ -67,6 +67,22 @@ static func context(art: Dictionary) -> Dictionary:
 	var aboard := int(c.get("aboard", 0))
 	if not inc.is_empty():
 		mood = "fatal" if fatal > 0 else "survived"
+	elif tags.has("president"):
+		mood = "president"
+	elif tags.has("earthquake") or tags.has("volcano") or tags.has("hurricane") or tags.has("tornado") or tags.has("blizzard") or tags.has("heatwave") or tags.has("disaster"):
+		mood = "disaster"
+	elif tags.has("safety"):
+		mood = "safety"
+	elif tags.has("celebrity"):
+		mood = "celebrity"
+	elif tags.has("feelgood"):
+		mood = "feelgood"
+	elif tags.has("spotter") or tags.has("spotters"):
+		mood = "spotter"
+	elif tags.has("newtype"):
+		mood = "newtype"
+	elif tags.has("travel"):
+		mood = "travel"
 	elif tags.has("weather"):
 		mood = "weather"
 	elif tags.has("business") or tags.has("routes") or String(art.get("kind", "")) == "business":
@@ -88,10 +104,17 @@ static func context(art: Dictionary) -> Dictionary:
 			total = 90 + imp * 40 + r.randi_range(0, 110)
 		"business":
 			total = 45 + imp * 30 + r.randi_range(0, 90)
+		"disaster", "president":
+			total = 260 + imp * 110 + r.randi_range(0, 260)
+		"safety", "celebrity", "feelgood":
+			total = 110 + imp * 60 + r.randi_range(0, 140)
+		"spotter", "newtype", "travel":
+			total = 60 + imp * 40 + r.randi_range(0, 90)
 		_:
 			total = 30 + imp * 25 + r.randi_range(0, 70)
 	var ctx := {"seed": seed_v, "mood": mood, "total": total, "t0": float(art.get("t", WorldSim.clock)), "tau": 9.0 * 3600.0 if mood in ["fatal", "survived"] else 5.0 * 3600.0,
-		"likes": {"fatal": 5200.0, "survived": 2600.0, "incident": 700.0, "weather": 260.0, "business": 180.0}.get(mood, 120.0) * (0.6 + 0.4 * float(imp)),
+		"likes": {"fatal": 5200.0, "survived": 2600.0, "incident": 700.0, "weather": 260.0, "business": 180.0, "disaster": 1800.0, "president": 6000.0,
+			"safety": 600.0, "celebrity": 900.0, "feelgood": 1100.0, "spotter": 220.0, "newtype": 200.0, "travel": 300.0}.get(mood, 120.0) * (0.6 + 0.4 * float(imp)),
 		"outlet": String(art.get("outlet", "skyline")), "tags": tags, "f": _facts(art, inc, r)}
 	_cache[key] = ctx
 	return ctx
@@ -238,7 +261,7 @@ static func replies(art: Dictionary, parent: Dictionary, offset: int, n: int = 6
 	var f: Dictionary = ctx.f
 	var out := []
 	var pt := String(parent.tone)
-	var pool: Array = REPLIES.get(pt, ["agree"])
+	var pool: Array = REPLIES.get(pt, CommentBankExtra.REPLIES.get(pt, ["agree"]))
 	for j in range(offset, mini(offset + n, int(parent.replies))):
 		var r := U.rng(U.hash_ints(int(ctx.seed), int(parent.i) * 1000 + j, 29))
 		var tone := String(pool[r.randi() % pool.size()])
@@ -273,10 +296,12 @@ static func _time(ctx: Dictionary, i: int) -> float:
 
 
 static func _tone(ctx: Dictionary, r: RandomNumberGenerator) -> String:
-	var mix: Dictionary = MIX.get(String(ctx.mood), MIX.general)
+	var mix: Dictionary = MIX.get(String(ctx.mood), CommentBankExtra.MIX.get(String(ctx.mood), MIX.general))
 	var tags: Array = ctx.tags
 	var keys := mix.keys()
 	var w := []
+	if tags.has("president") and not keys.has("president"):
+		keys.append("president")
 	for k in keys:
 		var v := float(mix[k])
 		if k == "family" and (tags.has("victims") or tags.has("memorial")):
@@ -287,7 +312,14 @@ static func _tone(ctx: Dictionary, r: RandomNumberGenerator) -> String:
 			v *= 2.5
 		if k == "condolence" and tags.has("memorial"):
 			v *= 2.0
+		if k == "president" and not mix.has("president"):
+			v = 30.0
 		w.append(v)
+	# a few local voices and spotters turn up under most stories
+	for extra in ["local", "spotter", "frequent_flyer", "travel_tip"]:
+		if not keys.has(extra) and String(ctx.mood) not in ["fatal", "president"]:
+			keys.append(extra)
+			w.append(2.5)
 	return String(U.pick_weighted(r, keys, w))
 
 
@@ -354,6 +386,10 @@ static func _join(r: RandomNumberGenerator, f: Dictionary, a: Array, b: Array, c
 static func _text(tone: String, r: RandomNumberGenerator, f: Dictionary, mood: String) -> String:
 	# about half the time, a line from the larger bank (where it suits the story)
 	var accident_only := tone in ["technical", "question", "eyewitness", "family", "misinfo", "condolence", "survived"]
+	if tone in CommentBankExtra.NEW_TONES:
+		return CommentBankExtra.line(r, tone, f)
+	if CommentBankExtra.LINES.has(tone) and r.randf() < 0.4 and (not accident_only or mood in ["fatal", "survived"]):
+		return CommentBankExtra.line(r, tone, f)
 	if CommentBank.LINES.has(tone) and r.randf() < 0.5 and (not accident_only or mood in ["fatal", "survived"]):
 		return _say(r, CommentBank.LINES[tone], f)
 	return _text_base(tone, r, f, mood)
@@ -597,7 +633,7 @@ static func player_replies(art: Dictionary, pc: Dictionary) -> Array:
 	var r := U.rng(seed_v)
 	var total := 3 + r.randi() % 9
 	var out := []
-	var pool: Array = CommentBank.TO_PLAYER.get(kind, CommentBank.TO_PLAYER.other)
+	var pool: Array = (CommentBank.TO_PLAYER.get(kind, CommentBank.TO_PLAYER.other) as Array) + (CommentBankExtra.TO_PLAYER.get(kind, CommentBankExtra.TO_PLAYER.other) as Array)
 	for j in total:
 		var delay := 20.0 + pow(float(j), 1.8) * 240.0
 		var t := float(pc.get("t", WorldSim.clock)) + delay
