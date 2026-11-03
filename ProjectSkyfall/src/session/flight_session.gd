@@ -36,7 +36,8 @@ var _landmarks_seen := {}
 var crash_target := "route"       # route | city | terminal | sea | mountain | ahead
 var _crash_pt := Vector3.ZERO     # world position the aircraft is being flown into
 const CRASH_TARGETS := {"route": "Follow the route", "city": "Crash into the nearest city", "terminal": "Crash into the airport terminal",
-	"sea": "Crash into the sea", "mountain": "Crash into a mountain", "ahead": "Crash straight ahead"}
+	"sea": "Crash into the sea", "mountain": "Crash into a mountain", "ahead": "Crash straight ahead", "plane": "Crash into the nearest plane in the air"}
+var _plane_target: Dictionary = {}
 var traffic: TrafficManager = null
 var wreck: WreckPieces = null
 var escorts: Escorts = null
@@ -1458,6 +1459,7 @@ func set_autofly(on: bool) -> void:
 func set_crash_target(t: String) -> void:
 	crash_target = t if CRASH_TARGETS.has(t) else "route"
 	_crash_pt = Vector3.ZERO
+	_plane_target = {}
 	if crash_target == "route":
 		if ai and not ac.fdm.on_ground:
 			ai._set_phase("descent")
@@ -1470,7 +1472,32 @@ func set_crash_target(t: String) -> void:
 		set_autofly(true)
 
 
+func _pick_plane_target() -> Dictionary:
+	## The nearest airliner in the air; if none is around, one is put on a course toward us.
+	if traffic == null:
+		return {}
+	var best := {}
+	var bd := 60000.0
+	for a in traffic.airborne:
+		var d := Vector3(float(a.x) - ac.world_x(), float(a.alt) - ac.fdm.pos.y, float(a.z) - ac.world_z()).length()
+		if d < bd:
+			bd = d
+			best = a
+	if best.is_empty():
+		best = traffic.spawn_target_ahead(ac)
+	best.react = false
+	best.tcas = false
+	best.called = true
+	return best
+
+
 func _crash_point() -> Vector3:
+	if crash_target == "plane":
+		if _plane_target.is_empty() or not traffic.airborne.has(_plane_target):
+			_plane_target = _pick_plane_target()
+		if _plane_target.is_empty():
+			return Vector3(ac.world_x(), 0.0, ac.world_z())
+		return Vector3(float(_plane_target.x), float(_plane_target.alt), float(_plane_target.z))
 	if _crash_pt != Vector3.ZERO:
 		return _crash_pt
 	var here := Vector2(ac.world_x(), ac.world_z())
@@ -1516,8 +1543,43 @@ func _crash_point() -> Vector3:
 	return _crash_pt
 
 
+func _update_plane_run(delta: float) -> void:
+	## Hunts the target airliner: autopilot toward the intercept point, then a direct homing
+	## run for the last kilometre and a half.
+	var tp := _crash_point()
+	if _plane_target.is_empty():
+		return
+	var tv: Vector3 = traffic.item_velocity(_plane_target)
+	var me := Vector3(ac.world_x(), ac.fdm.pos.y, ac.world_z())
+	var rel := tp - me
+	var dist := rel.length()
+	var t_go := clampf(dist / maxf(ac.fdm.vel.length() + tv.length() * 0.5, 80.0), 0.0, 120.0)
+	var aim := tp + tv * t_go
+	var to := aim - me
+	var ap := ac.ap
+	if dist > 1500.0:
+		ap.engage(true)
+		ap.at_engaged = true
+		ap.set_lat("HDG")
+		ap.hdg_sel = fposmod(rad_to_deg(atan2(to.x, -to.z)), 360.0)
+		ap.bank_limit = 30.0
+		ap.set_thr("SPD")
+		ap.spd_sel = minf(float(ac.spec.vmo) - 20.0, 330.0)
+		ap.set_vert("VS")
+		ap.vs_sel = clampf((tp.y - me.y) * 0.08, -18.0, 15.0)
+	else:
+		# final run: point straight at where the target will be
+		var spd := maxf(ac.fdm.vel.length(), 120.0)
+		var want := to.normalized() * spd
+		ac.fdm.vel = ac.fdm.vel.lerp(want, clampf(delta * 3.0, 0.0, 1.0))
+		ac.fdm.basis = ac.fdm.basis.slerp(Basis.looking_at(ac.fdm.vel.normalized(), Vector3.UP), clampf(delta * 3.0, 0.0, 1.0))
+
+
 func _update_crash_run(_delta: float) -> void:
 	## Flies the aircraft to the chosen spot on the autopilot, then puts it into a dive.
+	if crash_target == "plane":
+		_update_plane_run(_delta)
+		return
 	var tp := _crash_point()
 	var here := Vector2(ac.world_x(), ac.world_z())
 	var to := Vector2(tp.x, tp.z) - here

@@ -416,6 +416,20 @@ func _contrail() -> GPUParticles3D:
 	return p
 
 
+func spawn_target_ahead(me: Aircraft) -> Dictionary:
+	## An airliner 9 km ahead at our level, flying toward us (for the crash-into-a-plane target).
+	var t := _type_for_span(80.0, ["narrowbody", "widebody"])
+	var al := _airline_for(t)
+	var hdg := fposmod(rad_to_deg(atan2(me.fdm.vel.x, -me.fdm.vel.z)), 360.0)
+	var d := Vector2(sin(deg_to_rad(hdg)), -cos(deg_to_rad(hdg)))
+	var p := Vector2(me.world_x(), me.world_z()) + d * 9000.0
+	var a := {"callsign": _callsign(al), "x": p.x, "z": p.y, "alt": me.fdm.pos.y, "vs": 0.0, "hdg": fposmod(hdg + 180.0, 360.0), "spd": 240.0,
+		"type": t, "airline": al, "model": null, "phase": "airborne", "hdg_t": fposmod(hdg + 180.0, 360.0), "alt_t": me.fdm.pos.y, "bank": 0.0,
+		"react": false, "tcas": false, "called": true, "man_t": 9999.0}
+	airborne.append(a)
+	return a
+
+
 func _drop_airborne(a: Dictionary) -> void:
 	airborne.erase(a)
 	if a.get("model") != null and is_instance_valid(a.model):
