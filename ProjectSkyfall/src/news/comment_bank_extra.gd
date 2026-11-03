@@ -7,7 +7,7 @@ extends RefCounted
 ## Placeholders are the same as CommentBank ({airline}, {num}, {short}, {place}, {from}, {to}...).
 
 ## Tones that exist only here (CommentThreads always draws them from this bank).
-const NEW_TONES := ["disaster", "stranded", "president", "safety", "celebrity", "feelgood", "spotter", "frequent_flyer", "geography",
+const NEW_TONES := ["controller", "disaster", "stranded", "president", "safety", "celebrity", "feelgood", "spotter", "frequent_flyer", "geography",
 	"conspiracy", "extreme_weather", "newtype", "airline_fan", "local", "travel_tip"]
 
 const LINES := {
@@ -187,6 +187,17 @@ const LINES := {
 		"Winter travel tip: leave a full day buffer before anything important.", "Stay hydrated on long-haul. Your skin and your jet lag will thank you.",
 		"Volcanic ash closures can last days. Have a plan B if you're flying around Iceland.", "Earthquake zones: the safest place in an airport is away from the big windows.",
 	],
+	"controller": [
+		"Retired controller here. Forty aircraft an hour on one runway, and you're only as good as your last clearance.",
+		"Controllers are human. Understaffed, overworked, and still the reason flying is so safe.", "This is why pilots look out of the window even when they've been cleared.",
+		"Runway incursions are the scariest thing in aviation. Glad this one ended well.", "Every tower should have ground radar. No excuses.",
+		"The pilots caught it. That's how the system is supposed to work - layers of safety.", "I'd love to see the tower tapes from this.",
+		"Imagine juggling ten jets in fog with half the staff off sick.", "Give the controllers more breaks and fewer double shifts.",
+		"My cousin works in the tower at {to}. Most stressful job she's ever had.", "Line up and wait has caused more near misses than people realise.",
+		"The read-back is there for a reason. Always question a clearance that doesn't feel right.", "Hats off to whoever ran that tower during rush hour.",
+		"The tower view at night must be incredible though.", "Controller of the year material right there.", "I tried the tower simulator once. Lasted four minutes.",
+		"Clear to land, clear for takeoff, same runway. Somebody's having a very bad day.", "Unions have been warning about controller staffing for years.",
+	],
 	# ------------------------------------------------------------------ more lines for existing tones
 	"condolence": [
 		"My heart goes out to everyone who was waiting at arrivals.", "Sending love to the families of everyone on {num}.", "No words. Just sadness.",
@@ -337,7 +348,7 @@ const TO_PLAYER := {
 
 ## Reply tones for the new comment tones.
 const REPLIES := {
-	"disaster": ["amen", "reassure", "agree"], "stranded": ["complaint_reply", "agree", "lol"], "president": ["agree", "defend", "agree_anger"],
+	"controller": ["agree", "thanks_pilot", "pushback"], "disaster": ["amen", "reassure", "agree"], "stranded": ["complaint_reply", "agree", "lol"], "president": ["agree", "defend", "agree_anger"],
 	"safety": ["agree", "defend", "airline"], "celebrity": ["lol", "agree"], "feelgood": ["agree", "amen", "lol"], "spotter": ["agree", "tech_more", "lol"],
 	"frequent_flyer": ["agree", "lol", "complaint_reply"], "geography": ["agree", "correction"], "conspiracy": ["correction", "correction", "double_down"],
 	"extreme_weather": ["agree", "reassure", "lol"], "newtype": ["agree", "tech_more"], "airline_fan": ["agree", "lol", "complaint_reply"],
@@ -346,6 +357,7 @@ const REPLIES := {
 
 ## Thread moods for the new story topics and how often each tone appears in them.
 const MIX := {
+	"atc": {"controller": 45, "pilot": 12, "technical": 12, "anger": 8, "nervous": 8, "frequent_flyer": 7, "joke": 4, "question": 4},
 	"disaster": {"disaster": 34, "stranded": 14, "extreme_weather": 12, "question": 10, "nervous": 6, "travel_tip": 6, "local": 8, "conspiracy": 3, "joke": 3, "relief": 4},
 	"president": {"president": 45, "technical": 10, "anger": 10, "conspiracy": 8, "condolence": 10, "pilot": 7, "joke": 3, "question": 7},
 	"safety": {"safety": 45, "anger": 12, "frequent_flyer": 10, "pilot": 8, "airline_fan": 8, "travel_tip": 7, "question": 10},

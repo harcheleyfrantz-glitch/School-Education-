@@ -63,6 +63,14 @@ const LIST := [
 	{"id": "whiteout", "title": "Whiteout", "desc": "Land in a blizzard.", "icon": "snow", "group": "Nature"},
 	{"id": "stork", "title": "Special Delivery", "desc": "A baby is born on board your flight.", "icon": "user", "group": "Drama"},
 	{"id": "cupid", "title": "Cupid", "desc": "Someone proposes on your flight.", "icon": "user", "group": "Drama"},
+	# ---------------------------------------------------------------- air traffic control
+	{"id": "tower_rookie", "title": "Tower Rookie", "desc": "Handle ten movements as a tower controller.", "icon": "user", "group": "Air Traffic Control", "goal": 10, "stat": "tower_moves"},
+	{"id": "busy_tower", "title": "Busy Tower", "desc": "Handle a hundred movements as a tower controller.", "icon": "user", "group": "Air Traffic Control", "goal": 100, "stat": "tower_moves"},
+	{"id": "mayday_saved", "title": "Priority Landing", "desc": "Bring a MAYDAY flight safely onto the runway.", "icon": "bell", "group": "Air Traffic Control"},
+	{"id": "runway_collision", "title": "Suspended", "desc": "Clear two aircraft onto the same runway... and watch them collide.", "icon": "bell", "group": "Air Traffic Control"},
+	{"id": "night_shift", "title": "Night Shift", "desc": "Work a night shift in the tower.", "icon": "moon", "group": "Air Traffic Control"},
+	{"id": "rush_hour", "title": "Rush Hour", "desc": "Survive a rush-hour shift with ten movements and no collisions.", "icon": "trophy", "group": "Air Traffic Control"},
+	{"id": "good_catch", "title": "Good Catch", "desc": "Survive an ATC mistake: the runway you were cleared onto was not clear.", "icon": "bell", "group": "Drama"},
 	# ---------------------------------------------------------------- activities
 	{"id": "daily", "title": "Daily Pilot", "desc": "Complete a daily challenge.", "icon": "clock", "group": "Activities"},
 	{"id": "regular", "title": "Regular", "desc": "Complete seven daily challenges.", "icon": "clock", "group": "Activities", "goal": 7, "stat": "dailies"},
@@ -157,6 +165,8 @@ static func on_flight_result(res: Dictionary, cons: Dictionary = {}) -> void:
 	var hz: Dictionary = res.get("hazards", {})
 	if hz.has("lightning"):
 		unlock("zapped")
+	if bool(res.get("atc_mistake", false)) and outcome in ["landed", "diverted"]:
+		unlock("good_catch")
 	for e in res.get("events", []):
 		match String(e.get("id", "")):
 			"birth":
@@ -293,4 +303,16 @@ static func on_photo() -> void:
 
 static func on_skip() -> void:
 	_add("skips", 1.0)
+	_check_goals()
+
+
+static var _tower_last := 0
+
+
+static func on_tower(moves: int) -> void:
+	## Called with the shift's running total; counts only the new movements.
+	if moves < _tower_last:
+		_tower_last = 0
+	_add("tower_moves", float(moves - _tower_last))
+	_tower_last = moves
 	_check_goals()

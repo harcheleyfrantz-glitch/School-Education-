@@ -95,6 +95,16 @@ func show_screen(screen_name: String, params: Dictionary) -> void:
 		session.start(params)
 		current = session
 		return
+	if screen_name == "tower":
+		_free_session()
+		_free_backdrop()
+		Audio.music(false)
+		var tw := TowerSession.new()
+		tw.name = "Tower"
+		add_child(tw)
+		tw.setup(params)
+		current = tw
+		return
 	if screen_name == "replay":
 		_free_session()
 		_free_backdrop()

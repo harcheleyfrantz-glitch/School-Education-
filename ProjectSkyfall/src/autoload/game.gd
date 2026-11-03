@@ -45,7 +45,8 @@ var settings := {
 	"crash_realism": true,
 	"hud_mode": "full",            # full | minimal | off
 	"graphic_crashes": false,
-	"air_traffic": "normal",       # AI airliners met in flight: off / low / normal / busy      # 18+: stylised remains at crash sites and uncensored news footage
+	"air_traffic": "normal",
+	"atc_mistakes": "rare",        # off / rare / sometimes / often: the tower clears you onto an occupied runway       # AI airliners met in flight: off / low / normal / busy      # 18+: stylised remains at crash sites and uncensored news footage
 	"ai_comments": false,          # Claude-written comment sections (needs the player's own API key)
 	"ai_key": "",                  # Anthropic API key, kept only in the local settings file
 	"ai_model": "claude-opus-5-5",

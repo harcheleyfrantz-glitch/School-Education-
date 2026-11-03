@@ -351,6 +351,11 @@ static func on_flight(res: Dictionary, d: Dictionary) -> void:
 		News.publish("gazette", "people", "Smoothest landing ever? Video of %s touchdown at %s goes viral" % [airline, place],
 			"A passenger's video of flight %s touching down at just %d feet per minute has been watched %s times." % [num, int(vs), U.fmt_int(views)],
 			["\"I didn't even feel it,\" the passenger said.", "Pilots online called it a textbook landing."], {"importance": 2, "place": place, "tags": ["feelgood", "spotter"]})
+	if bool(res.get("atc_mistake", false)):
+		News.publish("herald", "incident", "Controller error: %s flight cleared onto occupied runway at %s" % [airline, place],
+			"Flight %s was cleared onto a runway that was not clear. The crew spotted the danger in time." % num,
+			["Investigators are interviewing the controller on duty.", "Air traffic control unions say staffing shortages put pressure on controllers."],
+			{"importance": 2, "place": place, "tags": ["incident", "atc"]})
 	if int(res.get("near_misses", 0)) > 0:
 		News.publish("herald", "incident", "Near miss: %s flight passes within metres of another airliner" % airline,
 			"Investigators are looking into how flight %s came so close to another aircraft in flight." % num,

@@ -69,6 +69,8 @@ static func context(art: Dictionary) -> Dictionary:
 		mood = "fatal" if fatal > 0 else "survived"
 	elif tags.has("president"):
 		mood = "president"
+	elif tags.has("atc"):
+		mood = "atc"
 	elif tags.has("earthquake") or tags.has("volcano") or tags.has("hurricane") or tags.has("tornado") or tags.has("blizzard") or tags.has("heatwave") or tags.has("disaster"):
 		mood = "disaster"
 	elif tags.has("safety"):
@@ -104,7 +106,7 @@ static func context(art: Dictionary) -> Dictionary:
 			total = 90 + imp * 40 + r.randi_range(0, 110)
 		"business":
 			total = 45 + imp * 30 + r.randi_range(0, 90)
-		"disaster", "president":
+		"disaster", "president", "atc":
 			total = 260 + imp * 110 + r.randi_range(0, 260)
 		"safety", "celebrity", "feelgood":
 			total = 110 + imp * 60 + r.randi_range(0, 140)

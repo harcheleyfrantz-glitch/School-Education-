@@ -70,6 +70,8 @@ func _featured() -> Array:
 		out.append(ImageCard.make("Daily Challenge: %s" % String(daily.title), ("Done for today - come back tomorrow for a new one. " if done_today else "A new challenge every day. ") + String(daily.place),
 			"scn:" + String(daily.id), func(): Game.goto("activity", {"category": String(daily.category), "focus": String(daily.id)}),
 			{"ribbon": "DONE TODAY" if done_today else "DAILY", "ribbon_color": UIStyle.GREEN if done_today else UIStyle.RED, "title_size": 28, "kenburns": true}))
+	out.append(ImageCard.make("Be the Controller", "Run the tower at any airport: clear arrivals to land, departures for takeoff, handle MAYDAYs - and never put two jets on one runway.",
+		"ap:KJFK", func(): Game.goto("tower", {"icao": String(Game.settings.get("tower_airport", "KJFK"))}), {"ribbon": "NEW · ATC", "ribbon_color": UIStyle.GREEN, "title_size": 28, "kenburns": true}))
 	out.append(ImageCard.make("Special Missions", "Fly the president with a fighter escort, glide out of a volcanic ash cloud, land in a hurricane, an earthquake or a blizzard.",
 		"scn:ash_iceland", func(): Game.goto("activity", {"category": "special"}), {"ribbon": "NEW", "ribbon_color": UIStyle.RED, "title_size": 28, "kenburns": true}))
 	out.append(ImageCard.make("New York, London, Paris", "The real world: 41 airports from JFK, Atlanta and Las Vegas to Heathrow, Berlin and Stockholm, with the Statue of Liberty, the Space Needle and the Eiffel Tower to fly past.",

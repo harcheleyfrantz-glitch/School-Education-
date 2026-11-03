@@ -42,6 +42,7 @@ var wreck: WreckPieces = null
 var escorts: Escorts = null
 var hazards: WeatherHazards = null
 var near_misses := 0
+var atc_mistake := false
 var _tornado_done := false
 var phase := "preflight"
 var dep_icao := ""
@@ -1886,7 +1887,7 @@ func finish_flight(outcome: String) -> void:
 		"weather": ac.weather, "fuel_planned": fuel_planned, "fuel_start": fuel_start, "accepted_defects": accepted_defects,
 		"walkaround": walk_frac, "emergency_declared": emergency != "", "phase": phase, "late_min": late,
 		"free_flight": bool(params.get("free_flight", false)), "presidential": bool(params.get("presidential", false)),
-		"escort_intercepts": escorts.intercepts if escorts else 0, "hazards": hazards.summary() if hazards else {}, "near_misses": near_misses,
+		"escort_intercepts": escorts.intercepts if escorts else 0, "hazards": hazards.summary() if hazards else {}, "near_misses": near_misses, "atc_mistake": atc_mistake, "go_arounds_n": go_arounds,
 		"weather_preset": WeatherModel.override_preset, "aircraft_record": WorldSim.aircraft(ac.reg),
 		"autofly_landed": autofly and not (touchdown as Dictionary).is_empty(),
 		"captain": _captain_name()}, true)

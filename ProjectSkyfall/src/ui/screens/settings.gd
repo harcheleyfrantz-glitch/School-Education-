@@ -173,6 +173,9 @@ func _show(key: String) -> void:
 			var dens := ["off", "low", "normal", "busy"]
 			_row("Air traffic around you", "Other airliners you meet in flight: crossing, head-on and overtaking. Their crews usually dodge on TCAS - not always. You can collide with them.",
 				option(["Off", "Quiet", "Normal", "Busy"], dens.find(String(Game.settings.get("air_traffic", "normal"))), func(i): Game.set_setting("air_traffic", dens[i])))
+			var mk := ["off", "rare", "sometimes", "often"]
+			_row("ATC mistakes", "Controllers are human: once in a while you are cleared onto a runway that is not clear. Watch out and go around.",
+				option(["Never", "Rare", "Sometimes", "Often"], mk.find(String(Game.settings.get("atc_mistakes", "rare"))), func(i): Game.set_setting("atc_mistakes", mk[i])))
 			_check("Realistic crash consequences", "A fatal accident ends the character's story for good", "crash_realism")
 			_check("Metric units", "", "units_metric")
 		"controls":

@@ -8,6 +8,17 @@ extends Node3D
 const MAX_MOVING := 3
 const MAX_PARKED := 6
 
+signal movement(item: Dictionary, kind: String)    # landed / departed / go_around / collision
+
+## Tower mode: the player is the controller - arrivals need a landing clearance, departures a
+## takeoff clearance, and two aircraft on the runway at once can collide.
+var atc_mode := false
+var atc_airport := ""
+var max_moving := MAX_MOVING
+var spawn_range := Vector2(70.0, 150.0)
+var mistakes: Array = []          # ATC-error traffic put in the player's way
+var runway_closed := 0.0          # tower mode: seconds the runway stays closed after a crash
+var _wrecks: Array = []
 var session: Node
 var view: WorldView
 var moving: Array = []
@@ -33,7 +44,7 @@ func setup(sess: Node, world_view: WorldView) -> void:
 	var detail := String(Game.settings.get("quality", "high"))
 	var dep := String(sess.get("dep_icao"))
 	if dep != "":
-		_populate_parked(dep, MAX_PARKED if detail in ["high", "ultra"] else 3)
+		_populate_parked(dep, (10 if atc_mode else MAX_PARKED) if detail in ["high", "ultra", "medium"] else (6 if atc_mode else 3))
 	for i in 5:
 		_spawn_airborne()
 
@@ -144,6 +155,8 @@ func _active_end(icao: String) -> Dictionary:
 func _focus_airport() -> String:
 	## The airport where traffic matters right now: the departure airport while the player is
 	## on the ground there or climbing out, the arrival airport once within 70 km of it.
+	if atc_airport != "":
+		return atc_airport
 	var ac: Aircraft = session.get("ac")
 	if ac == null:
 		return ""
@@ -160,7 +173,7 @@ func _focus_airport() -> String:
 
 func _spawn_moving() -> void:
 	var icao := _focus_airport()
-	if icao == "" or moving.size() >= MAX_MOVING:
+	if icao == "" or moving.size() >= max_moving:
 		return
 	var L := AirportLayout.get_layout(icao)
 	if L.runways.is_empty() or AirportLayout.get_layout(icao).size == "ga":
@@ -479,15 +492,26 @@ func _process(delta: float) -> void:
 				_place_parked(item)
 	_spawn_t -= delta
 	if _spawn_t <= 0.0:
-		_spawn_t = _rng.randf_range(70.0, 150.0)
+		_spawn_t = _rng.randf_range(spawn_range.x, spawn_range.y)
 		_spawn_moving()
+	if atc_mode:
+		_runway_conflicts()
+		if runway_closed > 0.0:
+			runway_closed -= delta
+			if runway_closed <= 0.0:
+				for w in _wrecks:
+					if is_instance_valid(w):
+						(w as Node).queue_free()
+				_wrecks.clear()
+				_atc_call(atc_airport, "", "All stations, the runway is open again.", "")
+	_mistake_watch(delta)
 	for item in moving.duplicate():
 		if item.model == null:
 			continue
 		match String(item.phase):
 			"final", "flare", "rollout", "go_around":
 				_update_arrival(item, delta)
-			"pushback", "taxi_out", "hold", "lineup", "takeoff", "climb":
+			"pushback", "taxi_out", "hold", "lineup", "lineup_wait", "takeoff", "climb":
 				_update_departure(item, delta)
 			"taxi_in":
 				_update_taxi(item, delta, 8.0)
@@ -542,8 +566,17 @@ func _update_arrival(item: Dictionary, dt: float) -> void:
 			var h := (float(item.dist) + 300.0) * tan(deg_to_rad(3.0))
 			item.alt = elev + gh + maxf(h, 0.0)
 			item.pitch = 2.5
+			if atc_mode and (not bool(item.get("clear_land", false)) or runway_closed > 0.0) and float(item.dist) < 1400.0:
+				item.phase = "go_around"
+				_atc_call(String(item.icao), String(item.callsign), "", "Going around, no landing clearance, %s." % item.callsign)
+				movement.emit(item, "go_around")
+			# an ATC error: this arrival keeps coming at the player's runway until very late
+			if bool(item.get("mistake", false)) and float(item.dist) < 700.0 and _player_on_runway(String(item.icao), end):
+				item.phase = "go_around"
+				item.mistake = false
+				_atc_call(String(item.icao), String(item.callsign), "%s, GO AROUND! Traffic on the runway!" % item.callsign, "Going around, %s!" % item.callsign)
 			# runway blocked by the player close in: go around
-			if float(item.dist) < 3500.0 and float(item.dist) > 1500.0 and _player_on_runway(String(item.icao), end):
+			if not bool(item.get("mistake", false)) and float(item.dist) < 3500.0 and float(item.dist) > 1500.0 and _player_on_runway(String(item.icao), end):
 				item.phase = "go_around"
 				_atc_call(String(item.icao), String(item.callsign), "%s, go around, I say again, go around, runway occupied." % item.callsign,
 					"Going around, %s." % item.callsign)
@@ -558,6 +591,7 @@ func _update_arrival(item: Dictionary, dt: float) -> void:
 			if hh <= 0.02:
 				item.phase = "rollout"
 				item.flap = float(spec.flaps.size() - 1)
+				movement.emit(item, "landed")
 		"rollout":
 			item.speed = maxf(float(item.speed) - 2.2 * dt, 9.0)
 			item.dist = float(item.dist) - float(item.speed) * dt
@@ -632,6 +666,15 @@ func _update_taxi(item: Dictionary, dt: float, max_speed: float) -> bool:
 	var dh := U.angle_diff_deg(want, float(item.hdg))
 	item.hdg = fposmod(float(item.hdg) + clampf(dh, -25.0 * dt, 25.0 * dt), 360.0)
 	var spd := max_speed * (0.45 if absf(dh) > 25.0 else 1.0)
+	# give way: stop for the player's aircraft (or another taxiing jet) close ahead
+	if _blocked_ahead(item, pos, ap):
+		spd = 0.0
+		if not bool(item.get("gave_way", false)):
+			item.gave_way = true
+			if session.get("ac") != null:
+				_atc_call(icao, String(item.callsign), "%s, give way to the traffic crossing ahead." % item.callsign, "Giving way, %s." % item.callsign)
+	else:
+		item.gave_way = false
 	item.speed = move_toward(float(item.speed), spd, dt * 1.2)
 	var hd := Vector2(sin(deg_to_rad(float(item.hdg))), -cos(deg_to_rad(float(item.hdg))))
 	pos += hd * float(item.speed) * dt
@@ -641,6 +684,117 @@ func _update_taxi(item: Dictionary, dt: float, max_speed: float) -> bool:
 	m.basis = _basis(float(item.hdg))
 	m.animate_simple(1.0, float(item.flap), 18.0, {"nav": true, "beacon": true}, view.night, dt, float(item.speed))
 	return false
+
+
+func _blocked_ahead(item: Dictionary, pos: Vector2, ap: Dictionary) -> bool:
+	var hd := Vector2(sin(deg_to_rad(float(item.hdg))), -cos(deg_to_rad(float(item.hdg))))
+	var me: Aircraft = session.get("ac")
+	if me != null and me.fdm.on_ground:
+		var rel := Vector2(me.world_x() - float(ap.x), me.world_z() - float(ap.z)) - pos
+		if rel.length() < 110.0 and rel.normalized().dot(hd) > 0.5:
+			return true
+	for o in moving:
+		if o == item or o.model == null or not o.has("x") or not String(o.phase) in ["taxi_out", "taxi_in", "pushback", "hold"]:
+			continue
+		var rel2 := Vector2(float(o.x) - float(ap.x), float(o.z) - float(ap.z)) - pos
+		if rel2.length() < 70.0 and rel2.normalized().dot(hd) > 0.7 and int(o.get("id", 0)) < int(item.get("id", 0)):
+			return true
+	return false
+
+
+func _runway_conflicts() -> void:
+	## Tower mode: two aircraft on the runway at the same place is a collision.
+	for i in moving.size():
+		var a: Dictionary = moving[i]
+		if not String(a.phase) in ["flare", "rollout", "takeoff", "lineup", "lineup_wait", "final"] or a.model == null or not a.has("x"):
+			continue
+		for j in range(i + 1, moving.size()):
+			var b: Dictionary = moving[j]
+			if not String(b.phase) in ["flare", "rollout", "takeoff", "lineup", "lineup_wait", "final"] or b.model == null or not b.has("x"):
+				continue
+			var pa := Vector3(float(a.x), float(a.get("alt", 0.0)), float(a.z))
+			var pb := Vector3(float(b.x), float(b.get("alt", 0.0)), float(b.z))
+			if pa.distance_to(pb) < 45.0:
+				_wreck(a)
+				_wreck(b)
+				movement.emit(a, "collision")
+				movement.emit(b, "collision")
+				return
+
+
+func _wreck(item: Dictionary) -> void:
+	moving.erase(item)
+	item.phase = "wreck"
+	runway_closed = 180.0
+	var m: AircraftModel = item.model
+	if m == null:
+		return
+	_wrecks.append(m)
+	var f := NewsFX.flames(1.6)
+	m.add_child(f)
+	f.position = Vector3(0, 1.5, 2.0)
+	var sm := NewsFX.smoke_column(1.2, Vector3(2, 0, 1), 1.0, 90)
+	m.add_child(sm)
+	sm.position = Vector3(0, 3.0, 2.0)
+
+
+# ================================================================== ATC errors (when the player flies)
+func mistake_lineup(icao: String, end: Dictionary) -> void:
+	## The tower clears the player to land - and an airliner to line up on the same runway.
+	var t := _type_for_span(40.0, ["narrowbody", "regional"])
+	var al := _airline_for(t, icao)
+	var ap: Dictionary = Airports.get_ap(icao)
+	var dirv := Vector2(sin(deg_to_rad(float(end.hdg))), -cos(deg_to_rad(float(end.hdg))))
+	var p := Vector2(float(end.thr_x), float(end.thr_z)) + dirv * 140.0
+	var spec := AircraftTypes.get_type(t)
+	var item := {"icao": icao, "type": t, "airline": al, "model": null, "callsign": _callsign(al), "phase": "lineup_wait", "end": end,
+		"x": p.x, "z": p.y, "hdg": float(end.hdg), "speed": 0.0, "t": 0.0, "alt": float(ap.elev) + float(spec.gear_height), "pitch": 0.0, "gear": 1.0, "flap": 1.0,
+		"id": _next_id, "mistake": true, "pts": []}
+	_next_id += 1
+	moving.append(item)
+	_queue.append(item)
+	mistakes.append({"item": item, "kind": "lineup", "end": end, "icao": icao, "warned": false, "t": 0.0})
+
+
+func mistake_final(icao: String, end: Dictionary) -> void:
+	## The tower clears the player for takeoff with an airliner already on short final.
+	var t := _type_for_span(40.0, ["narrowbody", "regional"])
+	var al := _airline_for(t, icao)
+	var item := {"icao": icao, "type": t, "airline": al, "model": null, "callsign": _callsign(al), "phase": "final",
+		"end": end, "dist": 5200.0, "speed": 145.0 * U.KT, "id": _next_id, "t": 0.0, "path": [], "hdg": float(end.hdg), "alt": 0.0, "vs": 0.0,
+		"pitch": 0.0, "gear": 1.0, "flap": 3.0, "mistake": true}
+	_next_id += 1
+	moving.append(item)
+	_queue.append(item)
+	mistakes.append({"item": item, "kind": "final", "end": end, "icao": icao, "warned": false, "t": 0.0})
+
+
+func _mistake_watch(delta: float) -> void:
+	## Sometimes the controller catches the error late and calls the player off.
+	var me: Aircraft = session.get("ac")
+	for mk in mistakes:
+		mk.t = float(mk.t) + delta
+		if bool(mk.warned) or me == null or me.crashed_state:
+			continue
+		var end: Dictionary = mk.end
+		var d := U.dist2d(me.world_x(), me.world_z(), float(end.thr_x), float(end.thr_z))
+		var cs := String(session.get("callsign"))
+		if String(mk.kind) == "lineup" and not me.fdm.on_ground and d < 2600.0 and me.ra < 260.0:
+			mk.warned = true
+			if _rng.randf() < 0.5:
+				_say_player("%s, GO AROUND, I say again GO AROUND, traffic on the runway!" % cs)
+		elif String(mk.kind) == "final" and me.fdm.on_ground and me.fdm.ground_speed() > 15.0:
+			mk.warned = true
+			if _rng.randf() < 0.5:
+				_say_player("%s, STOP IMMEDIATELY, cancel takeoff clearance, traffic on short final!" % cs)
+
+
+func _say_player(text: String) -> void:
+	var atc: Node = session.get("atc")
+	if atc and atc.has_method("traffic_advisory"):
+		atc.call("traffic_advisory", text, text)
+	if session.has_signal("toast"):
+		session.toast.emit("ATC: " + text, "warning")
 
 
 func _park(item: Dictionary) -> void:
@@ -686,7 +840,11 @@ func _update_departure(item: Dictionary, dt: float) -> void:
 				item.t = 0.0
 		"hold":
 			m.animate_simple(1.0, 1.0, 18.0, {"nav": true, "beacon": true}, view.night, dt)
-			if float(item.t) > 20.0 and not _player_on_runway(icao, end) and not arrival_within(icao, 70.0) and not _player_arriving(icao, end):
+			var may_go := (bool(item.get("clear_takeoff", false)) and runway_closed <= 0.0 if atc_mode else (float(item.t) > 20.0 and not _player_on_runway(icao, end) and not arrival_within(icao, 70.0) and not _player_arriving(icao, end)))
+			if not atc_mode and not bool(item.get("told_hold", false)) and float(item.t) > 8.0 and _player_arriving(icao, end):
+				item.told_hold = true
+				_atc_call(icao, String(item.callsign), "%s, hold short runway %s, traffic landing." % [item.callsign, end.name], "Holding short, %s." % item.callsign)
+			if may_go:
 				item.phase = "lineup"
 				item.t = 0.0
 				_atc_call(icao, String(item.callsign), "%s, runway %s, cleared for takeoff." % [item.callsign, end.name],
@@ -695,6 +853,18 @@ func _update_departure(item: Dictionary, dt: float) -> void:
 				var dir := Vector2(sin(deg_to_rad(float(end.hdg))), -cos(deg_to_rad(float(end.hdg))))
 				item.pts = [thr + dir * 80.0, thr + dir * 140.0]
 				item.speed = 4.0
+		"lineup_wait":
+			# lined up and waiting on the runway (an ATC error put it there): stays until the
+			# player has landed past it or gone around, then departs
+			m.position = _ap_local(icao, Vector2(float(item.x) - float(ap.x), float(item.z) - float(ap.z)), float(ap.elev) + float(spec.gear_height))
+			m.basis = _basis(float(item.hdg))
+			m.animate_simple(1.0, 1.0, 18.0, {"nav": true, "beacon": true, "strobe": true}, view.night, dt)
+			if float(item.t) > 30.0 and not _player_arriving(icao, end) and not _player_on_runway(icao, end):
+				item.phase = "takeoff"
+				item.t = 0.0
+				item.speed = 3.0
+				item.alt = float(ap.elev) + float(spec.gear_height)
+				item.pitch = 0.0
 		"lineup":
 			if _update_taxi(item, dt, 6.0):
 				item.phase = "takeoff"
@@ -717,6 +887,7 @@ func _update_departure(item: Dictionary, dt: float) -> void:
 				item.pitch = move_toward(float(item.pitch), 12.0, dt)
 				item.gear = move_toward(float(item.gear), 0.0, dt * 0.15)
 				if float(item.alt) > float(ap.elev) + 2500.0:
+					movement.emit(item, "departed")
 					_retire(item)
 					return
 			var pos := Vector2(float(item.x), float(item.z)) + dir2 * float(item.speed) * dt

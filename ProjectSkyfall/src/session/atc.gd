@@ -475,6 +475,7 @@ func _tower_departure() -> void:
 		_say("TWR", "%s, line up and wait runway %s, traffic on short final." % [callsign, dep_end.name], "%s, line up and wait %s." % [spoken_cs, Phraseology.runway(dep_end.name)], 2.0, "lineup_rb")
 		return
 	_say("TWR", "%s, %s, runway %s, cleared for takeoff." % [callsign, w[0], dep_end.name], "%s, %s, %s, cleared for take off." % [spoken_cs, w[1], Phraseology.runway(dep_end.name)], 2.0, "to_rb")
+	_maybe_mistake("takeoff")
 
 
 func _alt_verb(target_m: float) -> String:
@@ -505,6 +506,7 @@ func _tower_landing() -> void:
 		state = "continue_app"
 		return
 	_say("ATWR", "%s, %s, runway %s, cleared to land." % [callsign, w[0], arr_end.name], "%s, %s, %s, cleared to land." % [spoken_cs, w[1], Phraseology.runway(arr_end.name)], 2.0, "land_rb")
+	_maybe_mistake("land")
 
 
 func _vector_heading() -> float:
@@ -692,6 +694,24 @@ func _on_active_runway(n: Dictionary) -> bool:
 const OTHER_CALLS := ["Coastal", "Lumen", "Northwind", "Westmark", "Apex", "Skyfall", "Horizon"]
 
 
+const MISTAKE_ODDS := {"off": 0.0, "rare": 0.03, "sometimes": 0.12, "often": 0.35}
+
+
+func _maybe_mistake(kind: String) -> void:
+	## Controllers are human: once in a while the runway you were cleared onto is not clear.
+	var p: float = MISTAKE_ODDS.get(String(Game.settings.get("atc_mistakes", "rare")), 0.03)
+	if _rng.randf() >= p or bool(session.get("atc_mistake")):
+		return
+	var tm = session.get("traffic")
+	if tm == null:
+		return
+	session.set("atc_mistake", true)
+	if kind == "land":
+		tm.mistake_lineup(arr, arr_end)
+	else:
+		tm.mistake_final(dep, dep_end)
+
+
 func traffic_advisory(text: String, spoken_text: String) -> void:
 	## A traffic information call to us on whatever frequency we are on.
 	_emit(station, "atc", text, spoken_text)
@@ -702,7 +722,8 @@ func traffic_call(icao: String, cs: String, atc_text: String, reply: String) -> 
 	var st := "TWR" if icao == dep else "ATWR"
 	if station != st:
 		return
-	_emit(st, "atc", atc_text, atc_text)
+	if atc_text != "":
+		_emit(st, "atc", atc_text, atc_text)
 	get_tree().create_timer(_rng.randf_range(1.5, 2.5)).timeout.connect(func(): _emit(st, "other", reply, reply, cs))
 
 
