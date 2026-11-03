@@ -1564,9 +1564,9 @@ func _update_plane_run(delta: float) -> void:
 		ap.hdg_sel = fposmod(rad_to_deg(atan2(to.x, -to.z)), 360.0)
 		ap.bank_limit = 30.0
 		ap.set_thr("SPD")
-		ap.spd_sel = minf(float(ac.spec.vmo) - 20.0, 330.0)
-		ap.set_vert("VS")
-		ap.vs_sel = clampf((tp.y - me.y) * 0.08, -18.0, 15.0)
+		ap.spd_sel = minf(float(ac.spec.vmo) - 20.0, 330.0) if me.y < 7000.0 else float(ac.spec.cruise_ias)
+		ap.alt_sel = maxf(tp.y, Geo.ground_height(me.x, me.z) + 300.0)
+		ap.set_vert("FLCH" if absf(tp.y - me.y) > 300.0 else "ALT")
 	else:
 		# final run: point straight at where the target will be
 		var spd := maxf(ac.fdm.vel.length(), 120.0)
@@ -1836,13 +1836,22 @@ func _skip_to_target() -> void:
 	var dir := (target - here).normalized()
 	var p := target - dir * out
 	var alt := maxf(cp.y + (1100.0 if out > 5000.0 else 450.0), Geo.ground_height(p.x, p.y) + 300.0)
+	if crash_target == "plane":
+		out = 7000.0
+		p = target - dir * out
+		alt = cp.y
 	var hdg := fposmod(rad_to_deg(atan2(dir.x, -dir.y)), 360.0)
 	var skipped := maxf(dist - out, 0.0) / 230.0
 	WorldSim.advance(skipped)
 	view.set_time(WorldSim.clock)
-	ac.place_at(view.world_to_local(p.x, alt, p.y), hdg, false, 250.0 * U.KT)
+	var spd := 250.0 * U.KT
+	if crash_target == "plane":
+		spd = float(ac.spec.cruise_tas) * U.KT if alt > 6000.0 else maxf(250.0, float(ac.spec.cruise_ias)) * U.KT
+	ac.place_at(view.world_to_local(p.x, alt, p.y), hdg, false, spd)
 	view.rebase(ac.position)
-	ac.throttle_lever = 0.5
+	ac.throttle_lever = 0.8 if crash_target == "plane" else 0.5
+	ac.ap.alt_sel = alt
+	ac.ap.set_vert("ALT")
 	_skip_toast("Target ahead.", skipped / 60.0)
 
 

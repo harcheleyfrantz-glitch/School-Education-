@@ -39,9 +39,9 @@ func _ready() -> void:
 		var dd := Vector2(s.ac.world_x(), s.ac.world_z()).distance_to(Vector2(s._crash_pt.x, s._crash_pt.z)) if s._crash_pt != Vector3.ZERO else 1e9
 		if dd < 4000.0 and int(t * 2.0) != int((t - 1.0 / 60.0 * Engine.time_scale) * 2.0):
 			print("   dive dist %5.0f agl %5.0f vs %6.1f sel %6.1f hdg %5.1f sel %5.1f ias %3.0f" % [dd, s.ac.fdm.pos.y - s._crash_pt.y, s.ac.fdm.vel.y, s.ac.ap.vs_sel, s.ac.fdm.heading_deg(), s.ac.ap.hdg_sel, s.ac.fdm.ias / U.KT])
-		if t - last > 30.0:
+		if t - last > (3.0 if target == "plane" else 30.0):
 			last = t
-			print("%6.0fs phase %-10s ai %-10s alt %5.0f ra %5.0f ias %3.0f crashed %s" % [t, s.phase, s.ai.phase if s.ai else "-", s.ac.fdm.pos.y, s.ac.ra, s.ac.nav_state().ias_kt, s.ac.crashed_state])
+			print("%6.0fs phase %-10s ai %-10s alt %5.0f ra %5.0f ias %3.0f pitch %.0f ap %s %s/%s sel %.0f crashed %s" % [t, s.phase, s.ai.phase if s.ai else "-", s.ac.fdm.pos.y, s.ac.ra, s.ac.nav_state().ias_kt, s.ac.fdm.pitch_deg(), s.ac.ap.engaged, s.ac.ap.vert_mode, s.ac.ap.thr_mode, s.ac.ap.alt_sel, s.ac.crashed_state])
 		if s.ac.crashed_state and not done:
 			print("CRASHED at %s, %.0f m from target, meta %s" % [Geo.place_name(s.ac.world_x(), s.ac.world_z()), Vector2(s.ac.world_x(), s.ac.world_z()).distance_to(Vector2(s._crash_pt.x, s._crash_pt.z)), s.ac.get_meta_list().map(func(k): return "%s=%s" % [k, s.ac.get_meta(k)])])
 			done = true
