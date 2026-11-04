@@ -3,6 +3,7 @@ class_name AirportBuilder
 ## product into nodes. Coordinates are airport-local with y = height above field elevation.
 
 const K := preload("res://src/world/models/model_kit.gd")
+const Geo := preload("res://src/world/models/airports/terminal_geo.gd")
 const PAINT_Y := 0.075
 const RWY_Y := 0.06
 const TWY_Y := 0.05
@@ -283,6 +284,9 @@ static func _buildings(L: Dictionary, a: Dictionary, prod: Dictionary, detail: f
 	var metal := MeshBuilder.new()
 	var cab := MeshBuilder.new()
 	var misc := MeshBuilder.new()
+	var far := MeshBuilder.new()
+	var m := {"glass": glass, "concrete": concrete, "metal": metal, "cab": cab, "misc": misc, "far": far}
+	var st: Dictionary = L.style
 	var bi := 0
 	for b in L.buildings:
 		bi += 1
@@ -295,63 +299,39 @@ static func _buildings(L: Dictionary, a: Dictionary, prod: Dictionary, detail: f
 		var bh: float = b.h
 		var bd: float = b.depth
 		var bl: float = b.len
-		if b.kind in ["terminal", "concourse"]:
-			# ground floor (baggage, services), glazed departures level (level with the jet bridge
-			# stubs, see TerminalInterior.FLOOR), wavy roof
-			var fl := TerminalInterior.FLOOR
-			concrete.xf = t
-			concrete.add_box(Vector3(0, fl * 0.5, 0), Vector3(bd - 2.0, fl, bl - 2.0), Color.WHITE, true)
-			glass.xf = t
-			glass.add_box(Vector3(0, fl + (bh - fl) * 0.5, 0), Vector3(bd, bh - fl, bl), Color.WHITE, true)
-			metal.xf = t
-			var bays := maxi(2, int(bl / 90.0))
-			var rise := 7.0 if L.size == "hub" else 4.0
-			for k in bays:
-				var zc: float = -bl * 0.5 + (k + 0.5) * (bl / bays)
-				K.arch(metal, Vector3(0, bh, zc), bd + 14.0, rise, bl / bays + 0.5, 14, Color.WHITE)
-			# roof-edge fascia under the overhanging eaves
-			for sx in [-1.0, 1.0]:
-				metal.add_box(Vector3(sx * (bd * 0.5 + 6.6), bh + 0.25, 0), Vector3(0.9, 1.1, bl + 0.5), Color.WHITE)
-			# structural columns along both facades
-			for k in int(bl / 18.0) + 1:
-				var zc2: float = -bl * 0.5 + k * 18.0
-				concrete.add_box(Vector3(bd * 0.5 + 0.6, bh * 0.5, zc2), Vector3(1.0, bh, 1.0), Color.WHITE, true)
-				concrete.add_box(Vector3(-bd * 0.5 - 0.6, bh * 0.5, zc2), Vector3(1.0, bh, 1.0), Color.WHITE, true)
-			metal.xf = Transform3D.IDENTITY
-			# facade detail: mullion fins and the floor-line spandrel on the glazed level; the
-			# landside gets the departures canopy on slim columns and entrance doors
-			misc.xf = t
-			for sx2 in [-1.0, 1.0]:
-				var wn3: Vector3 = basis * Vector3(sx2, 0, 0)
-				var wn := Vector2(wn3.x, wn3.z)
-				var airside := _side_is_airside(L, c, wn, bd * 0.5)
-				var fx: float = sx2 * (bd * 0.5 + 0.2)
-				misc.add_box(Vector3(fx, fl + 0.1, 0), Vector3(0.45, 0.9, bl), FIN)
-				misc.add_box(Vector3(fx, bh - 0.6, 0), Vector3(0.45, 1.2, bl), FIN)
-				var nf := int(bl / 12.0)
-				for k2 in nf + 1:
-					var zf: float = -bl * 0.5 + bl * float(k2) / maxf(nf, 1)
-					misc.add_box(Vector3(fx, fl + (bh - fl) * 0.5, zf), Vector3(0.6, bh - fl, 0.22), FIN)
-				if not airside:
-					var cx: float = sx2 * (bd * 0.5 + 7.5)
-					misc.add_box(Vector3(cx, fl - 0.15, 0), Vector3(15.0, 0.45, bl * 0.72), Color(0.86, 0.87, 0.88))
-					misc.add_box(Vector3(sx2 * (bd * 0.5 + 14.8), fl - 0.55, 0), Vector3(0.5, 0.5, bl * 0.72), FIN)
-					var nc := int(bl * 0.72 / 18.0)
-					for k3 in nc + 1:
-						var zc3: float = -bl * 0.36 + bl * 0.72 * float(k3) / maxf(nc, 1)
-						K.cyl(misc, Vector3(sx2 * (bd * 0.5 + 13.5), 0, zc3), Vector3(sx2 * (bd * 0.5 + 13.5), fl - 0.35, zc3), 0.22, 0.2, 8, FIN, false)
-					var nd := int(bl / 36.0)
-					for k4 in nd:
-						var zd: float = -bl * 0.5 + (k4 + 0.5) * bl / maxf(nd, 1)
-						misc.add_box(Vector3(sx2 * (bd * 0.5 - 0.9), 1.6, zd), Vector3(0.3, 3.2, 6.0), DARK_GLASS)
-						misc.add_box(Vector3(sx2 * (bd * 0.5 - 0.75), 3.35, zd), Vector3(0.4, 0.3, 6.4), FIN)
-			misc.xf = Transform3D.IDENTITY
-			# airport name on both long sides (the satellite carries its concourse letters)
+		if b.kind in ["terminal", "concourse", "annex"]:
+			# glazed hall with a lit interior behind the curtain walls and the airport's roof
+			var walk: bool = b.kind == "terminal" and bi == 1
+			var ust: Dictionary = st
+			if b.kind == "annex":
+				ust = st.duplicate()
+				ust.roof = ["arch", "flat", "wave", "shell"][bi % 4]
+			Geo.unit(m, prod, L, b, ust, walk, bi * 977 + U.hash_str(L.icao))
+			var roof_k: String = ust.roof
+			if roof_k == "flat":
+				var top: float = bh + (6.5 if int(b.get("levels", 1)) >= 3 else 0.0)
+				_roof_plant(misc, t, top + 1.9, bd * 0.5 - 6.0, bl * 0.5 - 6.0, bi * 31 + U.hash_str(L.icao))
+			# airport name on both long sides (the satellites carry their concourse letters)
 			var n := Vector2(-ax.y, ax.x)
+			var letters := "ABCDEFGHJK"
+			var ui: int = int(b.get("unit", 0))
 			for sgn in [1.0, -1.0]:
-				var face: Vector2 = c + n * sgn * (bd * 0.5 + 0.4)
-				var title := String(a.name).to_upper() if b.kind == "terminal" else ("CONCOURSE C" if sgn > 0.0 else "CONCOURSE D")
-				_sign_label(prod, title, Vector3(face.x, bh - 3.0, face.y), n * sgn, 3.4 if L.size == "hub" else 2.2, Color(0.95, 0.97, 1.0), 6)
+				var face: Vector2 = c + n * sgn * (bd * 0.5 + 0.6)
+				var title := String(a.name).to_upper()
+				if b.kind == "concourse":
+					title = "CONCOURSE %s" % letters[mini(ui * 2 + (0 if sgn > 0.0 else 1), letters.length() - 1)]
+				elif b.kind == "annex":
+					title = "TERMINAL %d" % (bi + 2)
+				_sign_label(prod, title, Vector3(face.x, bh + 2.0, face.y), n * sgn, 3.4 if L.size == "hub" else 2.2, Color(0.95, 0.97, 1.0), 6)
+		elif b.kind == "garage":
+			Geo.garage(m, prod, b, st, bi * 131 + U.hash_str(L.icao))
+		elif b.kind == "hotel":
+			Geo.hotel(m, prod, b, st, String(a.short))
+		elif b.kind == "cargo":
+			Geo.cargo(m, prod, b, st)
+			_roof_plant(misc, t, bh + 0.8, bd * 0.5 - 2.0, bl * 0.5 - 2.0, bi * 17 + U.hash_str(L.icao))
+		elif b.kind in ["theme", "drum", "jewel"]:
+			Geo.landmark(m, prod, b, st)
 		else:
 			concrete.xf = t
 			concrete.add_box(Vector3(0, bh * 0.5, 0), Vector3(bd, bh, bl), Color.WHITE, true)
@@ -367,43 +347,10 @@ static func _buildings(L: Dictionary, a: Dictionary, prod: Dictionary, detail: f
 			_sign_label(prod, "%s AVIATION" % String(a.short).to_upper(), Vector3(c.x + n2.x * (bd * 0.5 + 0.3), bh - 1.0, c.y + n2.y * (bd * 0.5 + 0.3)), n2, 1.0, Color(0.1, 0.2, 0.4))
 	glass.xf = Transform3D.IDENTITY
 	concrete.xf = Transform3D.IDENTITY
-	# control tower: base building, ribbed tapering shaft, glazed equipment floor, catwalk,
-	# the cab with slanted glazing and mullions, overhanging roof, radome and masts
-	var tp: Vector2 = L.tower
-	var th: float = L.tower_h
-	var tr := 4.0 if th > 50.0 else (2.6 if th > 20.0 else 1.6)
-	if th > 20.0:
-		var bb := Vector2(tr * 3.6, tr * 0.5)
-		concrete.add_box(_v3(tp + bb, 4.5), Vector3(tr * 5.5, 9.0, tr * 4.0), Color.WHITE, true)
-		glass.add_box(_v3(tp + bb, 5.0), Vector3(tr * 5.5 + 0.2, 2.6, tr * 4.0 + 0.2), Color.WHITE, true)
-		_roof_plant(misc, Transform3D(Basis(), _v3(tp + bb, 0)), 9.0, tr * 2.75, tr * 2.0, U.hash_str(L.icao) + 7)
-	K.cyl(concrete, _v3(tp, 0), _v3(tp, th - 4.0), tr * 1.3, tr, 12, Color.WHITE)
-	for k5 in 4:
-		var ang := TAU * k5 / 4.0 + PI * 0.25
-		var dv := Vector2(cos(ang), sin(ang))
-		misc.add_box_xf(Transform3D(Basis(Vector3.UP, -ang), _v3(tp + dv * tr * 1.05, (th - 4.0) * 0.5)), Vector3(tr * 0.5, th - 4.0, tr * 0.35), Color(0.8, 0.8, 0.78))
-	K.cyl(concrete, _v3(tp, th - 4.0), _v3(tp, th - 3.4), tr * 1.05, tr * 1.85, 12, Color.WHITE)
-	K.cyl(glass, _v3(tp, th - 3.4), _v3(tp, th - 0.5), tr * 1.85, tr * 1.85, 12, Color.WHITE)
-	K.cyl(concrete, _v3(tp, th - 0.5), _v3(tp, th + 0.2), tr * 2.65, tr * 2.6, 16, Color.WHITE)
-	cab.add_cylinder(_v3(tp, th + 0.2), _v3(tp, th + 5.0), tr * 2.0, tr * 2.35, 12, Color.WHITE, false)
-	for k6 in 12:
-		var a6 := TAU * (float(k6) + 0.5) / 12.0
-		var d6 := Vector2(cos(a6), sin(a6))
-		K.cyl(misc, _v3(tp + d6 * tr * 1.99, th + 0.2), _v3(tp + d6 * tr * 2.34, th + 5.0), 0.07, 0.07, 4, STEEL_DARK, false)
-	for k7 in 24:
-		var a7 := TAU * float(k7) / 24.0
-		var a8 := TAU * float(k7 + 1) / 24.0
-		var p7 := tp + Vector2(cos(a7), sin(a7)) * tr * 2.55
-		var p8 := tp + Vector2(cos(a8), sin(a8)) * tr * 2.55
-		K.cyl(misc, _v3(p7, th + 0.2), _v3(p7, th + 1.25), 0.04, 0.04, 3, FIN, false)
-		K.cyl(misc, _v3(p7, th + 1.25), _v3(p8, th + 1.25), 0.05, 0.05, 3, FIN, false)
-	K.cyl(concrete, _v3(tp, th + 5.0), _v3(tp, th + 5.8), tr * 2.7, tr * 2.55, 16, Color.WHITE)
-	K.cyl(concrete, _v3(tp, th + 5.8), _v3(tp, th + 6.4), tr * 1.6, tr * 1.25, 12, Color.WHITE)
-	misc.add_sphere(_v3(tp + Vector2(tr * 0.7, 0), th + 6.4 + tr * 0.28), Vector3.ONE * tr * 0.3, 10, 6, Color(0.92, 0.92, 0.9))
-	K.cyl(misc, _v3(tp + Vector2(-tr * 0.6, tr * 0.4), th + 6.4), _v3(tp + Vector2(-tr * 0.6, tr * 0.4), th + 9.5), 0.06, 0.04, 4, FIN, false)
-	K.cyl(misc, _v3(tp, th + 6.4), _v3(tp, th + 11.0), 0.12, 0.08, 4, Color(0.8, 0.1, 0.1))
-	prod.beacon = _v3(tp, th + 6.8)
-	prod.tower_top = _v3(tp, th + 3.0)
+	# control tower in the airport's signature style (regionals keep a simple box or classic cab)
+	Geo.tower(m, prod, L.tower, L.tower_h, String(st.tower), st)
+	for pm in L.people_mover:
+		Geo.people_mover(m, pm.a, pm.b, st.accent)
 	# hangars: corrugated shed under a barrel roof, segmented doors with a header beam and
 	# windows, an office lean-to on the back and ridge vents
 	var hi := 0
@@ -548,6 +495,8 @@ static func _buildings(L: Dictionary, a: Dictionary, prod: Dictionary, detail: f
 	_mesh(prod, metal, "metal", {}, true)
 	_mesh(prod, cab, "cab", {}, false)
 	_mesh(prod, misc, "vcolor", {}, true)
+	# big structures in vertex colour without the detail view range (cull-free material)
+	_mesh(prod, far, "vcolor_2s", {}, true)
 
 
 # ------------------------------------------------------------------ lighting

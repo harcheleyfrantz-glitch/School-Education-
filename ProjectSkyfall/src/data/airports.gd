@@ -17,7 +17,7 @@ const DATA := {
 		"iata": "PCI", "name": "Port Calder International", "short": "Port Calder", "city": "Port Calder",
 		"country": "Calderra", "x": -40000.0, "z": 0.0, "elev": 8.0, "size": "hub",
 		"runways": [
-			{"id": "09L/27R", "hdg": 90.0, "len": 3800.0, "wid": 60.0, "off": -700.0, "along": 0.0, "ils": [true, true], "surface": "asphalt"},
+			{"id": "09L/27R", "hdg": 90.0, "len": 4000.0, "wid": 60.0, "off": -700.0, "along": 0.0, "ils": [true, true], "surface": "asphalt"},
 			{"id": "09R/27L", "hdg": 90.0, "len": 3300.0, "wid": 45.0, "off": 700.0, "along": 300.0, "ils": [true, true], "surface": "asphalt"},
 		],
 		"terminal": {"between": true, "side": 1, "gates": 14, "style": "hub"},
@@ -30,7 +30,7 @@ const DATA := {
 		"iata": "RVM", "name": "Rivermouth Regional", "short": "Rivermouth", "city": "Rivermouth",
 		"country": "Calderra", "x": -30000.0, "z": -120000.0, "elev": 6.0, "size": "regional",
 		"runways": [
-			{"id": "14/32", "hdg": 140.0, "len": 2600.0, "wid": 45.0, "off": 0.0, "along": 0.0, "ils": [true, true], "surface": "asphalt"},
+			{"id": "14/32", "hdg": 140.0, "len": 2200.0, "wid": 45.0, "off": 0.0, "along": 0.0, "ils": [true, true], "surface": "asphalt"},
 		],
 		"terminal": {"between": false, "side": 1, "gates": 5, "style": "regional"},
 		"freq": {"atis": "127.200", "del": "121.650", "gnd": "121.650", "twr": "118.700", "app": "120.300", "dep": "120.300"},
@@ -67,7 +67,7 @@ const DATA := {
 		"iata": "OFL", "name": "Oren Falls Airport", "short": "Oren Falls", "city": "Oren Falls",
 		"country": "Calderra", "x": 180000.0, "z": 60000.0, "elev": 215.0, "size": "regional",
 		"runways": [
-			{"id": "13/31", "hdg": 128.0, "len": 2900.0, "wid": 45.0, "off": 0.0, "along": 0.0, "ils": [true, true], "surface": "asphalt"},
+			{"id": "13/31", "hdg": 128.0, "len": 2500.0, "wid": 45.0, "off": 0.0, "along": 0.0, "ils": [true, true], "surface": "asphalt"},
 		],
 		"terminal": {"between": false, "side": -1, "gates": 6, "style": "regional"},
 		"freq": {"atis": "126.850", "del": "121.850", "gnd": "121.850", "twr": "118.450", "app": "121.100", "dep": "121.100"},
@@ -92,7 +92,7 @@ const DATA := {
 		"iata": "IMR", "name": "Isla Marea Airport", "short": "Isla Marea", "city": "Marea",
 		"country": "Calderra", "x": -20000.0, "z": 250000.0, "elev": 5.0, "size": "regional",
 		"runways": [
-			{"id": "11/29", "hdg": 110.0, "len": 2000.0, "wid": 45.0, "off": 0.0, "along": 0.0, "ils": [false, true], "surface": "asphalt"},
+			{"id": "11/29", "hdg": 110.0, "len": 1800.0, "wid": 45.0, "off": 0.0, "along": 0.0, "ils": [false, true], "surface": "asphalt"},
 		],
 		"terminal": {"between": false, "side": 1, "gates": 3, "style": "island"},
 		"freq": {"atis": "127.000", "del": "121.700", "gnd": "121.700", "twr": "118.150", "app": "119.000", "dep": "119.000"},
@@ -104,7 +104,7 @@ const DATA := {
 		"iata": "SBY", "name": "Sable Bay International", "short": "Sable Bay", "city": "Sable Bay",
 		"country": "Calderra", "x": 160000.0, "z": 255000.0, "elev": 12.0, "size": "regional",
 		"runways": [
-			{"id": "16/34", "hdg": 160.0, "len": 2700.0, "wid": 45.0, "off": 0.0, "along": 0.0, "ils": [true, true], "surface": "asphalt"},
+			{"id": "16/34", "hdg": 160.0, "len": 2400.0, "wid": 45.0, "off": 0.0, "along": 0.0, "ils": [true, true], "surface": "asphalt"},
 		],
 		"terminal": {"between": false, "side": 1, "gates": 6, "style": "resort"},
 		"freq": {"atis": "126.200", "del": "121.750", "gnd": "121.750", "twr": "118.800", "app": "124.700", "dep": "124.700"},
@@ -129,7 +129,7 @@ const DATA := {
 		"iata": "SKR", "name": "Skerra Airport", "short": "Skerra", "city": "Skerra",
 		"country": "Westmark", "x": -470000.0, "z": 60000.0, "elev": 18.0, "size": "regional",
 		"runways": [
-			{"id": "04/22", "hdg": 40.0, "len": 1900.0, "wid": 45.0, "off": 0.0, "along": 0.0, "ils": [true, false], "surface": "asphalt"},
+			{"id": "04/22", "hdg": 40.0, "len": 1750.0, "wid": 45.0, "off": 0.0, "along": 0.0, "ils": [true, false], "surface": "asphalt"},
 		],
 		"terminal": {"between": false, "side": -1, "gates": 3, "style": "regional"},
 		"freq": {"atis": "127.400", "del": "121.600", "gnd": "121.600", "twr": "118.200", "app": "120.100", "dep": "120.100"},

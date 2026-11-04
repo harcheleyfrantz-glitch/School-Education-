@@ -124,10 +124,13 @@ static func _compute(icao: String) -> Dictionary:
 		var rB: Dictionary = L.runways[1]
 		var mid: Vector2 = (rA.center + rB.center) * 0.5
 		var axis: Vector2 = rA.dir
-		var nA: Vector2 = (rA.center - mid).normalized()
-		# midfield complex: a landside head house, the main terminal and a row of satellite
-		# concourses on a people mover. Shrink it (fewer satellites, then fewer gates) until no
-		# runway crosses any of it.
+		# facade normal: square to the runways, towards runway A (staggered runway centres
+		# would otherwise skew it off the terminal faces)
+		var nA := Vector2(-axis.y, axis.x)
+		if (rA.center - mid).dot(nA) < 0.0:
+			nA = -nA
+		# midfield complex: the main terminal (check-in hall at its near end) and a row of
+		# satellite concourses on a people mover. Shrink it until no runway crosses any of it.
 		var total_g := maxi(gates, int(st.gates))
 		var plan: Array = []
 		# prefer: all satellites with room for the landside, then fewer satellites, then without
@@ -296,7 +299,9 @@ static func _compute(icao: String) -> Dictionary:
 		L.fuel = hang_base - door * 170.0
 		if bool(st.cargo) and big:
 			var cg_c: Vector2 = hang_base + hax * (hw * 0.5 + 40.0 + 90.0)
-			if _clear_of_runways(L, cg_c, hax, 180.0, 70.0):
+			if not between:
+				cg_c = tb.center + tax * (tb.len * 0.5 + 250.0) + airside * 40.0
+			if _clear_of_runways(L, cg_c, hax, 180.0, 70.0) and _clear_of_buildings(L, cg_c, hax, 180.0, 60.0):
 				L.buildings.append({"kind": "cargo", "center": cg_c - door * 10.0, "axis": hax, "len": 180.0, "depth": 60.0, "h": 16.0})
 		# landside: multi-storey car parks and hotels, at least 90 m beyond the landside facade
 		# (the curbside, its canopy and planting occupy the first 80 m), then a surface lot
@@ -327,8 +332,23 @@ static func _compute(icao: String) -> Dictionary:
 						pe.axis = la
 						L.buildings.append(pe)
 						break
+			# signature landmark (or JFK-style unit terminals) beyond the car parks
+			var far := row + g_d + 40.0
+			var sig := String(st.sig)
+			if sig in ["theme", "drum", "jewel"]:
+				var sz: float = {"theme": 90.0, "drum": 190.0, "jewel": 150.0}[sig]
+				var sc: Vector2 = lo + ln * (far + sz * 0.5) + la * (70.0 if sig == "theme" else 0.0)
+				if _clear_of_runways(L, sc, la, sz, sz) and _clear_of_buildings(L, sc, la, sz, sz):
+					L.buildings.append({"kind": sig, "center": sc, "axis": la, "len": sz, "depth": sz, "h": 30.0})
+					far += sz + 30.0
+			elif sig == "loop":
+				for sgn in [-1.0, 1.0]:
+					var ac: Vector2 = lo + ln * (far + 40.0) + la * sgn * 190.0
+					if _clear_of_runways(L, ac, la, 230.0, 70.0) and _clear_of_buildings(L, ac, la, 230.0, 70.0):
+						L.buildings.append({"kind": "annex", "center": ac, "axis": la, "len": 230.0, "depth": 70.0, "h": 18.0, "levels": 2})
+				far += 120.0
 			# surface car park behind the garages and the access road out through it
-			var lot_c: Vector2 = lo + ln * (row + g_d + 30.0 + 60.0)
+			var lot_c: Vector2 = lo + ln * (far + 60.0)
 			var lot_len := minf(float(ls.len), 360.0)
 			if _clear_of_runways(L, lot_c, la, lot_len, 120.0):
 				L.parking.append({"center": lot_c, "axis": la, "len": lot_len, "depth": 120.0})
