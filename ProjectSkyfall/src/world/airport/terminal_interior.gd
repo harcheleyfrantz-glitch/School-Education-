@@ -383,6 +383,8 @@ func _showpieces() -> void:
 	## overhead departure banks (all overhead: no new floor obstacles).
 	if not bool(style.get("flagship", false)):
 		return
+	if icao == "SKPC":
+		_port_calder_hall()
 	var v := _b("vcol")
 	var country := String(Airports.get_ap(icao).get("country", ""))
 	var names: Array = Landside._flag_list(icao + "hall", country, 40)
@@ -403,6 +405,40 @@ func _showpieces() -> void:
 			z += 9.0
 		for fz in [-length * 0.17, length * 0.17]:
 			_overhead_board(Vector3(x, FLOOR + 6.2, fz))
+
+
+func _sail_y(x: float, hx: float) -> float:
+	var t := clampf(x / hx, -1.0, 1.0)
+	return maxf(minf(ceiling_at(x), ceil_h) - 2.6 - 1.8 * (1.0 - t * t), FLOOR + 7.5)
+
+
+func _port_calder_hall() -> void:
+	## Port Calder's signature hall: white sail canopies floating under the arched roof, each with
+	## a gold sun at its heart, and the city's flag hanging along the spine of the hall.
+	var v := _b("vcol")
+	var hx := depth * 0.5 - 3.0
+	var segs := 14
+	var z := -length * 0.5 + 22.0
+	var i := 0
+	var pat: Array = Landside.FLAGS["Port Calder"]
+	while z < length * 0.5 - 22.0:
+		for k in segs:
+			var x0 := -hx + 2.0 * hx * float(k) / segs
+			var x1 := -hx + 2.0 * hx * float(k + 1) / segs
+			var y0 := _sail_y(x0, hx)
+			var y1 := _sail_y(x1, hx)
+			ModelKit.quad(v, Vector3(x0, y0, z - 6.0), Vector3(x1, y1, z - 6.0), Vector3(x1, y1, z + 6.0), Vector3(x0, y0, z + 6.0), Vector3(0, -1, 0), Color(0.97, 0.97, 0.95))
+			# teal underside edge so each sail reads against the next
+			v.add_box(Vector3((x0 + x1) * 0.5, (y0 + y1) * 0.5 - 0.06, z + 6.0), Vector3(x1 - x0, 0.1, 0.12), Color(0.0, 0.45, 0.5))
+		var yc := _sail_y(0.0, hx)
+		ModelKit.cyl(v, Vector3(0, yc - 0.25, z), Vector3(0, yc - 0.05, z), 2.4, 2.4, 24, Color(0.96, 0.72, 0.14))
+		# thin cables up to the roof
+		for cx in [-hx * 0.6, hx * 0.6]:
+			v.add_box(Vector3(cx, (_sail_y(cx, hx) + ceiling_at(cx)) * 0.5, z), Vector3(0.03, ceiling_at(cx) - _sail_y(cx, hx), 0.03), Color(0.7, 0.72, 0.75, 0.4))
+		if i % 2 == 1:
+			Landside._flag(v, Vector3(0.0, yc - 1.2, z - 16.0), 7.0, 4.4, pat)
+		i += 1
+		z += 28.0
 
 
 func _overhead_board(p: Vector3) -> void:

@@ -119,6 +119,8 @@ static func _compute(icao: String) -> Dictionary:
 	var facade_list := []
 	if ga:
 		_ga_apron(L, r0, tw_nodes)
+	elif icao == "KMIA":
+		_miami(L, facade_list, tw_nodes, tw_wid)
 	elif between:
 		var rA: Dictionary = L.runways[0]
 		var rB: Dictionary = L.runways[1]
@@ -187,7 +189,7 @@ static func _compute(icao: String) -> Dictionary:
 			var t := (float(g) - (n_g - 1) * 0.5) * spacing
 			var stop: Vector2 = fc.origin + axis2 * t + nrm2 * 14.0
 			var lead: Vector2 = lane_pos + axis2 * t
-			var sname := "%s%d" % [String(fc.get("letter", gate_letter[fi % 4])), g + 1]
+			var sname := "%s%d" % [String(fc.get("letter", gate_letter[fi % 4])), g + 1 + int(fc.get("start", 0))]
 			var heavy := big and (g % 3 == 0)
 			var ln := _add_node(nodes, lead, "apron", "apron")
 			var sn := _add_node(nodes, stop, "stand", sname)
@@ -206,25 +208,36 @@ static func _compute(icao: String) -> Dictionary:
 		# connect both lane ends to the nearest parallel taxiway nodes
 		if not lane_nodes.is_empty():
 			var rwi: int = fc.rw
-			if tw_nodes.has(rwi):
-				for end_node in [lane_nodes[0], lane_nodes[lane_nodes.size() - 1]]:
-					var best := -1
-					var bd := INF
-					for e in tw_nodes[rwi]:
-						var d: float = nodes[e.t].pos.distance_to(nodes[end_node].pos)
-						if d < bd:
-							bd = d
-							best = e.t
-					if best >= 0:
-						# extend the lane to the taxiway with an intermediate corner node
-						var ep: Vector2 = nodes[end_node].pos
-						var out_dir := axis2 * signf((ep - (fc.origin as Vector2)).dot(axis2))
-						var corner := ep + out_dir * 40.0
-						var cn := _add_node(nodes, corner, "apron", "apron")
-						_add_edge(edges, end_node, cn, "apron")
-						_add_edge(edges, cn, best, "J%d" % (fi * 2 + (1 if end_node == lane_nodes[0] else 2)))
-						L.taxiways.append({"a": cn, "b": best, "w": tw_wid, "name": "J"})
-						L.taxiways.append({"a": end_node, "b": cn, "w": tw_wid, "name": "apron"})
+			var cand: Array = []
+			if fc.has("link_nodes"):
+				cand = fc.link_nodes
+			elif tw_nodes.has(rwi):
+				for e in tw_nodes[rwi]:
+					cand.append(e.t)
+			var ends: Array = [lane_nodes[0], lane_nodes[lane_nodes.size() - 1]]
+			if fc.has("link_nodes"):
+				# piers inside the horseshoe: only the open (west) end reaches the perimeter taxiway
+				var w0: int = lane_nodes[0]
+				var w1: int = lane_nodes[lane_nodes.size() - 1]
+				ends = [w0 if (nodes[w0].pos as Vector2).x < (nodes[w1].pos as Vector2).x else w1]
+			for end_node in ends:
+				var best := -1
+				var bd := INF
+				for ci in cand:
+					var dd: float = nodes[ci].pos.distance_to(nodes[end_node].pos)
+					if dd < bd:
+						bd = dd
+						best = ci
+				if best >= 0:
+					# extend the lane to the taxiway with an intermediate corner node
+					var ep: Vector2 = nodes[end_node].pos
+					var out_dir := axis2 * signf((ep - (fc.origin as Vector2)).dot(axis2))
+					var corner := ep + out_dir * 40.0
+					var cn := _add_node(nodes, corner, "apron", "apron")
+					_add_edge(edges, end_node, cn, "apron")
+					_add_edge(edges, cn, best, "J%d" % (fi * 2 + (1 if end_node == lane_nodes[0] else 2)))
+					L.taxiways.append({"a": cn, "b": best, "w": tw_wid, "name": "J"})
+					L.taxiways.append({"a": end_node, "b": cn, "w": tw_wid, "name": "apron"})
 		fi += 1
 	# link secondary runway taxiways into the main network
 	for rw in L.runways:
@@ -255,6 +268,8 @@ static func _compute(icao: String) -> Dictionary:
 		# looks along the stands rather than across the terminal roof
 		var airside: Vector2 = facade_list[0].normal if not facade_list.is_empty() else tn2
 		L.tower = end_a + airside * (float(tb.depth) * 0.5 + 25.0)
+		if icao == "KMIA":
+			L.tower = Vector2(-1260.0, 120.0)
 		L.tower_h = 72.0 if big else 38.0
 		if float(st.tower_h) > 0.0:
 			L.tower_h = float(st.tower_h)
@@ -372,6 +387,81 @@ static func _compute(icao: String) -> Dictionary:
 					"hdg": e.hdg, "thr": thr, "slope": 3.0 if L.icao != "SKHP" else 3.5})
 			L.windsocks.append(thr + d * 150.0 + side * (rw.wid * 0.5 + 70.0))
 	return L
+
+
+static func _miami(L: Dictionary, facade_list: Array, tw_nodes: Dictionary, tw_wid: float) -> void:
+	## Miami International as it really is: the horseshoe-shaped Central Terminal wrapped around
+	## the Dolphin and Flamingo garages (kerbside on the inside, facing east), the long North
+	## Terminal (Concourse D) with its Skytrain, the E/F and G/H piers pointing west, and the South
+	## Terminal (Concourse J). Aprons between the piers open to the west onto a perimeter taxiway.
+	var g0 := Vector2(600.0, 30.0)
+	var rad := 450.0
+	var segs := 7
+	var arc := []
+	for k in segs:
+		var f0 := deg_to_rad(270.0 - 180.0 * float(k) / float(segs))
+		var f1 := deg_to_rad(270.0 - 180.0 * float(k + 1) / float(segs))
+		var fm := (f0 + f1) * 0.5
+		var c: Vector2 = g0 + Vector2(cos(fm), sin(fm)) * rad
+		var ax := Vector2(-sin(fm), cos(fm))
+		arc.append({"kind": "terminal", "center": c, "axis": ax, "len": 2.0 * rad * sin(absf(f1 - f0) * 0.5) + 10.0, "depth": 62.0,
+			"h": 26.0, "levels": 3, "unit": k})
+	# the middle (west) segment first: it carries the main check-in hall and the kerb
+	L.buildings.append(arc[3])
+	for k in segs:
+		if k != 3:
+			L.buildings.append(arc[k])
+	var east := Vector2(1.0, 0.0)
+	var south := Vector2(0.0, 1.0)
+	var north := -south
+	var piers := [
+		# [centre, length, depth]: D (North Terminal), E/F, G/H, J (South Terminal)
+		[Vector2(-150.0, -420.0), 1600.0, 110.0],
+		[Vector2(-200.0, -102.0), 600.0, 50.0],
+		[Vector2(-200.0, 186.0), 600.0, 50.0],
+		[Vector2(250.0, 479.0), 800.0, 60.0],
+	]
+	var ui := segs
+	for pr in piers:
+		L.buildings.append({"kind": "concourse", "center": pr[0], "axis": east, "len": pr[1], "depth": pr[2], "h": 19.0, "levels": 2, "unit": ui})
+		ui += 1
+	# perimeter taxiway "M" around the pier tips, joining the parallel taxiways of 8R/26L and 9/27
+	var nodes: Array = L.taxi_nodes
+	var edges: Array = L.taxi_edges
+	var mx := -1100.0
+	var m_nodes := []
+	for mz in [-620.0, -246.0, 42.0, 330.0, 680.0]:
+		m_nodes.append(_add_node(nodes, Vector2(mx, mz), "taxi", "M"))
+	for k in range(1, m_nodes.size()):
+		_add_edge(edges, m_nodes[k - 1], m_nodes[k], "M")
+		L.taxiways.append({"a": m_nodes[k - 1], "b": m_nodes[k], "w": tw_wid, "name": "M"})
+	for pair in [[0, m_nodes[0]], [1, m_nodes[m_nodes.size() - 1]]]:
+		if not tw_nodes.has(int(pair[0])):
+			continue
+		var best := -1
+		var bd := INF
+		for e in tw_nodes[int(pair[0])]:
+			var dd: float = (nodes[e.t].pos as Vector2).distance_to(nodes[int(pair[1])].pos)
+			if dd < bd:
+				bd = dd
+				best = e.t
+		if best >= 0:
+			_add_edge(edges, int(pair[1]), best, "M")
+			L.taxiways.append({"a": int(pair[1]), "b": best, "w": tw_wid, "name": "M"})
+	var inner: Array = m_nodes.slice(1, 4)
+	facade_list.append({"origin": Vector2(-150.0, -475.0), "axis": east, "normal": north, "len": 1600.0, "gates": 19, "rw": 0, "letter": "D"})
+	facade_list.append({"origin": Vector2(-400.0, -365.0), "axis": east, "normal": south, "len": 1100.0, "gates": 13, "rw": 0, "letter": "D", "start": 19, "link_nodes": inner})
+	facade_list.append({"origin": Vector2(-220.0, -127.0), "axis": east, "normal": north, "len": 560.0, "gates": 7, "rw": 0, "letter": "E", "link_nodes": inner})
+	facade_list.append({"origin": Vector2(-220.0, -77.0), "axis": east, "normal": south, "len": 560.0, "gates": 7, "rw": 0, "letter": "F", "link_nodes": inner})
+	facade_list.append({"origin": Vector2(-220.0, 161.0), "axis": east, "normal": north, "len": 560.0, "gates": 7, "rw": 1, "letter": "G", "link_nodes": inner})
+	facade_list.append({"origin": Vector2(-220.0, 211.0), "axis": east, "normal": south, "len": 560.0, "gates": 7, "rw": 1, "letter": "H", "link_nodes": inner})
+	facade_list.append({"origin": Vector2(0.0, 449.0), "axis": east, "normal": north, "len": 300.0, "gates": 3, "rw": 1, "letter": "J", "link_nodes": inner})
+	facade_list.append({"origin": Vector2(250.0, 509.0), "axis": east, "normal": south, "len": 800.0, "gates": 9, "rw": 1, "letter": "J", "start": 3})
+	# kerbside inside the horseshoe, facing the garages; the MIA Mover heads east to the
+	# Miami Intermodal Center and the rental car centre
+	var mid_seg: Dictionary = arc[3]
+	L.landside = {"origin": (mid_seg.center as Vector2) + east * 31.0, "normal": east, "axis": south, "len": 520.0, "h": 26.0}
+	L.people_mover = [{"a": Vector2(300.0, -40.0), "b": Vector2(1700.0, -40.0)}]
 
 
 static func _between_plan(L: Dictionary, mid: Vector2, axis: Vector2, nA: Vector2, total_g: int, n_sat: int, spacing: float, big: bool, need_land: bool, force: bool = false) -> Array:

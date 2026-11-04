@@ -92,8 +92,18 @@ func build_terminal_interior() -> TerminalInterior:
 	## The walkable departures level (built on demand: only where the player is).
 	if terminal != null:
 		return terminal
-	for b in layout.buildings:
-		if b.kind != "terminal":
+	# the walkable hall is the first terminal (or, failing that, concourse) with gates on its faces
+	var pick: Dictionary = {}
+	for kind in ["terminal", "concourse"]:
+		for b in layout.buildings:
+			if b.kind == kind and pick.is_empty() and _has_gates(b):
+				pick = b
+	if pick.is_empty():
+		for b in layout.buildings:
+			if b.kind == "terminal" and pick.is_empty():
+				pick = b
+	for b in [pick]:
+		if b.is_empty():
 			continue
 		terminal = TerminalInterior.new()
 		add_child(terminal)
@@ -103,6 +113,16 @@ func build_terminal_interior() -> TerminalInterior:
 			glass_mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		break
 	return terminal
+
+
+func _has_gates(b: Dictionary) -> bool:
+	var ax: Vector2 = (b.axis as Vector2).normalized()
+	var nn := Vector2(-ax.y, ax.x)
+	for fc in layout.facades:
+		var rel: Vector2 = (fc.origin as Vector2) - (b.center as Vector2)
+		if absf(absf(rel.dot(nn)) - float(b.depth) * 0.5) < 10.0 and absf(rel.dot(ax)) < float(b.len) * 0.5 + 10.0:
+			return true
+	return false
 
 
 # ------------------------------------------------------------------ jet bridges

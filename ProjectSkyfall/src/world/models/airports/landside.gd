@@ -43,7 +43,23 @@ const FLAGS := {
 	"Chile": ["canton", WHITE, RED, BLUE], "Jamaica": ["cross", GREEN, YELLOW], "Australia": ["uk", NAVY, WHITE, RED],
 	"Calderra": ["h", Color(0.0, 0.5, 0.55), WHITE, Color(0.9, 0.68, 0.15)], "Westmark": ["nordic", NAVY, Color(0.9, 0.68, 0.15)],
 	"European Union": ["disc", BLUE, YELLOW],
+	"Port Calder": ["sun", Color(0.0, 0.42, 0.5), WHITE, Color(0.98, 0.72, 0.12)],
+	"Bahamas": ["hoist", BLACK, Color(0.0, 0.62, 0.72), YELLOW, Color(0.0, 0.62, 0.72)],
+	"Cuba": ["hoist", RED, BLUE, WHITE, BLUE, WHITE, BLUE], "Puerto Rico": ["hoist", BLUE, RED, WHITE, RED, WHITE, RED],
+	"Dominican Republic": ["cross", Color(0.0, 0.18, 0.55), WHITE], "Haiti": ["h", BLUE, RED],
+	"Venezuela": ["h", YELLOW, BLUE, RED], "Ecuador": ["h", YELLOW, YELLOW, BLUE, RED], "Honduras": ["h", SKY, WHITE, SKY],
+	"Guatemala": ["v", SKY, WHITE, SKY], "Costa Rica": ["h", BLUE, WHITE, RED, RED, WHITE, BLUE], "El Salvador": ["h", BLUE, WHITE, BLUE],
+	"Nicaragua": ["h", SKY, WHITE, SKY], "Panama": ["canton", WHITE, RED, BLUE], "Barbados": ["v", BLUE, YELLOW, BLUE],
+	"Trinidad and Tobago": ["h", RED, BLACK, RED], "Uruguay": ["h", WHITE, SKY, WHITE, SKY, WHITE], "Bolivia": ["h", RED, YELLOW, GREEN],
+	"Paraguay": ["h", RED, WHITE, BLUE], "Florida": ["cross", WHITE, RED],
 }
+## Miami International's departures-level flags: the nations it links to, led by Latin America
+## and the Caribbean.
+const MIAMI_FLAGS := ["United States", "Florida", "Mexico", "Colombia", "Brazil", "Argentina", "Peru", "Chile", "Venezuela",
+	"Ecuador", "Jamaica", "Bahamas", "Cuba", "Dominican Republic", "Haiti", "Puerto Rico", "Honduras", "Guatemala",
+	"El Salvador", "Nicaragua", "Costa Rica", "Panama", "Barbados", "Trinidad and Tobago", "Uruguay", "Bolivia", "Paraguay",
+	"Canada", "United Kingdom", "Spain", "France", "Germany", "Italy", "Netherlands", "Portugal", "Switzerland", "Turkey",
+	"Qatar", "United Arab Emirates", "European Union"]
 const POOLS := {
 	"americas": ["Mexico", "Brazil", "Argentina", "Colombia", "Peru", "Chile", "Jamaica", "Canada", "United Kingdom", "Spain", "France", "Germany"],
 	"europe": ["European Union", "United Kingdom", "France", "Germany", "Italy", "Spain", "Netherlands", "Belgium", "Switzerland", "Austria",
@@ -438,6 +454,23 @@ static func _gantry(mb: MeshBuilder, em: MeshBuilder, labels: Array, xf: Transfo
 
 
 static func _flag_list(icao: String, country: String, n: int) -> Array:
+	if icao.begins_with("KMIA"):
+		var off := 0 if icao == "KMIA" else 20
+		var mo := []
+		for i in n:
+			mo.append("United States" if i == 0 or i == n - 1 else MIAMI_FLAGS[(i + off) % MIAMI_FLAGS.size()])
+		return mo
+	if icao.begins_with("SKPC"):
+		var po := []
+		var intl := ["Westmark", "United States", "United Kingdom", "France", "Japan", "Brazil", "Germany", "Canada", "Spain", "Italy"]
+		for i in n:
+			if i % 3 == 0:
+				po.append("Port Calder")
+			elif i % 3 == 1:
+				po.append("Calderra")
+			else:
+				po.append(intl[(i / 3) % intl.size()])
+		return po
 	var pool_name := "global"
 	if country in ["United States", "Canada", "Bermuda"]:
 		pool_name = "americas"
@@ -524,6 +557,12 @@ static func _flag(mb: MeshBuilder, top: Vector3, w: float, h: float, pat: Array)
 			_frect(mb, top, 0, h * 0.38, w, h * 0.62, c1, 0.04)
 			_frect(mb, top, w * 0.46, 0, w * 0.54, h, c2, 0.05)
 			_frect(mb, top, 0, h * 0.44, w, h * 0.56, c2, 0.05)
+		"sun":
+			# Port Calder: teal field, a white wave band low across it and a gold rising sun
+			_frect(mb, top, 0, 0, w, h, c0)
+			_frect(mb, top, 0, h * 0.62, w, h * 0.74, c1, 0.04)
+			var sc := top + Vector3(0, -h * 0.5, w * 0.5)
+			ModelKit.cyl(mb, sc - Vector3(0.025, 0, 0), sc + Vector3(0.025, 0, 0), h * 0.22, h * 0.22, 16, c2)
 		"canada":
 			_frect(mb, top, 0, 0, w * 0.25, h, c0)
 			_frect(mb, top, w * 0.25, 0, w * 0.75, h, c1)
