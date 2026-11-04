@@ -2,6 +2,8 @@ class_name AirportLayout
 ## Pure-data airport plan in airport-local metres (origin at the airport reference point,
 ## x = east, z = south). Shared by the visual builder, ATC, ground operations and AI traffic.
 
+const Styles := preload("res://src/world/models/airports/airport_styles.gd")
+
 static var _cache := {}
 
 
@@ -20,7 +22,12 @@ static func _compute(icao: String) -> Dictionary:
 		"stands": [], "facades": [], "buildings": [], "aprons": [], "taxiways": [], "lights": [],
 		"tower": Vector2.ZERO, "tower_h": 40.0, "arff": Vector2.ZERO, "windsocks": [], "ils": [],
 		"roads": [], "parking": [], "hangars": [], "fuel": Vector2.ZERO, "gate_style": term.style,
+		# landside = the facade the curbside faces ({origin, normal, axis, len, h}); people_mover =
+		# [{a, b}] links between terminal units; style = AirportStyles entry
+		"landside": {}, "people_mover": [], "style": {},
 	}
+	var st: Dictionary = Styles.style_for(icao, size)
+	L.style = st
 	var big := size == "hub"
 	var ga := size == "ga"
 	# ---------------------------------------------------------------- runways
@@ -105,7 +112,7 @@ static func _compute(icao: String) -> Dictionary:
 		for e in tlist:
 			L.taxiways.append({"a": e.t, "b": e.r, "w": rw.tw_wid, "name": "conn", "hold": e.h})
 	# ---------------------------------------------------------------- terminal, facades, stands
-	var gates: int = int(term.gates)
+	var gates: int = maxi(int(term.gates), int(st.gates)) if not ga else 0
 	var spacing := 82.0 if big else 68.0
 	var stand_depth := 95.0 if big else 82.0
 	var lane := 48.0
@@ -116,31 +123,55 @@ static func _compute(icao: String) -> Dictionary:
 		var rA: Dictionary = L.runways[0]
 		var rB: Dictionary = L.runways[1]
 		var mid: Vector2 = (rA.center + rB.center) * 0.5
-		var depth := 120.0
-		# mega hubs split their gates between the main terminal and a satellite concourse
-		var sat_g := (gates * 2) / 5 if gates >= 24 else 0
-		var main_g := gates - sat_g
-		var length := float(maxi(main_g / 2, 3)) * spacing + 120.0
 		var axis: Vector2 = rA.dir
 		var nA: Vector2 = (rA.center - mid).normalized()
-		L.buildings.append({"kind": "terminal", "center": mid, "axis": axis, "len": length, "depth": depth, "h": 24.0})
-		facade_list.append({"origin": mid + nA * depth * 0.5, "axis": axis, "normal": nA, "len": length, "gates": main_g - main_g / 2, "rw": 0, "letter": "A"})
-		facade_list.append({"origin": mid - nA * depth * 0.5, "axis": axis, "normal": -nA, "len": length, "gates": main_g / 2, "rw": 1, "letter": "B"})
-		if sat_g > 0:
-			var sat_len := float(maxi(sat_g / 2, 3)) * spacing + 80.0
-			var sat_d := depth * 0.75
-			var sat_c: Vector2 = mid + axis * (length * 0.5 + 210.0 + sat_len * 0.5)
-			L.buildings.append({"kind": "concourse", "center": sat_c, "axis": axis, "len": sat_len, "depth": sat_d, "h": 20.0})
-			facade_list.append({"origin": sat_c + nA * sat_d * 0.5, "axis": axis, "normal": nA, "len": sat_len, "gates": sat_g - sat_g / 2, "rw": 0, "letter": "C"})
-			facade_list.append({"origin": sat_c - nA * sat_d * 0.5, "axis": axis, "normal": -nA, "len": sat_len, "gates": sat_g / 2, "rw": 1, "letter": "D"})
+		# midfield complex: a landside head house, the main terminal and a row of satellite
+		# concourses on a people mover. Shrink it (fewer satellites, then fewer gates) until no
+		# runway crosses any of it.
+		var total_g := maxi(gates, int(st.gates))
+		var plan: Array = []
+		# prefer: all satellites with room for the landside, then fewer satellites, then without
+		# the landside check, then fewer gates
+		for need_land in [true, false]:
+			for ns in range(int(st.sats), -1, -1):
+				if plan.is_empty():
+					plan = _between_plan(L, mid, axis, nA, total_g, ns, spacing, big, need_land)
+		while plan.is_empty() and total_g > 8:
+			total_g -= 4
+			plan = _between_plan(L, mid, axis, nA, total_g, 0, spacing, big, false)
+		if plan.is_empty():
+			plan = _between_plan(L, mid, axis, nA, total_g, 0, spacing, big, false, true)
+		var letters := "ABCDEFGHJK"
+		var bi := 0
+		for pb in plan:
+			var bc: Vector2 = pb.center
+			var bdp: float = pb.depth
+			var bln: float = pb.len
+			var g: int = pb.gates
+			L.buildings.append({"kind": "terminal" if bi == 0 else "concourse", "center": bc, "axis": axis, "len": bln, "depth": bdp,
+				"h": 24.0 if bi == 0 else 20.0, "levels": int(st.levels) if bi == 0 else 2, "unit": bi})
+			facade_list.append({"origin": bc + nA * bdp * 0.5, "axis": axis, "normal": nA, "len": bln, "gates": g - g / 2, "rw": 0, "letter": letters[bi * 2]})
+			facade_list.append({"origin": bc - nA * bdp * 0.5, "axis": axis, "normal": -nA, "len": bln, "gates": g / 2, "rw": 1, "letter": letters[bi * 2 + 1]})
+			bi += 1
+		# landside: the check-in hall at the near (-axis) end of the main terminal; the kerb runs
+		# across that end (see Landside._kerb_frame)
+		var mt: Dictionary = plan[0]
+		L.landside = {"origin": (mt.center as Vector2) - axis * float(mt.len) * 0.5, "normal": -axis, "axis": nA, "len": float(mt.depth), "h": 24.0}
+		L.people_mover = []
+		for k in range(1, plan.size()):
+			var pa: Dictionary = plan[k - 1]
+			var pb2: Dictionary = plan[k]
+			L.people_mover.append({"a": (pa.center as Vector2) + axis * float(pa.len) * 0.5, "b": (pb2.center as Vector2) - axis * float(pb2.len) * 0.5})
 	else:
 		var depth2 := 105.0 if big else 62.0
 		var length2 := float(maxi(gates, 2)) * spacing + (140.0 if big else 70.0)
 		var nrm: Vector2 = -r0.right * r0.tw_side
 		var front: Vector2 = r0.center + r0.right * r0.tw_side * (r0.tw_off + tw_wid * 0.5 + lane + stand_depth + 10.0)
 		var center: Vector2 = front - nrm * depth2 * 0.5
-		L.buildings.append({"kind": "terminal", "center": center, "axis": r0.dir, "len": length2, "depth": depth2, "h": 22.0 if big else 14.0})
+		L.buildings.append({"kind": "terminal", "center": center, "axis": r0.dir, "len": length2, "depth": depth2, "h": 22.0 if big else 14.0,
+			"levels": int(st.levels), "unit": 0, "plan": String(st.plan)})
 		facade_list.append({"origin": front, "axis": r0.dir, "normal": nrm, "len": length2, "gates": gates, "rw": 0})
+		L.landside = {"origin": center - nrm * depth2 * 0.5, "normal": -nrm, "axis": r0.dir, "len": length2, "h": 22.0 if big else 14.0}
 	var gate_letter := ["A", "B", "C", "D"]
 	var fi := 0
 	for fc in facade_list:
@@ -222,24 +253,87 @@ static func _compute(icao: String) -> Dictionary:
 		var airside: Vector2 = facade_list[0].normal if not facade_list.is_empty() else tn2
 		L.tower = end_a + airside * (float(tb.depth) * 0.5 + 25.0)
 		L.tower_h = 72.0 if big else 38.0
-		var hang_base: Vector2 = tb.center - tax * (tb.len * 0.5 + (150.0 if big else 90.0))
+		if float(st.tower_h) > 0.0:
+			L.tower_h = float(st.tower_h)
+		elif big and gates >= 30:
+			L.tower_h = 84.0
+		# maintenance base: hangars, fire station, fuel farm and cargo. Beside the terminal row on
+		# single-terminal fields; outside the runway pair (or past the far concourse) on midfield ones.
+		var hw := 88.0 if big else 50.0
 		var hn := 3 if big else 2
+		var hstep := 105.0 if big else 62.0
+		var cands := []
+		if between:
+			var rB2: Dictionary = L.runways[1]
+			var rA2: Dictionary = L.runways[0]
+			for rr in [rB2, rA2]:
+				var out_s := signf((rr.center - term_center).dot(rr.right))
+				if out_s == 0.0:
+					out_s = 1.0
+				var off: float = rr.wid * 0.5 + gap + tw_wid + 230.0
+				cands.append({"base": (rr.center as Vector2) + (rr.right as Vector2) * out_s * off + (rr.dir as Vector2) * hw * 2.0, "axis": rr.dir, "door": -(rr.right as Vector2) * out_s})
+			var last: Dictionary = L.buildings[L.buildings.size() - 2] if L.buildings.size() >= 2 else tb
+			cands.append({"base": (last.center as Vector2) + tax * (float(last.len) * 0.5 + 260.0), "axis": tn2, "door": -tax})
+		else:
+			cands.append({"base": tb.center - tax * (tb.len * 0.5 + (150.0 if big else 90.0)), "axis": tax, "door": _facade_normal_towards(tb.center, tax, r0)})
+		var chosen: Dictionary = cands[0]
+		for cd in cands:
+			var ok := true
+			for k in hn + 2:
+				var hp3: Vector2 = (cd.base as Vector2) - (cd.axis as Vector2) * float(k) * hstep
+				if not _clear_of_runways(L, hp3, cd.axis, hw + 20.0, hw + 40.0):
+					ok = false
+			if ok:
+				chosen = cd
+				break
+		var hang_base: Vector2 = chosen.base
+		var hax: Vector2 = chosen.axis
+		var door: Vector2 = chosen.door
 		for k in hn:
-			var hp2: Vector2 = hang_base - tax * float(k) * (105.0 if big else 62.0)
-			var hw := 88.0 if big else 50.0
-			L.hangars.append({"center": hp2, "axis": tax, "w": hw, "d": hw * 0.8, "h": hw * 0.3, "door_normal": _facade_normal_towards(hp2, tax, r0)})
-		L.arff = hang_base - tax * float(hn) * (105.0 if big else 62.0) - tax * 40.0
-		L.fuel = hang_base + _facade_normal_towards(hang_base, tax, r0) * -170.0
-		# landside: car park and access road behind the terminal (away from the runway)
-		var back: Vector2 = -_facade_normal_towards(tb.center, tax, r0)
-		if between:
-			back = tax
-		var park_c: Vector2 = tb.center + back * (tb.depth * 0.5 + 95.0)
-		if between:
-			park_c = tb.center + tax * (tb.len * 0.5 + 220.0)
-		L.parking.append({"center": park_c, "axis": tax, "len": minf(tb.len, 360.0), "depth": 120.0})
-		L.roads.append({"a": park_c - tax * minf(tb.len, 360.0) * 0.5, "b": park_c - tax * minf(tb.len, 360.0) * 0.5 + back * 900.0, "w": 14.0})
-		L.roads.append({"a": tb.center + back * (tb.depth * 0.5 + 22.0) - tax * tb.len * 0.5, "b": tb.center + back * (tb.depth * 0.5 + 22.0) + tax * tb.len * 0.5, "w": 16.0})
+			var hp2: Vector2 = hang_base - hax * float(k) * hstep
+			L.hangars.append({"center": hp2, "axis": hax, "w": hw, "d": hw * 0.8, "h": hw * 0.3, "door_normal": door})
+		L.arff = hang_base - hax * float(hn) * hstep - hax * 40.0
+		L.fuel = hang_base - door * 170.0
+		if bool(st.cargo) and big:
+			var cg_c: Vector2 = hang_base + hax * (hw * 0.5 + 40.0 + 90.0)
+			if _clear_of_runways(L, cg_c, hax, 180.0, 70.0):
+				L.buildings.append({"kind": "cargo", "center": cg_c - door * 10.0, "axis": hax, "len": 180.0, "depth": 60.0, "h": 16.0})
+		# landside: multi-storey car parks and hotels, at least 90 m beyond the landside facade
+		# (the curbside, its canopy and planting occupy the first 80 m), then a surface lot
+		var ls: Dictionary = L.landside
+		if not ls.is_empty():
+			var lo: Vector2 = ls.origin
+			var ln: Vector2 = ls.normal
+			var la: Vector2 = ls.axis
+			var row := 95.0
+			var g_d := 64.0 if big else 44.0
+			var slots := [1.0, -1.0, 2.0, -2.0, 3.0, -3.0]
+			var si := 0
+			var placed := []
+			for k in int(st.garages):
+				var lvl := 6 if big else 3
+				placed.append({"kind": "garage", "len": 120.0 if big else 80.0, "depth": g_d, "h": float(lvl) * 3.2 + 1.2, "levels": lvl})
+			for k in int(st.hotel):
+				placed.append({"kind": "hotel", "len": 70.0, "depth": 24.0, "h": 46.0 if big else 30.0, "levels": 14 if big else 9})
+			for pe in placed:
+				while si < slots.size():
+					var lat: float = slots[si] * (float(pe.len) * 0.5 + 18.0) * (1.0 if absf(slots[si]) < 1.5 else 1.0)
+					if absf(slots[si]) >= 2.0:
+						lat = signf(slots[si]) * (absf(slots[si]) - 0.5) * 140.0
+					si += 1
+					var pc2: Vector2 = lo + ln * (row + float(pe.depth) * 0.5) + la * lat
+					if _clear_of_runways(L, pc2, la, float(pe.len), float(pe.depth)) and _clear_of_buildings(L, pc2, la, float(pe.len), float(pe.depth)):
+						pe.center = pc2
+						pe.axis = la
+						L.buildings.append(pe)
+						break
+			# surface car park behind the garages and the access road out through it
+			var lot_c: Vector2 = lo + ln * (row + g_d + 30.0 + 60.0)
+			var lot_len := minf(float(ls.len), 360.0)
+			if _clear_of_runways(L, lot_c, la, lot_len, 120.0):
+				L.parking.append({"center": lot_c, "axis": la, "len": lot_len, "depth": 120.0})
+			L.roads.append({"a": lo + ln * 70.0, "b": lo + ln * 1000.0, "w": 14.0})
+			L.roads.append({"a": lo + ln * 22.0 - la * float(ls.len) * 0.5, "b": lo + ln * 22.0 + la * float(ls.len) * 0.5, "w": 16.0})
 	# ---------------------------------------------------------------- navaids & aids
 	for rw in L.runways:
 		if rw.surface != "asphalt":
@@ -258,6 +352,71 @@ static func _compute(icao: String) -> Dictionary:
 					"hdg": e.hdg, "thr": thr, "slope": 3.0 if L.icao != "SKHP" else 3.5})
 			L.windsocks.append(thr + d * 150.0 + side * (rw.wid * 0.5 + 70.0))
 	return L
+
+
+static func _between_plan(L: Dictionary, mid: Vector2, axis: Vector2, nA: Vector2, total_g: int, n_sat: int, spacing: float, big: bool, need_land: bool, force: bool = false) -> Array:
+	## Main terminal plus n_sat satellites in a row along the runways, centred on the midfield
+	## (shifted a little to leave room for the landside in front). Empty if a runway crosses it.
+	var per := total_g / (n_sat + 1)
+	var main_g := total_g - per * n_sat
+	var depth := 120.0 if big else 96.0
+	var units := [{"gates": main_g, "len": float(maxi(main_g / 2, 3)) * spacing + 120.0, "depth": depth}]
+	for k in n_sat:
+		units.append({"gates": per, "len": float(maxi(per / 2, 3)) * spacing + 80.0, "depth": depth * 0.75})
+	var span := 0.0
+	for u in units:
+		span += float(u.len)
+	span += 210.0 * n_sat
+	var x := -span * 0.5 + 110.0
+	for u in units:
+		u.center = mid + axis * (x + float(u.len) * 0.5)
+		x += float(u.len) + 210.0
+	if force:
+		return units
+	# the head house and landside sit in front of the main terminal
+	var hh: Vector2 = (units[0].center as Vector2) - axis * (float(units[0].len) * 0.5 + 200.0)
+	if need_land and not _clear_of_runways(L, hh, axis, 300.0, 300.0):
+		return []
+	for u in units:
+		if not _clear_of_runways(L, u.center, axis, float(u.len), float(u.depth)):
+			return []
+	return units
+
+
+static func _clear_of_runways(L: Dictionary, c: Vector2, ax: Vector2, length: float, depth: float) -> bool:
+	## Same test as tests/layout_check: no runway centreline point within the footprint + 40 m.
+	var axn := ax.normalized()
+	var nn := Vector2(-axn.y, axn.x)
+	for rw in L.runways:
+		for k in 41:
+			var p: Vector2 = (rw.center as Vector2) + (rw.dir as Vector2) * (float(k) / 40.0 - 0.5) * float(rw.len)
+			var rel := p - c
+			if absf(rel.dot(axn)) < length * 0.5 + 60.0 and absf(rel.dot(nn)) < depth * 0.5 + 60.0:
+				return false
+	return true
+
+
+static func _clear_of_buildings(L: Dictionary, c: Vector2, ax: Vector2, length: float, depth: float) -> bool:
+	## Footprint overlap test (separating axes of the two rectangles) against placed buildings.
+	var axn := ax.normalized()
+	for b in L.buildings:
+		var bax: Vector2 = (b.axis as Vector2).normalized()
+		var d: Vector2 = (b.center as Vector2) - c
+		var sep := false
+		for t in [axn, Vector2(-axn.y, axn.x), bax, Vector2(-bax.y, bax.x)]:
+			var ra := _proj_half(axn, length, depth, t)
+			var rb := _proj_half(bax, float(b.len), float(b.depth), t)
+			if absf(d.dot(t)) > ra + rb + 8.0:
+				sep = true
+				break
+		if not sep:
+			return false
+	return true
+
+
+static func _proj_half(ax: Vector2, length: float, depth: float, t: Vector2) -> float:
+	var n := Vector2(-ax.y, ax.x)
+	return absf(ax.dot(t)) * length * 0.5 + absf(n.dot(t)) * depth * 0.5
 
 
 static func _facade_normal_towards(p: Vector2, axis: Vector2, rw: Dictionary) -> Vector2:
