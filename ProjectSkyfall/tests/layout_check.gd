@@ -22,6 +22,18 @@ func _ready() -> void:
 					msg.append("no taxi route to %s" % e.name)
 			# runway vs terminal overlap
 			for b in L.buildings:
+				if b.has("poly"):
+					# real footprint: no runway centreline point inside it or within half a width + 30 m
+					var poly: PackedVector2Array = b.poly
+					for k2 in 81:
+						var p2: Vector2 = (rw.center as Vector2) + (rw.dir as Vector2) * (float(k2) / 80.0 - 0.5) * float(rw.len)
+						var dmin := INF
+						for i2 in poly.size():
+							dmin = minf(dmin, p2.distance_to(Geometry2D.get_closest_point_to_segment(p2, poly[i2], poly[(i2 + 1) % poly.size()])))
+						if Geometry2D.is_point_in_polygon(p2, poly) or dmin < float(rw.wid) * 0.5 + 30.0:
+							msg.append("runway %s crosses the %s" % [rw.id, b.kind])
+							break
+					continue
 				var c: Vector2 = b.center
 				var ax: Vector2 = (b.axis as Vector2).normalized()
 				for k in 41:

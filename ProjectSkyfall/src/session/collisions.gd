@@ -189,6 +189,9 @@ func _hit_buildings(pts: Array) -> Dictionary:
 			var along := rel.dot(ax)
 			var across := rel.dot(Vector2(-ax.y, ax.x))
 			if absf(along) < float(bld.len) * 0.5 and absf(across) < float(bld.depth) * 0.5 and q.y < float(bld.h):
+				# real airports: the footprint itself, not its bounding box
+				if bld.has("poly") and not Geometry2D.is_point_in_polygon(Vector2(q.x, q.z), bld.poly):
+					continue
 				return {"what": {"terminal": "the terminal building", "fbo": "the general aviation terminal"}.get(String(bld.kind), "a %s building" % String(bld.kind)), "part": String(p[0])}
 		var t: Vector2 = L.get("tower", Vector2(1e9, 1e9))
 		if Vector2(q.x, q.z).distance_to(t) < 4.5 and q.y < float(L.get("tower_h", 30.0)) + 4.0:

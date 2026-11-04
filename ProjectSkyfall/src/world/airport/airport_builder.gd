@@ -17,11 +17,17 @@ static func build(icao: String, detail: float) -> Dictionary:
 		"icao": icao, "meshes": [], "labels": [], "bridges": [], "windsocks": [], "beacon": Vector3.ZERO,
 		"lights": PackedFloat32Array(), "cars": PackedFloat32Array(), "props": PackedFloat32Array(),
 	}
+	var real: bool = L.get("real", false)
 	_runways(L, prod)
-	_taxiways(L, prod)
+	if real:
+		RealBuilder.pavement(L, prod)
+	else:
+		_taxiways(L, prod)
 	_aprons(L, prod)
 	_buildings(L, a, prod, detail)
 	_lights(L, prod)
+	if real:
+		RealBuilder.lights(L, prod)
 	return prod
 
 
@@ -290,6 +296,9 @@ static func _buildings(L: Dictionary, a: Dictionary, prod: Dictionary, detail: f
 	var bi := 0
 	for b in L.buildings:
 		bi += 1
+		if b.get("real", false):
+			RealBuilder.building(m, prod, L, a, b, st, bi, detail)
+			continue
 		var c: Vector2 = b.center
 		var ax: Vector2 = b.axis
 		var yaw := atan2(ax.x, ax.y)
@@ -405,7 +414,7 @@ static func _buildings(L: Dictionary, a: Dictionary, prod: Dictionary, detail: f
 		misc.xf = Transform3D.IDENTITY
 		_sign_label(prod, "HANGAR %d" % hi, Vector3(door_c.x + dn.x * 0.7, dh + 0.9, door_c.y + dn.y * 0.7), dn, minf(1.6, hh * 0.06), Color(0.95, 0.96, 0.98))
 	# fire station: apparatus bays with glazed doors, hose-drying tower, roof plant
-	if L.arff != Vector2.ZERO:
+	if L.arff != Vector2.ZERO and not L.get("real", false):
 		var fc: Vector2 = L.arff
 		misc.add_box(_v3(fc, 4.5), Vector3(36, 9, 22), Color(0.82, 0.8, 0.76))
 		misc.add_box(_v3(fc, 9.2), Vector3(36.6, 0.5, 22.6), Color(0.72, 0.1, 0.08))

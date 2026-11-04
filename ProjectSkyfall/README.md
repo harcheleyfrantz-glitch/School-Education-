@@ -71,3 +71,13 @@ Android also needs Godot's Android SDK and keystore settings (Editor Settings â†
 - the `*_shot` scenes render screenshots.
 
 They are excluded from exports.
+
+## Real airports
+
+24 real airports (Tokyo Haneda, New York JFK, Los Angeles, Atlanta, Chicago O'Hare, Miami,
+San Francisco, Dallas/Fort Worth, Denver, London Heathrow, Paris CDG, Amsterdam, Frankfurt,
+Dubai, Singapore, Hong Kong, Seoul Incheon, Istanbul, Doha, Osaka Kansai, Beijing, Toronto,
+Seattle and Las Vegas) use one-to-one layouts built from open data: real runways, the named
+taxiway network with holding points, every gate at its real position and number, aprons and
+the real building footprints and heights. See tools/real_airports and
+data/real_airports/ATTRIBUTION.txt (OpenStreetMap contributors, ODbL; OurAirports; FlightGear).

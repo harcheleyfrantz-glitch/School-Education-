@@ -11,6 +11,7 @@ uniform float night = 0.0;
 uniform float flood = 0.0;       // apron flood lighting at night
 uniform vec3 world_origin = vec3(0.0);
 uniform float priority = 0.0;     // pulls the surface toward the camera to win depth ties
+uniform float tint = 1.0;         // brightness of concrete aprons
 uniform ivec3 des0 = ivec3(0, 9, 0);  // designator at the y = 0 end: tens, units, letter (1 L, 2 C, 3 R)
 uniform ivec3 des1 = ivec3(2, 7, 0);  // designator at the far end (reads the other way)
 uniform sampler2D noise_tex : filter_linear_mipmap, repeat_enable;
@@ -153,9 +154,11 @@ void fragment() {
 		paint = max(cl, edge);
 		paint_col = vec3(0.8, 0.62, 0.08);
 	} else if (mode == 2) {
-		col = vec3(0.36, 0.36, 0.35) * (0.82 + 0.25 * n1 + 0.12 * n2);
+		col = vec3(0.36, 0.36, 0.35) * (0.82 + 0.25 * n1 + 0.12 * n2) * tint;
 		vec2 g = abs(fract(wpos.xz / 7.5) - 0.5);
 		float joint = smoothstep(0.485, 0.5, max(g.x, g.y));
+		// slab joints fade out before they alias into speckle in the distance
+		joint *= 1.0 - smoothstep(0.08, 0.35, length(fwidth(wpos.xz)));
 		col *= 1.0 - joint * 0.35;
 		float stain = smoothstep(0.68, 0.9, n1 * 0.7 + n3 * 0.45);
 		col *= 1.0 - stain * 0.16;

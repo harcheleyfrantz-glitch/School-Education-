@@ -258,6 +258,17 @@ static func _airport_hull(icao: String, a: Dictionary) -> Dictionary:
 		var back := thr - dv * 320.0
 		pts.append(back + sd)
 		pts.append(back - sd)
+	if RealAirports.has(icao):
+		# real airports carry their own fence outline (no need to build the whole layout here)
+		for q in RealAirports.outline(icao):
+			pts.append(o + q)
+		var hull0 := Geometry2D.convex_hull(pts)
+		var grown0: Array = Geometry2D.offset_polygon(hull0, 90.0)
+		var poly0: PackedVector2Array = grown0[0] if not grown0.is_empty() else hull0
+		var box0 := Rect2(poly0[0], Vector2.ZERO)
+		for q3 in poly0:
+			box0 = box0.expand(q3)
+		return {"poly": poly0, "box": box0.grow(HULL_FADE + 20.0), "icao": icao}
 	var L := AirportLayout.get_layout(icao)
 	var rects: Array = []
 	for b in L.buildings:

@@ -72,6 +72,12 @@ static func _compute(icao: String) -> Dictionary:
 		rw.tw_side = side
 		rw.tw_off = rw.wid * 0.5 + gap - (0.0 if rw.surface == "asphalt" else 30.0)
 		rw.tw_wid = tw_wid if rw.surface == "asphalt" else 0.0
+	# real airports: the real taxiway network, gates and buildings (tools/real_airports)
+	if RealAirports.has(icao):
+		RealLayout.fill(L, icao)
+		if L.get("real", false):
+			_navaids(L)
+			return L
 	# ---------------------------------------------------------------- taxi graph
 	var nodes: Array = L.taxi_nodes
 	var edges: Array = L.taxi_edges
@@ -369,6 +375,11 @@ static func _compute(icao: String) -> Dictionary:
 				L.parking.append({"center": lot_c, "axis": la, "len": lot_len, "depth": 120.0})
 			L.roads.append({"a": lo + ln * 70.0, "b": lo + ln * 1000.0, "w": 14.0})
 			L.roads.append({"a": lo + ln * 22.0 - la * float(ls.len) * 0.5, "b": lo + ln * 22.0 + la * float(ls.len) * 0.5, "w": 16.0})
+	_navaids(L)
+	return L
+
+
+static func _navaids(L: Dictionary) -> void:
 	# ---------------------------------------------------------------- navaids & aids
 	for rw in L.runways:
 		if rw.surface != "asphalt":
@@ -386,7 +397,6 @@ static func _compute(icao: String) -> Dictionary:
 				L.ils.append({"runway": rw.index, "end": e.name, "loc": thr + d * (rw.len + 300.0), "gs": thr + d * 300.0 + side * (rw.wid * 0.5 + 120.0),
 					"hdg": e.hdg, "thr": thr, "slope": 3.0 if L.icao != "SKHP" else 3.5})
 			L.windsocks.append(thr + d * 150.0 + side * (rw.wid * 0.5 + 70.0))
-	return L
 
 
 static func _miami(L: Dictionary, facade_list: Array, tw_nodes: Dictionary, tw_wid: float) -> void:
@@ -585,41 +595,91 @@ static func _add_edge(edges: Array, a: int, b: int, name: String) -> void:
 
 
 # ------------------------------------------------------------------ queries
+static func _adjacency(L: Dictionary) -> Array:
+	## [[neighbour, edge name, is runway], ...] per node, built once per layout.
+	var adj: Array = L.get("_adj", [])
+	if adj.size() == L.taxi_nodes.size() and L.get("_adj_edges", -1) == L.taxi_edges.size():
+		return adj
+	adj = []
+	adj.resize(L.taxi_nodes.size())
+	for i in adj.size():
+		adj[i] = []
+	for e in L.taxi_edges:
+		var rw := String(e.name).begins_with("RWY")
+		if int(e.a) < adj.size() and int(e.b) < adj.size():
+			adj[e.a].append([e.b, e.name, rw])
+			adj[e.b].append([e.a, e.name, rw])
+	L["_adj"] = adj
+	L["_adj_edges"] = L.taxi_edges.size()
+	return adj
+
+
 static func neighbours(L: Dictionary, node: int, allow_runway: bool) -> Array:
 	var out := []
-	for e in L.taxi_edges:
-		if not allow_runway and String(e.name).begins_with("RWY"):
-			continue
-		if e.a == node:
-			out.append([e.b, e.name])
-		elif e.b == node:
-			out.append([e.a, e.name])
+	for nb in _adjacency(L)[node]:
+		if allow_runway or not nb[2]:
+			out.append([nb[0], nb[1]])
 	return out
 
 
 ## Dijkstra shortest path; returns [{node, name}] (name = edge used to reach node).
 static func find_path(L: Dictionary, from_node: int, to_node: int, allow_runway: bool = false) -> Array:
+	var nodes: Array = L.taxi_nodes
+	if from_node < 0 or to_node < 0 or from_node >= nodes.size() or to_node >= nodes.size():
+		return []
+	var adj := _adjacency(L)
 	var dist := {from_node: 0.0}
 	var prev := {}
-	var open := [from_node]
-	var nodes: Array = L.taxi_nodes
-	while not open.is_empty():
-		var best_i := 0
-		for i in open.size():
-			if dist[open[i]] < dist[open[best_i]]:
-				best_i = i
-		var cur: int = open[best_i]
-		open.remove_at(best_i)
+	var done := {}
+	# binary heap of [dist, node]
+	var heap: Array = [[0.0, from_node]]
+	while not heap.is_empty():
+		var top: Array = heap[0]
+		var last: Array = heap.pop_back()
+		if not heap.is_empty():
+			heap[0] = last
+			var i := 0
+			while true:
+				var l := i * 2 + 1
+				var r := l + 1
+				var m := i
+				if l < heap.size() and float(heap[l][0]) < float(heap[m][0]):
+					m = l
+				if r < heap.size() and float(heap[r][0]) < float(heap[m][0]):
+					m = r
+				if m == i:
+					break
+				var tmp: Array = heap[i]
+				heap[i] = heap[m]
+				heap[m] = tmp
+				i = m
+		var cur: int = top[1]
+		if done.has(cur):
+			continue
+		done[cur] = true
 		if cur == to_node:
 			break
-		for nb in neighbours(L, cur, allow_runway):
+		var pc: Vector2 = nodes[cur].pos
+		for nb in adj[cur]:
+			if nb[2] and not allow_runway:
+				continue
 			var nxt: int = nb[0]
-			var d: float = dist[cur] + nodes[cur].pos.distance_to(nodes[nxt].pos)
-			if not dist.has(nxt) or d < dist[nxt]:
+			if done.has(nxt):
+				continue
+			var d: float = float(dist[cur]) + pc.distance_to(nodes[nxt].pos)
+			if not dist.has(nxt) or d < float(dist[nxt]):
 				dist[nxt] = d
 				prev[nxt] = [cur, nb[1]]
-				if not nxt in open:
-					open.append(nxt)
+				heap.append([d, nxt])
+				var j := heap.size() - 1
+				while j > 0:
+					var pj := (j - 1) / 2
+					if float(heap[pj][0]) <= float(heap[j][0]):
+						break
+					var t2: Array = heap[pj]
+					heap[pj] = heap[j]
+					heap[j] = t2
+					j = pj
 	if not dist.has(to_node):
 		return []
 	var path := []

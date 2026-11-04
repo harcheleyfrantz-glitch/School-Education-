@@ -80,7 +80,7 @@ static var _bollard_mesh: ArrayMesh
 
 static func build(view: Node3D, layout: Dictionary, icao: String, mgr: Node) -> void:
 	var ap: Dictionary = Airports.get_ap(icao)
-	if String(layout.get("size", "")) == "ga":
+	if String(layout.get("size", "")) == "ga" or layout.get("real", false):
 		return
 	for b in layout.get("buildings", []):
 		if String(b.kind) != "terminal":
