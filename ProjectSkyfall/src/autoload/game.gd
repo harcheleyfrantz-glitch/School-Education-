@@ -10,13 +10,13 @@ const SAVE_PATH := "user://skyfall_world.json"
 const SAVE_VERSION := 1
 
 const QUALITY := {
-	"potato": {"label": "Very low (old PCs)", "render_scale": 0.6, "msaa": 0, "fxaa": false, "shadows": 0, "shadow_distance": 250.0,
+	"potato": {"label": "Very low (old PCs)", "render_scale": 0.5, "msaa": 0, "fxaa": false, "shadows": 0, "shadow_distance": 250.0,
 		"ssao": false, "glow": false, "lod": 0.9, "min_leaf": 4000.0, "view": 28000.0, "trees": 0.12,
-		"buildings": 0.3, "clouds": 0, "crowd": 0.25, "lights": false, "fps": 30, "sky_res": 32, "fog_vol": false,
+		"buildings": 0.3, "clouds": 0, "crowd": 0.25, "lights": false, "fps": 60, "sky_res": 32, "fog_vol": false,
 		"backdrop": false, "studio": false},
-	"low": {"label": "Low", "render_scale": 0.7, "msaa": 0, "fxaa": true, "shadows": 0, "shadow_distance": 400.0,
+	"low": {"label": "Low", "render_scale": 0.65, "msaa": 0, "fxaa": true, "shadows": 0, "shadow_distance": 400.0,
 		"ssao": false, "glow": true, "lod": 1.15, "min_leaf": 2000.0, "view": 45000.0, "trees": 0.25,
-		"buildings": 0.45, "clouds": 0, "crowd": 0.4, "lights": false, "fps": 30, "sky_res": 64, "fog_vol": false, "backdrop": true, "studio": true},
+		"buildings": 0.45, "clouds": 0, "crowd": 0.4, "lights": false, "fps": 60, "sky_res": 64, "fog_vol": false, "backdrop": false, "studio": true},
 	"medium": {"label": "Medium", "render_scale": 0.85, "msaa": 0, "fxaa": true, "shadows": 1, "shadow_distance": 700.0,
 		"ssao": false, "glow": true, "lod": 1.4, "min_leaf": 1000.0, "view": 70000.0, "trees": 0.55,
 		"buildings": 0.7, "clouds": 1, "crowd": 0.7, "lights": true, "fps": 60, "sky_res": 128, "fog_vol": false, "backdrop": true, "studio": true},
@@ -32,6 +32,8 @@ var settings := {
 	"quality": "",
 	"master_volume": 0.85, "sfx_volume": 1.0, "music_volume": 0.6, "voice_volume": 1.0,
 	"tts": true, "subtitles": true,
+	"auto_perf": true,            # adaptive resolution and quality to hold 60 FPS
+	"menu_backdrop_off": false,   # set by the governor when the live menu scene is too heavy
 	"assist": "assisted",          # assisted | realistic
 	"auto_rudder": true,
 	"event_rate": "realistic",     # off | realistic | frequent
@@ -66,6 +68,19 @@ var nav_params := {}
 var main: Node = null
 var flight_count_session := 0
 var _autosave_timer := 0.0
+# ------------------------------------------------------------------ performance governor
+## Watches the real frame rate. Below target it lowers the 3D render resolution step by step
+## (down to half the preset's); if that is not enough it drops one quality preset, and on the
+## menu it swaps the live 3D backdrop for a still one. With headroom the resolution climbs back.
+const QUALITY_ORDER := ["ultra", "high", "medium", "low", "potato"]
+var dyn_scale := 1.0
+var perf_fps := 60.0
+var _pf_frames := 0
+var _pf_t0 := 0
+var _pf_slow := 0.0
+var _pf_fast := 0.0
+var _pf_floor := 0.0
+var _pf_grace := 4.0
 
 
 func _ready() -> void:
@@ -107,7 +122,7 @@ func q(key: String) -> Variant:
 func apply_settings() -> void:
 	var vp := get_viewport()
 	if vp:
-		vp.scaling_3d_scale = float(q("render_scale"))
+		vp.scaling_3d_scale = clampf(float(q("render_scale")) * dyn_scale, 0.35, 2.0)
 		if renderer != "gl_compatibility" and float(q("render_scale")) < 0.99 and not is_mobile:
 			vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR
 		else:
@@ -329,7 +344,91 @@ var crowd_clock := 0.0
 var crowd_clock_override := -1.0
 
 
+func backdrop_enabled() -> bool:
+	return bool(q("backdrop")) and not bool(settings.get("menu_backdrop_off", false))
+
+
+func _governor() -> void:
+	_pf_frames += 1
+	var now := Time.get_ticks_usec()
+	if _pf_t0 == 0:
+		_pf_t0 = now
+		return
+	var el := float(now - _pf_t0) / 1000000.0
+	if el < 0.5:
+		return
+	perf_fps = float(_pf_frames) / el
+	_pf_frames = 0
+	_pf_t0 = now
+	if DisplayServer.get_name() == "headless" or not bool(settings.get("auto_perf", true)):
+		return
+	if PhotoStudio.busy_now():
+		# menu card images are being rendered: a temporary, expected dip
+		_pf_slow = 0.0
+		return
+	if _pf_grace > 0.0:
+		# loading hitches right after a screen change are not the steady frame rate
+		_pf_grace -= el
+		return
+	var cap := int(q("fps"))
+	var target := 57.0 if cap == 0 or cap >= 60 else float(cap) - 3.0
+	var vp := get_viewport()
+	if perf_fps < target * 0.9:
+		_pf_slow += el
+		_pf_fast = 0.0
+	elif perf_fps >= target:
+		_pf_fast += el
+		_pf_slow = 0.0
+	if _pf_slow >= 1.5:
+		_pf_slow = 0.0
+		if dyn_scale > 0.55:
+			dyn_scale = maxf(dyn_scale - (0.15 if perf_fps < target * 0.6 else 0.08), 0.5)
+			if vp:
+				vp.scaling_3d_scale = clampf(float(q("render_scale")) * dyn_scale, 0.35, 2.0)
+		else:
+			_pf_floor += 1.0
+			if _pf_floor >= 4.0:
+				_pf_floor = 0.0
+				_step_down()
+	elif _pf_fast >= 3.0 and dyn_scale < 1.0:
+		_pf_fast = 0.0
+		_pf_floor = 0.0
+		dyn_scale = minf(dyn_scale + 0.05, 1.0)
+		if vp:
+			vp.scaling_3d_scale = clampf(float(q("render_scale")) * dyn_scale, 0.35, 2.0)
+
+
+func _step_down() -> void:
+	## Already at the lowest resolution and still slow: on the menu drop the live 3D backdrop,
+	## otherwise lower the quality preset by one.
+	var in_menu := main != null and is_instance_valid(main.get("backdrop")) and main.get("session") == null
+	if in_menu and not bool(settings.get("menu_backdrop_off", false)):
+		settings.menu_backdrop_off = true
+		save_settings()
+		if main.has_method("refresh_backdrop"):
+			main.call("refresh_backdrop")
+		notify("The menu switched to a still background to keep things smooth on this computer.", "info")
+		_pf_grace = 3.0
+		return
+	if main != null and main.get("session") == null:
+		# menus without a 3D scene: lowering the 3D preset would not help
+		return
+	var i := QUALITY_ORDER.find(String(settings.quality))
+	if i >= 0 and i < QUALITY_ORDER.size() - 1:
+		settings.quality = QUALITY_ORDER[i + 1]
+		dyn_scale = 0.85
+		save_settings()
+		apply_settings()
+		notify("Graphics lowered to %s to keep the frame rate up (change it in Options)." % String(QUALITY[settings.quality].label), "info")
+		_pf_grace = 4.0
+
+
+func perf_grace(seconds: float = 4.0) -> void:
+	_pf_grace = maxf(_pf_grace, seconds)
+
+
 func _process(delta: float) -> void:
+	_governor()
 	crowd_clock = fmod(crowd_clock + delta, 7200.0)
 	RenderingServer.global_shader_parameter_set("crowd_time", crowd_clock if crowd_clock_override < 0.0 else crowd_clock_override)
 	_autosave_timer += delta

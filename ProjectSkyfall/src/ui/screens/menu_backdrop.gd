@@ -64,7 +64,7 @@ func _ready() -> void:
 	cam = Camera3D.new()
 	cam.fov = 50.0
 	cam.near = 0.3
-	cam.far = 60000.0
+	cam.far = 60000.0 if String(Game.settings.quality) in ["high", "ultra"] else 22000.0
 	view.dynamic_root.add_child(cam)
 	cam.current = true
 	view.camera = cam
@@ -107,7 +107,8 @@ func _process(delta: float) -> void:
 	cam.global_position = p
 	cam.look_at(c + Vector3(0, 2.0, 0), Vector3.UP)
 	# keep the scene alive: the light moves slowly through the evening
-	view.set_time(view.time + delta * 2.0)
+	if String(Game.settings.quality) in ["high", "ultra"]:
+		view.set_time(view.time + delta * 2.0)
 	ac.model.animate(ac, delta)
 
 

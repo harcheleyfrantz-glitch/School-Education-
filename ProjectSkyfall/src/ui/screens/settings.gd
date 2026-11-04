@@ -96,6 +96,8 @@ func _show(key: String) -> void:
 			_row("Quality preset", "Rendering scale, shadows, clouds, trees and view distance", option(labels, q_keys.find(String(Game.settings.quality)),
 				func(i): Game.set_setting("quality", q_keys[i])))
 			_check("Show frame rate", "", "show_fps")
+			_check("Adaptive performance", "Lowers the 3D resolution, then the preset, when the frame rate drops below 60", "auto_perf")
+			_check("Live 3D menu background", "Turn off for a still background on slow computers", "menu_backdrop_off", true)
 			var hud_modes := ["full", "minimal", "off"]
 			_row("Flight HUD", "Instrument overlay while flying", option(["Full", "Minimal", "Off"], hud_modes.find(String(Game.settings.hud_mode)),
 				func(i): Game.set_setting("hud_mode", hud_modes[i])))
@@ -241,14 +243,17 @@ func _row(text: String, desc: String, ctl: Control) -> Control:
 	return p
 
 
-func _check(text: String, desc: String, key: String) -> void:
+func _check(text: String, desc: String, key: String, invert: bool = false) -> void:
+	## invert: the switch shows "On" when the stored flag is false (for "..._off" settings).
 	var cb := CheckButton.new()
-	cb.button_pressed = bool(Game.settings.get(key, false))
+	cb.button_pressed = bool(Game.settings.get(key, false)) != invert
 	cb.text = "On" if cb.button_pressed else "Off"
 	cb.alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	cb.toggled.connect(func(on):
 		cb.text = "On" if on else "Off"
-		Game.set_setting(key, on))
+		Game.set_setting(key, on != invert)
+		if key == "menu_backdrop_off" and Game.main and Game.main.has_method("refresh_backdrop"):
+			Game.main.call("refresh_backdrop"))
 	_row(text, desc, cb)
 
 

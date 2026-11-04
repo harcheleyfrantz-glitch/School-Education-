@@ -219,9 +219,23 @@ func pending() -> int:
 	return _queue.size() + (1 if _busy else 0)
 
 
-func _process(_delta: float) -> void:
+var _cooldown := 0.0
+
+
+static func busy_now() -> bool:
+	## True while a shot is being built or rendered (the frame rate dips are expected then).
+	return _node != null and is_instance_valid(_node) and (_node._busy or _node._cooldown > 0.0)
+
+
+func _process(delta: float) -> void:
+	if _cooldown > 0.0:
+		_cooldown -= delta
+		return
 	if _busy or _queue.is_empty() or not _menu_active():
 		return
+	# pace the shots on weaker presets so the menu stays responsive while they render
+	var strong := String(Game.settings.quality) in ["high", "ultra"]
+	_cooldown = 0.0 if strong else (0.8 if String(Game.settings.quality) == "medium" else 2.0)
 	_busy = true
 	_current = _queue.pop_front()
 	_render(_current)
@@ -240,15 +254,15 @@ func _render(id: String) -> void:
 	var size: Vector2i = rec.get("size", WIDE)
 	size = Vector2i(maxi(int(size.x * scale), 64), maxi(int(size.y * scale), 64))
 	# supersampled: the volumetric clouds and foliage dither, and the downsample resolves it
-	var ss := 1 if Game.is_mobile else 2
+	var ss := 2 if not Game.is_mobile and String(Game.settings.quality) in ["high", "ultra"] else 1
 	_vp = SubViewport.new()
 	_vp.name = "Shot"
 	_vp.size = size * ss
 	_vp.own_world_3d = true
 	_vp.transparent_bg = false
-	_vp.msaa_3d = Viewport.MSAA_2X
+	_vp.msaa_3d = Viewport.MSAA_2X if ss == 2 else Viewport.MSAA_DISABLED
 	_vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED
-	_vp.positional_shadow_atlas_size = 2048
+	_vp.positional_shadow_atlas_size = 2048 if ss == 2 else 512
 	_vp.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	add_child(_vp)
 	_cam = Camera3D.new()

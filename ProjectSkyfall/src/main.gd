@@ -81,6 +81,7 @@ func _global_toast(text: String, kind: String) -> void:
 
 
 func show_screen(screen_name: String, params: Dictionary) -> void:
+	Game.perf_grace(3.0)
 	get_tree().paused = false
 	Engine.time_scale = 1.0
 	if current and is_instance_valid(current):
@@ -116,8 +117,8 @@ func show_screen(screen_name: String, params: Dictionary) -> void:
 		return
 	_free_session()
 	Audio.music(screen_name in MENU_SCREENS and bool(Game.settings.get("menu_music", true)))
-	_static_bg(screen_name in MENU_SCREENS and not bool(Game.q("backdrop")))
-	if screen_name in MENU_SCREENS and backdrop == null and bool(Game.q("backdrop")):
+	_static_bg(screen_name in MENU_SCREENS and not Game.backdrop_enabled())
+	if screen_name in MENU_SCREENS and backdrop == null and Game.backdrop_enabled():
 		var bs: GDScript = load("res://src/ui/screens/menu_backdrop.gd")
 		backdrop = bs.new()
 		backdrop.name = "Backdrop"
@@ -134,6 +135,13 @@ func show_screen(screen_name: String, params: Dictionary) -> void:
 	current = scr
 	if backdrop and backdrop.has_method("focus"):
 		backdrop.call("focus", screen_name)
+
+
+func refresh_backdrop() -> void:
+	## Called by the performance governor: drop the live menu scene for the still background.
+	if not Game.backdrop_enabled():
+		_free_backdrop()
+		_static_bg(session == null)
 
 
 func _free_backdrop() -> void:

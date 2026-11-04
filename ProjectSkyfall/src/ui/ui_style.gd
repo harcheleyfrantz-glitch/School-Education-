@@ -321,7 +321,9 @@ static var _frost_shader: Shader
 ## Frosted glass: the node's own stylebox is blended over a blurred copy of the screen behind
 ## it (the live world). Give it an opaque stylebox; `tint` is how much of the box colour shows.
 static func frost(ci: CanvasItem, tint: float = 0.72, blur: float = 2.6) -> void:
-	if Game.renderer == "gl_compatibility":
+	# every frosted panel costs a full-screen copy and blur per frame: only on strong presets
+	# with the live 3D backdrop behind them
+	if Game.renderer == "gl_compatibility" or not String(Game.settings.quality) in ["high", "ultra"] or not Game.backdrop_enabled():
 		return
 	if _frost_shader == null:
 		_frost_shader = Shader.new()

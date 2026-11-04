@@ -157,7 +157,8 @@ func _build_environment() -> void:
 	sky.sky_material = sky_mat
 	var rs := int(Game.q("sky_res"))
 	sky.radiance_size = Sky.RADIANCE_SIZE_64 if rs <= 64 else (Sky.RADIANCE_SIZE_128 if rs <= 128 else Sky.RADIANCE_SIZE_256)
-	sky.process_mode = Sky.PROCESS_MODE_AUTOMATIC
+	# weaker presets rebuild the sky's lighting a little each frame instead of all at once
+	sky.process_mode = Sky.PROCESS_MODE_AUTOMATIC if String(Game.settings.get("quality", "")) in ["high", "ultra"] else Sky.PROCESS_MODE_INCREMENTAL
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
 	env.ambient_light_sky_contribution = 1.0
@@ -374,7 +375,7 @@ func _process(delta: float) -> void:
 		update_weather(false)
 	_sky_timer -= delta
 	if _sky_timer <= 0.0:
-		_sky_timer = 0.5
+		_sky_timer = 0.5 if String(Game.settings.get("quality", "")) in ["high", "ultra"] else (1.5 if String(Game.settings.get("quality", "")) == "medium" else 3.0)
 		update_lighting(false)
 	_storm_timer -= delta
 	if _storm_timer <= 0.0:
