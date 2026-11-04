@@ -531,7 +531,9 @@ static func build_chunk(job: Dictionary) -> Dictionary:
 			var lu := sampler.landuse_h(wx, wz, h)
 			var col := _biome_color(h, nrm.y, lu, sampler, wx, wz)
 			colors[idx] = Color(col.r, col.g, col.b, lu.forest)
-			uv2[idx] = Vector2(lu.farm, lu.urban)
+			# UV2.x carries farmland; inside an airport fence (no farms there) it carries minus the
+			# airfield weight so the shader can mow the grass
+			uv2[idx] = Vector2(lu.farm if float(lu.airport) < 0.05 else -float(lu.airport), lu.urban)
 			forest_grid[idx] = lu.forest
 			urban_grid[idx] = lu.urban
 	var indices := PackedInt32Array()
@@ -653,6 +655,8 @@ static func _scatter(result: Dictionary, job: Dictionary, hs: PackedFloat32Array
 					continue
 				var h := _height_sample(hs, w, fx, fz)
 				if h < 1.5 or h > 2150.0:
+					continue
+				if Geo.airport_weight(x0 + lx, z0 + lz) > 0.25:
 					continue
 				if Geo.water_level(x0 + lx, z0 + lz) > h - 0.6:
 					continue
@@ -803,6 +807,9 @@ static func _build_city(result: Dictionary, job: Dictionary, hs: PackedFloat32Ar
 				zone = "core"
 			elif zone == "core":
 				zone = "mid"
+		# under an approach path: low-rise only
+		if zone != "edge" and Geo.under_approach(wx, wz):
+			zone = "edge"
 		var fill := tag
 		if fill == "":
 			fill = CityStyles.pick_fill(st, zone, rb.randf())

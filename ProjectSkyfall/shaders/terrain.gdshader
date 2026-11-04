@@ -81,6 +81,19 @@ void fragment() {
 		base = mix(base, fc, clamp(landuse.x * 1.3, 0.0, 1.0));
 	}
 
+	// airfield grass inside the fence: mowed bands, darker strips along the infield, sun-dried patches
+	if (landuse.x < -0.01) {
+		float aw = clamp(-landuse.x, 0.0, 1.0);
+		vec2 q = wpos.xz;
+		float px_m = max(fwidth(q.x), fwidth(q.y));
+		float band = smoothstep(0.42, 0.58, fract((q.x * 0.6 + q.y * 0.8) / 34.0));
+		band = mix(band, 0.5, smoothstep(1.5, 6.0, px_m));
+		vec3 grass = mix(vec3(0.15, 0.23, 0.08), vec3(0.2, 0.29, 0.1), band);
+		grass = mix(grass, vec3(0.3, 0.29, 0.14), smoothstep(0.6, 0.82, n2) * 0.5);
+		grass *= 0.86 + 0.26 * n3 * fade_near + 0.12 * n1;
+		base = mix(base, grass, aw * 0.8);
+	}
+
 	// forest canopy
 	vec3 canopy = mix(vec3(0.025, 0.06, 0.02), vec3(0.06, 0.1, 0.03), n2) * (0.7 + 0.6 * n3 * fade_near + 0.3 * n1);
 	base = mix(base, canopy, clamp(forest * 1.35, 0.0, 1.0));

@@ -25,6 +25,12 @@ static var parks := []              # {x, z, hw, hd}: no buildings
 const BUCKET := 40000.0
 static var bucket_corr := {}
 static var bucket_ap := {}
+## Airport fences: the outline around each airfield (runway ends, terminals, hangars, aprons,
+## car parks) plus a small margin. Inside it is airfield grass; cities, farms and forests grow
+## right up to it. [{poly: PackedVector2Array (world x/z), box: Rect2 grown by the fade}]
+static var ap_hulls: Array = []
+static var bucket_hull := {}
+const HULL_FADE := 300.0
 static var bucket_city := {}
 static var bucket_lake := {}
 const NONE := []
@@ -231,14 +237,91 @@ static func _build_buckets() -> void:
 		_bucket_add(bucket_corr, c[0] + c[2] * 11000.0, c[1] + c[3] * 11000.0, 34000.0, c)
 	for ap in airports_flat:
 		_bucket_add(bucket_ap, ap[0], ap[1], float(ap[4]) + 1600.0, ap)
+	bucket_hull.clear()
+	for hb in ap_hulls:
+		var bx: Rect2 = hb.box
+		_bucket_add(bucket_hull, bx.get_center().x, bx.get_center().y, maxf(bx.size.x, bx.size.y) * 0.75, hb)
 	for ct in cities:
 		_bucket_add(bucket_city, ct.x, ct.z, float(ct.r) * 1.8, ct)
 	for lk in lakes:
 		_bucket_add(bucket_lake, lk.x, lk.z, maxf(float(lk.rx), float(lk.rz)) * 1.7, lk)
 
 
+static func _airport_hull(icao: String, a: Dictionary) -> Dictionary:
+	var pts := PackedVector2Array()
+	var o := Vector2(float(a.x), float(a.z))
+	for e in Airports.runway_ends(icao):
+		var thr := Vector2(float(e.thr_x), float(e.thr_z))
+		var en := Vector2(float(e.end_x), float(e.end_z))
+		var dv := (en - thr).normalized()
+		var sd := Vector2(-dv.y, dv.x) * (float(e.wid) * 0.5 + 190.0)
+		var back := thr - dv * 320.0
+		pts.append(back + sd)
+		pts.append(back - sd)
+	var L := AirportLayout.get_layout(icao)
+	var rects: Array = []
+	for b in L.buildings:
+		rects.append([b.center, b.axis, float(b.len), float(b.depth)])
+	for ap2 in L.aprons:
+		rects.append([ap2.center, ap2.axis, float(ap2.len), float(ap2.depth)])
+	for pk in L.parking:
+		rects.append([pk.center, pk.axis, float(pk.len), float(pk.depth)])
+	for hg in L.hangars:
+		rects.append([hg.center, hg.axis, float(hg.w), float(hg.d)])
+	for rc in rects:
+		var c: Vector2 = rc[0]
+		var ax: Vector2 = (rc[1] as Vector2).normalized()
+		var nn := Vector2(-ax.y, ax.x)
+		for k in 4:
+			var q := c + ax * float(rc[2]) * (0.5 if k % 2 == 0 else -0.5) + nn * float(rc[3]) * (0.5 if k < 2 else -0.5)
+			pts.append(o + q)
+	if L.tower != Vector2.ZERO:
+		pts.append(o + (L.tower as Vector2))
+	var hull := Geometry2D.convex_hull(pts)
+	var grown: Array = Geometry2D.offset_polygon(hull, 90.0)
+	var poly: PackedVector2Array = grown[0] if not grown.is_empty() else hull
+	var box := Rect2(poly[0], Vector2.ZERO)
+	for q2 in poly:
+		box = box.expand(q2)
+	return {"poly": poly, "box": box.grow(HULL_FADE + 20.0), "icao": icao}
+
+
+static func airport_weight(x: float, z: float) -> float:
+	## 1 inside an airport fence, fading to 0 within HULL_FADE metres outside it.
+	var p := Vector2(x, z)
+	var best := 0.0
+	for hb in bucket_hull.get(_bkey(x, z), NONE):
+		if not (hb.box as Rect2).has_point(p):
+			continue
+		var poly: PackedVector2Array = hb.poly
+		if Geometry2D.is_point_in_polygon(p, poly):
+			return 1.0
+		var dmin := INF
+		var n := poly.size()
+		for i in n:
+			var cp := Geometry2D.get_closest_point_to_segment(p, poly[i], poly[(i + 1) % n])
+			dmin = minf(dmin, p.distance_to(cp))
+		best = maxf(best, 1.0 - U.smooth01(dmin / HULL_FADE))
+	return best
+
+
+static func under_approach(x: float, z: float) -> bool:
+	## Inside an approach funnel (the first 7 km out from a threshold): keep buildings low-rise.
+	for c in bucket_corr.get(_bkey(x, z), NONE):
+		var rx: float = x - c[0]
+		var rz: float = z - c[1]
+		var along: float = rx * c[2] + rz * c[3]
+		if along < -300.0 or along > 7000.0:
+			continue
+		var lat := absf(rx * c[3] - rz * c[2])
+		if lat < 380.0 + maxf(along, 0.0) * 0.12:
+			return true
+	return false
+
+
 static func _build_airports() -> void:
 	airports_flat.clear()
+	ap_hulls.clear()
 	cities.clear()
 	runway_rects.clear()
 	corridors.clear()
@@ -248,6 +331,7 @@ static func _build_airports() -> void:
 		for e in Airports.runway_ends(icao):
 			r_in = maxf(r_in, U.dist2d(a.x, a.z, e.thr_x, e.thr_z) + 900.0)
 		airports_flat.append([float(a.x), float(a.z), float(a.elev), r_in, r_in + 2600.0])
+		ap_hulls.append(_airport_hull(icao, a))
 		var ci: Dictionary = a.city_info
 		cities.append({"x": a.x + ci.dx, "z": a.z + ci.dz, "r": float(ci.radius), "tall": float(ci.tall),
 			"name": a.city, "icao": icao, "pop": int(ci.pop), "coastal": bool(ci.coastal), "country": String(a.get("country", ""))})
@@ -887,9 +971,14 @@ class Sampler:
 		var key := Geo._bkey(x, z)
 		for c in Geo.bucket_city.get(key, Geo.NONE):
 			var d := U.dist2d(x, z, c.x, c.z)
-			if d < c.r * 1.4:
+			if d < c.r * 1.75:
 				var edge = n_fine.get_noise_2d(x * 1.7, z * 1.7) * c.r * 0.28
 				urban = maxf(urban, 1.0 - U.smooth01((d + edge - c.r * 0.55) / (c.r * 0.6)))
+				if int(c.get("pop", 0)) >= 1500000:
+					# metro sprawl: low-rise suburbs reaching well past the city proper, broken by parkland
+					var patch := n_fine.get_noise_2d(x * 0.6 + 913.0, z * 0.6 - 377.0)
+					var sprawl := (1.0 - U.smooth01((d + float(edge) * 0.6 - c.r * 1.0) / (c.r * 0.6))) * U.smooth01((patch + 0.35) / 0.4)
+					urban = maxf(urban, sprawl * 0.55)
 		var park := 0.0
 		if urban > 0.0 and z > MAP_HALF:
 			for pk in Geo.parks:
@@ -897,10 +986,7 @@ class Sampler:
 					park = 1.0
 					urban = 0.0
 					break
-		var near_ap := 0.0
-		for ap in Geo.bucket_ap.get(key, Geo.NONE):
-			var d2 := U.dist2d(x, z, ap[0], ap[1])
-			near_ap = maxf(near_ap, 1.0 - U.smooth01((d2 - ap[3]) / 1500.0))
+		var near_ap := Geo.airport_weight(x, z)
 		urban *= 1.0 - near_ap
 		var forest := U.smooth01((moist - 0.02) / 0.3) * (1.0 - urban) * (1.0 - near_ap)
 		forest = maxf(forest, park * 0.32)
