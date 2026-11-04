@@ -38,7 +38,7 @@ const TABLE := {
 	"KIAD": {"plan": "midfield", "roof": "sag", "tower": "lantern", "levels": 2, "sats": 1, "garages": 1, "clad": Color(0.9, 0.89, 0.86), "roof_col": Color(0.86, 0.86, 0.84)},
 	"KORD": {"plan": "midfield", "roof": "vault", "tower": "cylinder", "levels": 3, "gates": 40, "sats": 2, "garages": 2, "hotel": 1, "cargo": true, "clad": Color(0.82, 0.84, 0.88), "frame": Color(0.4, 0.5, 0.62)},
 	"CYYZ": {"plan": "arc", "roof": "arch", "tower": "slender", "levels": 3, "sats": 1, "garages": 2, "hotel": 1, "clad": Color(0.85, 0.86, 0.88)},
-	"KMIA": {"plan": "arc", "roof": "flat", "tower": "flared", "levels": 3, "gates": 32, "sats": 1, "garages": 3, "hotel": 1, "cargo": true,
+	"KMIA": {"plan": "midfield", "roof": "flat", "tower": "flared", "levels": 3, "gates": 64, "sats": 2, "garages": 3, "hotel": 1, "cargo": true, "tower_h": 100.0,
 		"clad": Color(0.96, 0.95, 0.92), "roof_col": Color(0.92, 0.92, 0.9), "accent": Color(0.15, 0.6, 0.65)},
 	"KLAX": {"plan": "arc", "roof": "flat", "tower": "flared", "levels": 3, "gates": 36, "sats": 1, "sig": "theme", "garages": 3, "hotel": 1, "cargo": true,
 		"clad": Color(0.88, 0.86, 0.82), "roof_col": Color(0.78, 0.78, 0.76)},

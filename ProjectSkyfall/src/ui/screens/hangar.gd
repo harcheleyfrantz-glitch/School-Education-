@@ -9,7 +9,8 @@ var _list := {}
 var _specs: VBoxContainer
 var _title: Label
 var _maker: Label
-var _liveries: HBoxContainer
+var _liveries: HFlowContainer
+var _livery_name: Label
 
 
 func setup(params: Dictionary) -> void:
@@ -26,9 +27,16 @@ func setup(params: Dictionary) -> void:
 	left.set_anchors_and_offsets_preset(Control.PRESET_LEFT_WIDE)
 	left.offset_right = 262
 	body.add_child(left)
-	var lv := UIStyle.vbox(6)
-	left.add_child(lv)
-	lv.add_child(ScreenBase.section("Aircraft"))
+	var outer := UIStyle.vbox(6)
+	left.add_child(outer)
+	outer.add_child(ScreenBase.section("Aircraft"))
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	outer.add_child(scroll)
+	var lv := UIStyle.vbox(2)
+	lv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(lv)
 	for t in AircraftTypes.ORDER:
 		var b := _type_row(String(t))
 		lv.add_child(b)
@@ -58,17 +66,27 @@ func setup(params: Dictionary) -> void:
 	top.add_child(hint)
 	var bottom_box := UIStyle.vbox(10)
 	bottom_box.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
-	bottom_box.offset_left = -250
-	bottom_box.offset_right = 250
-	bottom_box.offset_top = -112
+	bottom_box.offset_left = -270
+	bottom_box.offset_right = 270
+	bottom_box.offset_top = -230
 	bottom_box.alignment = BoxContainer.ALIGNMENT_END
 	body.add_child(bottom_box)
 	var lt := UIStyle.caps("Livery", 11, Color(1, 1, 1, 0.6), 700, 2)
 	lt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	bottom_box.add_child(lt)
-	_liveries = UIStyle.hbox(8)
-	_liveries.alignment = BoxContainer.ALIGNMENT_CENTER
-	bottom_box.add_child(_liveries)
+	_livery_name = UIStyle.caps("", 12, Color.WHITE, 800, 2)
+	_livery_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	bottom_box.add_child(_livery_name)
+	var lscroll := ScrollContainer.new()
+	lscroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	lscroll.custom_minimum_size = Vector2(540, 112)
+	bottom_box.add_child(lscroll)
+	_liveries = HFlowContainer.new()
+	_liveries.alignment = FlowContainer.ALIGNMENT_CENTER
+	_liveries.add_theme_constant_override("h_separation", 6)
+	_liveries.add_theme_constant_override("v_separation", 6)
+	_liveries.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	lscroll.add_child(_liveries)
 	var fly := UIStyle.primary("Fly this aircraft", func(): Game.goto("world_map", {"type": type_id, "airline": airline}), 260)
 	fly.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	bottom_box.add_child(fly)
@@ -91,7 +109,7 @@ func _type_row(t: String) -> Button:
 	var spec := AircraftTypes.get_type(t)
 	var b := Button.new()
 	b.focus_mode = Control.FOCUS_ALL
-	b.custom_minimum_size = Vector2(0, 54)
+	b.custom_minimum_size = Vector2(0, 46)
 	b.add_theme_stylebox_override("normal", UIStyle.box(Color(0, 0, 0, 0), 3, Color(0, 0, 0, 0), 0, 10))
 	b.add_theme_stylebox_override("hover", UIStyle.box(Color(1, 1, 1, 0.1), 3, Color(1, 1, 1, 0.3), 1, 10))
 	b.add_theme_stylebox_override("pressed", UIStyle.box(Color(1, 1, 1, 0.16), 3, Color(1, 1, 1, 0.5), 1, 10))
@@ -187,7 +205,7 @@ func _fill_liveries() -> void:
 		sw.c = lc.stripe
 		sw.selected = code == airline
 		sw.operates = Airlines.operates_type(String(code), type_id)
-		sw.custom_minimum_size = Vector2(38, 38)
+		sw.custom_minimum_size = Vector2(32, 32)
 		sw.tooltip_text = String(Airlines.get_al(String(code)).name)
 		sw.focus_mode = Control.FOCUS_ALL
 		var cc := String(code)
@@ -196,9 +214,7 @@ func _fill_liveries() -> void:
 				UIStyle._click_sound()
 				_show(type_id, cc))
 		_liveries.add_child(sw)
-	var name_l := UIStyle.caps(String(Airlines.get_al(airline).name), 11, Color.WHITE, 800, 2)
-	name_l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	_liveries.add_child(name_l)
+	_livery_name.text = String(Airlines.get_al(airline).name)
 
 
 ## A round livery swatch: tail colour, body and cheatline.
