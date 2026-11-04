@@ -3,7 +3,7 @@ extends Node
 ## gate at golden hour); a flight replaces the backdrop with a full FlightSession.
 
 const MENU_SCREENS := ["menu", "create", "hub", "briefing", "free", "passenger", "news", "archive", "settings", "jobs", "logbook",
-	"activities", "activity", "profile", "hangar", "world_map", "achievements"]
+	"activities", "activity", "profile", "hangar", "world_map", "achievements", "story"]
 
 var current: Node = null
 var backdrop: Node3D = null

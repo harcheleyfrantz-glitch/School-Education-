@@ -5,6 +5,9 @@ extends ScreenBase
 
 func setup(params: Dictionary) -> void:
 	var act := Activities.consume(params)
+	if not act.is_empty() and String(act.get("category", "")) == "story":
+		Game.goto("story", {"story_result": act})
+		return
 	if not act.is_empty():
 		Game.goto("activity", {"category": act.category, "focus": act.id, "result": act})
 		return

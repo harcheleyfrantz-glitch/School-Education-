@@ -187,9 +187,11 @@ func _torso(su: Callable) -> void:
 		[1.24, 0.172, 0.114, 0.098, -0.006, 0.86],
 		[1.30, 0.180, 0.110, 0.102, -0.004, 0.88],
 		[1.355, 0.184, 0.096, 0.098, 0.0, 0.92],
-		[1.405, 0.162, 0.076, 0.086, 0.004, 0.95],
-		[1.445, 0.105, 0.062, 0.07, 0.006, 0.98],
-		[1.472, 0.058, 0.05, 0.054, 0.006, 1.0],
+		[1.405, 0.186, 0.084, 0.088, 0.004, 0.94],
+		[1.435, 0.168, 0.074, 0.080, 0.006, 0.97],
+		[1.46, 0.128, 0.064, 0.068, 0.006, 1.0],
+		[1.485, 0.086, 0.057, 0.060, 0.006, 1.0],
+		[1.51, 0.064, 0.053, 0.056, 0.006, 1.0],
 	]
 	_tag(Part.TORSO, Slot.TOP)
 	var P := func(u: float, v: float) -> Vector3:
@@ -229,22 +231,27 @@ func _head_point(u: float, v: float, inflate: float = 0.0) -> Vector3:
 	var z := dz * r.z
 	# jaw narrows toward the chin, chin juts forward slightly
 	var low := clampf((-dy - 0.15) / 0.85, 0.0, 1.0)
-	x *= lerpf(1.0, 0.86, pow(low, 1.7))
+	x *= 1.05
+	x *= lerpf(1.0, 0.89, pow(low, 1.7))
 	if dz < 0.0:
 		var fr := smoothstep(0.0, -0.6, dz)
 		z *= lerpf(1.0, 0.9, low)
 		z -= 0.014 * pow(low, 1.5) * fr
 		# longer lower face: chin and jaw line sit lower at the front
-		y -= 0.016 * smoothstep(0.25, 0.9, -dy) * fr
+		y -= 0.009 * smoothstep(0.25, 0.9, -dy) * fr
 	# fuller cranium at the back, flatter face and temples
 	if dz > 0.0 and dy > -0.3:
 		z *= 1.06
 	if dz < -0.5:
 		z *= 0.96
 	x *= 1.0 - 0.06 * smoothstep(0.2, 0.7, dy) * absf(dx)
+	# mandible: the cheek drops more steeply to a defined jaw angle below the ear,
+	# then the jaw line turns in toward the chin
+	var gon := exp(-pow((dy + 0.6) / 0.2, 2.0)) * smoothstep(0.35, -0.2, dz)
+	x *= 1.0 + 0.07 * gon
 	# cheekbones
 	var cheek := exp(-pow((dy + 0.12) / 0.18, 2.0)) * smoothstep(-0.2, -0.75, dz) * smoothstep(0.25, 0.6, absf(dx))
-	x += signf(dx) * 0.006 * cheek
+	x += signf(dx) * 0.009 * cheek
 	z -= 0.004 * cheek
 	# eye sockets
 	for sx in [-1.0, 1.0]:
@@ -256,8 +263,8 @@ func _head_point(u: float, v: float, inflate: float = 0.0) -> Vector3:
 func _neck_head(su: Callable, lod: int) -> void:
 	# neck
 	_tag(Part.HEAD, Slot.SKIN)
-	_limb(Vector3(0, 1.43, 0.008), Vector3(0, 1.6, 0.0), func(v: float) -> Array:
-		return [0.058 - 0.008 * v, 0.054 - 0.006 * v, 0.006 * (1.0 - v), 0.0], su.call(14), su.call(5), false, false)
+	_limb(Vector3(0, 1.45, 0.008), Vector3(0, 1.6, 0.0), func(v: float) -> Array:
+		return [0.063 - 0.007 * v, 0.058 - 0.006 * v, 0.006 * (1.0 - v), 0.004 * (1.0 - v)], su.call(14), su.call(5), false, false)
 	# head
 	_tag(Part.HEAD, Slot.SKIN)
 	var P := func(u: float, v: float) -> Vector3: return _head_point(u, v)
@@ -265,7 +272,7 @@ func _neck_head(su: Callable, lod: int) -> void:
 	_surface(P, su.call(30), su.call(22), true, ref)
 	# ears
 	for sx in [-1.0, 1.0]:
-		var ec := Vector3(sx * 0.077, 1.66, 0.014)
+		var ec := Vector3(sx * 0.081, 1.66, 0.014)
 		_tag(Part.HEAD, Slot.SKIN)
 		var Pe := func(u: float, v: float) -> Vector3:
 			var a := u * TAU
@@ -297,6 +304,12 @@ func _neck_head(su: Callable, lod: int) -> void:
 		var sa := sin(a)
 		var edge := Vector3(-cos(a) * float(lastr[2]) * (0.75 + 0.25 * sa), float(lastr[0]), float(lastr[3]) + (float(lastr[1]) - float(lastr[3])) * sa)
 		return nb.lerp(edge, v), su.call(10), 2, false, func(p: Vector3) -> Vector3: return nb + Vector3(0, 0.03, 0))
+	for sxn in [-1.0, 1.0]:
+		var ac := Vector3(sxn * 0.0128, 1.6262, -0.0898)
+		_surface(func(u: float, v: float) -> Vector3:
+			var a := u * TAU
+			var pol := v * PI
+			return ac + Vector3(sin(pol) * cos(a) * 0.006, cos(pol) * 0.0054, sin(pol) * sin(a) * 0.008), su.call(10), su.call(6), true, func(p: Vector3) -> Vector3: return ac)
 	if lod >= 2:
 		return
 	# eyes (whites + irises), brows, lips
@@ -333,19 +346,25 @@ func _neck_head(su: Callable, lod: int) -> void:
 		_limb(b0, bm, func(v: float) -> Array: return [0.0022, 0.0013 + 0.0004 * v, 0.0, 0.0], 5, 3, true, false)
 		_limb(bm, b1, func(v: float) -> Array: return [0.0022, 0.0017 - 0.0009 * v, 0.0, 0.0], 5, 3, false, true)
 	# lips
+	# lips run across the mouth (t = -1 .. 1), wrap back around the face at the corners and sit
+	# half buried so they grow out of the skin; the upper lip has a cupid's bow
 	_tag(Part.HEAD, Slot.LIPS)
-	var ul := Vector3(0, 1.6105, -0.0885)
 	_surface(func(u: float, v: float) -> Vector3:
+		var t := cos(v * PI)
+		var r := sin(v * PI)
 		var a := u * TAU
-		var pol := v * PI
-		var w := 0.0185 * (1.0 - 0.15 * absf(cos(a)))
-		return ul + Vector3(sin(pol) * cos(a) * w, cos(pol) * 0.0033 * (1.0 + 0.3 * (1.0 - absf(cos(a)))), sin(pol) * sin(a) * 0.0058), su.call(12), su.call(5), true, func(p: Vector3) -> Vector3: return ul)
+		var hy := 0.0042 * (1.0 - 0.35 * t * t)
+		var y := 1.6106 + cos(a) * r * hy
+		if cos(a) > 0.0:
+			y -= 0.0013 * exp(-pow(t / 0.16, 2.0)) * cos(a)
+		return Vector3(t * 0.0225, y, -0.0862 + 0.0075 * t * t + sin(a) * r * 0.0064), su.call(12), su.call(9), true, func(p: Vector3) -> Vector3: return Vector3(p.x, 1.6106, -0.083))
 	_tag(Part.MOUTH, Slot.LIPS)
-	var ll := Vector3(0, 1.6035, -0.0875)
 	_surface(func(u: float, v: float) -> Vector3:
+		var t := cos(v * PI)
+		var r := sin(v * PI)
 		var a := u * TAU
-		var pol := v * PI
-		return ll + Vector3(sin(pol) * cos(a) * 0.0165, cos(pol) * 0.0038, sin(pol) * sin(a) * 0.006), su.call(12), su.call(5), true, func(p: Vector3) -> Vector3: return ll)
+		var hy := 0.005 * (1.0 - 0.5 * t * t)
+		return Vector3(t * 0.0198, 1.6031 + cos(a) * r * hy, -0.0858 + 0.0072 * t * t + sin(a) * r * 0.007 * (1.0 - 0.3 * t * t)), su.call(12), su.call(9), true, func(p: Vector3) -> Vector3: return Vector3(p.x, 1.6031, -0.082))
 
 
 func _arms(su: Callable, lod: int) -> void:
@@ -357,18 +376,22 @@ func _arms(su: Callable, lod: int) -> void:
 		var fa := Part.FARM_L if side < 0.0 else Part.FARM_R
 		# deltoid cap blends the arm into the shoulder
 		_tag(up, Slot.TOP)
-		var dc := sh + Vector3(side * -0.012, -0.008, 0.0)
+		var dc := Vector3(side * 0.186, 1.392, 0.002)
 		_surface(func(u: float, v: float) -> Vector3:
 			var a := u * TAU
-			var pol := v * PI * 0.62
-			return dc + Vector3(side * cos(pol) * 0.05, sin(pol) * cos(a) * 0.047 + 0.004, sin(pol) * sin(a) * 0.048), su.call(14), su.call(6), true, func(p: Vector3) -> Vector3: return dc)
-		_limb(sh + Vector3(0, 0.02, 0), el, func(v: float) -> Array:
+			var pol := v * PI
+			# slightly flattened on top so it reads as muscle under fabric, not a shoulder pad
+			var top := 1.0 - 0.18 * maxf(cos(pol), 0.0)
+			# the lower half tapers into the sleeve instead of ending in a ledge
+			var hr := sin(pol) if cos(pol) >= 0.0 else pow(sin(pol), 1.8)
+			return dc + Vector3(cos(a) * hr * 0.06, cos(pol) * 0.05 * top, sin(a) * hr * 0.056), su.call(16), su.call(9), true, func(p: Vector3) -> Vector3: return dc)
+		_limb(sh, el, func(v: float) -> Array:
 			var bicep := exp(-pow((v - 0.45) / 0.3, 2.0))
-			return [0.047 - 0.01 * v + 0.004 * bicep, 0.045 - 0.008 * v, 0.006 * bicep, 0.003 * bicep], su.call(14), su.call(8), false, false)
+			return [0.051 - 0.01 * v + 0.005 * bicep, 0.049 - 0.008 * v, 0.007 * bicep, 0.004 * bicep], su.call(14), su.call(8), true, false)
 		_tag(fa, Slot.SLEEVE)
 		_limb(el + Vector3(0, 0.02, 0), wr, func(v: float) -> Array:
 			var bulge := exp(-pow((v - 0.25) / 0.25, 2.0))
-			return [0.037 + 0.006 * bulge - 0.01 * v, 0.036 + 0.004 * bulge - 0.014 * v, 0.002, 0.003 * bulge], su.call(14), su.call(8), false, false)
+			return [0.040 + 0.007 * bulge - 0.01 * v, 0.039 + 0.005 * bulge - 0.014 * v, 0.002, 0.004 * bulge], su.call(14), su.call(8), false, false)
 		# hand: palm and fingers as one lofted mitten, plus a thumb
 		_tag(fa, Slot.SKIN)
 		var h0 := wr + Vector3(0, 0.012, 0)
@@ -398,12 +421,12 @@ func _legs(su: Callable, lod: int) -> void:
 		_tag(th, Slot.BOTTOM)
 		_limb(hp + Vector3(side * 0.006, 0.05, 0.004), kn + Vector3(0, -0.01, 0), func(v: float) -> Array:
 			var quad := exp(-pow((v - 0.35) / 0.35, 2.0))
-			return [0.088 - 0.032 * v, 0.084 - 0.028 * v, 0.008 * quad, 0.004], su.call(16), su.call(9), false, false)
+			return [0.094 - 0.033 * v, 0.09 - 0.029 * v, 0.01 * quad, 0.006], su.call(16), su.call(9), false, false)
 		_tag(sh, Slot.LEG)
 		_limb(kn + Vector3(0, 0.02, 0), an + Vector3(0, 0.02, 0), func(v: float) -> Array:
 			var calf := exp(-pow((v - 0.28) / 0.22, 2.0))
 			var knee := exp(-pow(v / 0.08, 2.0))
-			return [0.054 - 0.022 * v + 0.004 * calf, 0.05 - 0.022 * v, 0.006 * knee, 0.016 * calf], su.call(16), su.call(10), false, false)
+			return [0.058 - 0.023 * v + 0.005 * calf, 0.054 - 0.023 * v, 0.006 * knee, 0.019 * calf], su.call(16), su.call(10), false, false)
 		# shoe upper and sole
 		_tag(sh, Slot.SHOES)
 		var heel := Vector3(side * 0.095, 0.0, 0.055)

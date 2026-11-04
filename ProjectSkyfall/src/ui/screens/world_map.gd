@@ -71,9 +71,9 @@ func setup(params: Dictionary) -> void:
 	var regions := UIStyle.hbox(8)
 	regions.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
 	regions.offset_top = 26
-	regions.offset_left = -230
-	regions.offset_right = 330
-	for rg in [["Calderra", "calderra"], ["North America", "america"], ["Atlantic", "atlantic"], ["Europe", "europe"], ["Asia", "asia"], ["Whole world", "all"]]:
+	regions.offset_left = -330
+	regions.offset_right = 430
+	for rg in [["Calderra", "calderra"], ["USA", "america"], ["Alaska & Hawaii", "pacific"], ["Atlantic", "atlantic"], ["Europe", "europe"], ["Asia", "asia"], ["Whole world", "all"]]:
 		var key: String = rg[1]
 		regions.add_child(UIStyle.button(rg[0], func(): map.frame_region(key), 0.0))
 	body.add_child(regions)

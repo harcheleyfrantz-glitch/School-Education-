@@ -46,7 +46,7 @@ static func _compute(icao: String) -> Dictionary:
 				{"name": names[0], "thr": c - dir * half, "dir": dir, "hdg": float(r.hdg), "ils": bool(r.ils[0])},
 				{"name": names[1], "thr": c + dir * half, "dir": -dir, "hdg": U.wrap_deg(float(r.hdg) + 180.0), "ils": bool(r.ils[1])},
 			],
-			"tw_name": ["A", "B", "C", "D"][ri],
+			"tw_name": ["A", "B", "C", "D", "E", "F", "G", "H"][mini(ri, 7)],
 		}
 		L.runways.append(rw)
 		ri += 1

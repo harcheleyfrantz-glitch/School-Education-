@@ -51,6 +51,12 @@ const LIST := [
 	{"id": "three_continents", "title": "Intercontinental", "desc": "Cross three continents in a single flight.", "icon": "globe", "group": "Places"},
 	{"id": "santa", "title": "Santa Spotter", "desc": "Fly on Christmas Eve night and get a very special traffic advisory.", "icon": "star", "group": "Nature"},
 	{"id": "border_hopper", "title": "Border Hopper", "desc": "Fly over eight countries or seas in one flight.", "icon": "globe", "group": "Places"},
+	{"id": "story_ch1", "title": "First Solo", "desc": "Story: complete chapter one.", "icon": "plane", "group": "Story"},
+	{"id": "story_ch2", "title": "The Night Run", "desc": "Story: complete chapter two.", "icon": "storm", "group": "Story"},
+	{"id": "story_ch3", "title": "Across the Pond", "desc": "Story: complete chapter three.", "icon": "globe", "group": "Story"},
+	{"id": "story_ch4", "title": "Mayday", "desc": "Story: complete chapter four.", "icon": "bell", "group": "Story"},
+	{"id": "story_ch5", "title": "Opening Night", "desc": "Story: complete chapter five.", "icon": "star", "group": "Story"},
+	{"id": "story_done", "title": "Wings of Calderra", "desc": "Finish the story.", "icon": "trophy", "group": "Story"},
 	# ---------------------------------------------------------------- sightseeing
 	{"id": "sightseer", "title": "Sightseer", "desc": "Fly low past three famous landmarks.", "icon": "star", "group": "Sightseeing", "goal": 3, "stat": "landmarks"},
 	{"id": "seen_it_all", "title": "Seen It All", "desc": "Fly low past fifteen landmarks.", "icon": "star", "group": "Sightseeing", "goal": 15, "stat": "landmarks"},

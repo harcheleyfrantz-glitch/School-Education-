@@ -24,6 +24,8 @@ const TABLE := {
 	# --- Calderra / Westmark (fictional)
 	"SKPC": {"plan": "midfield", "roof": "arch", "tower": "lantern", "levels": 3, "gates": 44, "sats": 2, "garages": 3, "hotel": 2, "cargo": true, "sig": "jewel",
 		"clad": Color(0.94, 0.94, 0.93), "roof_col": Color(0.95, 0.96, 0.97), "frame": Color(0.95, 0.96, 0.97), "accent": Color(0.1, 0.45, 0.75), "tower_h": 92.0},
+	"SKAU": {"plan": "midfield", "roof": "wave", "tower": "torch", "levels": 4, "gates": 160, "sats": 3, "garages": 4, "hotel": 3, "cargo": true, "sig": "theme",
+		"clad": Color(0.95, 0.95, 0.94), "roof_col": Color(0.93, 0.95, 0.97), "frame": Color(0.85, 0.72, 0.42), "accent": Color(0.85, 0.62, 0.2), "tower_h": 118.0},
 	"SKRV": {"roof": "gable", "tower": "box", "levels": 1, "clad": Color(0.78, 0.7, 0.6), "roof_col": Color(0.38, 0.4, 0.44)},
 	"SKNG": {"roof": "saw", "tower": "cylinder", "levels": 2, "gates": 12, "garages": 1, "cargo": true, "clad": Color(0.6, 0.62, 0.66), "roof_col": Color(0.55, 0.57, 0.6), "frame": Color(0.25, 0.27, 0.3)},
 	"SKHP": {"roof": "gable", "tower": "box", "levels": 1, "clad": Color(0.55, 0.42, 0.3), "roof_col": Color(0.3, 0.25, 0.22)},

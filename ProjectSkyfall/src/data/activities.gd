@@ -381,6 +381,10 @@ static func get_scenario(id: String) -> Dictionary:
 	for s in SCENARIOS:
 		if String(s.id) == id:
 			return s
+	# story chapters fly as scenarios too (category "story")
+	for s2 in Story.scenarios():
+		if String(s2.id) == id:
+			return s2
 	return {}
 
 
@@ -499,6 +503,8 @@ static func launch(scn: Dictionary, leg: int = -1) -> void:
 		p.arr_rwy = String(scn.arr_rwy)
 	if scn.has("cruise_ft"):
 		p.cruise_ft = float(scn.cruise_ft)
+	if scn.has("force_event"):
+		p.force_event = String(scn.force_event)
 	if p.start == "air":
 		p.alt_ft = float(scn.get("alt_ft", 3000.0))
 		p.dist_km = float(scn.get("dist_km", 12.0))

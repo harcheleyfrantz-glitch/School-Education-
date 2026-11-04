@@ -65,7 +65,8 @@ func _ready() -> void:
 	resized.connect(_on_resized)
 
 
-## Centres the map on a region: "calderra", "america", "europe", "atlantic" or "all".
+## Centres the map on a region: "calderra", "america", "pacific" (Alaska and Hawaii), "europe",
+## "atlantic", "asia" or "all".
 func frame_region(name: String, left_pad: float = 380.0) -> void:
 	var r: Rect2
 	match name:
@@ -79,8 +80,10 @@ func frame_region(name: String, left_pad: float = 380.0) -> void:
 			r = _rect_ll(-100.0, 22.0, 20.0, 70.0)
 		"asia":
 			r = _rect_ll(25.0, -10.0, 150.0, 58.0)
+		"pacific":
+			r = _rect_ll(-162.0, 17.0, -128.0, 72.0)
 		_:
-			r = Rect2(-1360, -520, 4410, 3080)
+			r = Rect2(-1904, -520, 4954, 3080)
 	var avail := Vector2(maxf(size.x - left_pad - 40.0, 200.0), maxf(size.y - 120.0, 200.0))
 	px_per_km = minf(avail.x / r.size.x, avail.y / r.size.y)
 	_min_scale = minf(_min_scale, px_per_km * 0.7)

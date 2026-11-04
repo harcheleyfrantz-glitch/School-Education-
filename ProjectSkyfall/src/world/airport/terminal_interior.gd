@@ -24,6 +24,7 @@ const FLAGSHIP := {
 	"WSSS": {"ceil": "wood", "ceil_c": Color(0.68, 0.5, 0.32), "floor": Color(0.7, 0.68, 0.64), "carpet": Color(0.36, 0.12, 0.3), "accent": Color(0.5, 0.22, 0.42), "seat": Color(0.3, 0.1, 0.26), "mull": Color(0.88, 0.88, 0.88)},
 	"RJTT": {"ceil": "wood", "ceil_c": Color(0.8, 0.66, 0.48), "floor": Color(0.86, 0.85, 0.83), "carpet": Color(0.3, 0.32, 0.35), "accent": Color(0.42, 0.44, 0.47), "seat": Color(0.15, 0.15, 0.16), "mull": Color(0.92, 0.92, 0.92)},
 	"LFPG": {"ceil": "vault", "ceil_c": Color(0.76, 0.64, 0.48), "floor": Color(0.55, 0.55, 0.56), "carpet": Color(0.14, 0.14, 0.24), "accent": Color(0.25, 0.25, 0.38), "seat": Color(0.58, 0.1, 0.12), "mull": Color(0.35, 0.36, 0.38)},
+	"SKAU": {"ceil": "wood", "ceil_c": Color(0.78, 0.6, 0.4), "floor": Color(0.9, 0.88, 0.84), "carpet": Color(0.36, 0.22, 0.1), "accent": Color(0.85, 0.62, 0.2), "seat": Color(0.16, 0.14, 0.13), "mull": Color(0.85, 0.72, 0.42)},
 	"SKPC": {"ceil": "vault", "ceil_c": Color(0.95, 0.95, 0.95), "floor": Color(0.8, 0.79, 0.76), "carpet": Color(0.1, 0.3, 0.36), "accent": Color(0.2, 0.42, 0.46), "seat": Color(0.1, 0.1, 0.11), "mull": Color(0.92, 0.93, 0.94)},
 }
 const DOOR_W := 2.4

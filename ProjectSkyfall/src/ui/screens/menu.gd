@@ -5,6 +5,9 @@ extends ScreenBase
 
 func setup(params: Dictionary) -> void:
 	var act := Activities.consume(params)
+	if not act.is_empty() and String(act.get("category", "")) == "story":
+		Game.goto("story", {"story_result": act})
+		return
 	if not act.is_empty():
 		Game.goto("activity", {"category": act.category, "focus": act.id, "result": act})
 		return
@@ -29,16 +32,19 @@ func setup(params: Dictionary) -> void:
 	row1.add_child(feat)
 	for f in _featured():
 		feat.add_card(f)
+	row1.add_child(ImageCard.make("Story Mode", "%s: five chapters with cutscenes, from first solo to Auera" % Story.TITLE, "scn:story1",
+		func(): Game.goto("story"), {"icon_name": "play", "ribbon": "NEW", "ribbon_color": UIStyle.GOLD,
+			"progress": float(Story.done_count()) / float(Story.CHAPTERS.size()), "progress_text": "%d/%d" % [Story.done_count(), Story.CHAPTERS.size()]}))
 	row1.add_child(_career_card())
 	row1.add_child(ImageCard.make("World Map", "Free flight: any aircraft, any airport, any time of day", "home_worldmap",
 		func(): Game.goto("world_map"), {"icon_name": "globe"}))
-	row1.add_child(ImageCard.make("Air Traffic Control", "Be the tower controller at any airport", "ap:KJFK",
-		func(): Game.goto("tower", {"icao": String(Game.settings.get("tower_airport", "KJFK"))}), {"icon_name": "bell", "ribbon": "NEW", "ribbon_color": UIStyle.GREEN}))
 	var done := Activities.completed_count()
 	var total := Activities.SCENARIOS.size()
 	row2.add_child(ImageCard.make("Activities", "Discovery flights, landing challenges, bush trips and special missions", "act_bush",
 		func(): Game.goto("activities"), {"ribbon": "NEW", "progress": float(done) / float(total), "progress_text": "%d/%d" % [done, total],
 			"icon_name": "trophy"}))
+	row2.add_child(ImageCard.make("Air Traffic Control", "Be the tower controller at any airport", "ap:KJFK",
+		func(): Game.goto("tower", {"icao": String(Game.settings.get("tower_airport", "KJFK"))}), {"icon_name": "bell"}))
 	row2.add_child(ImageCard.make("Passenger Journey", "Book a seat on any departure and ride along in the cabin", "home_passenger",
 		func(): Game.goto("passenger"), {"icon_name": "user"}))
 	row2.add_child(ImageCard.make("Hangar", "Eighteen aircraft and dozens of liveries, up close", "home_hangar",
@@ -63,6 +69,8 @@ func _career_card() -> ImageCard:
 
 func _featured() -> Array:
 	var out := []
+	out.append(ImageCard.make("Story Mode: %s" % Story.TITLE, "Five chapters with in-engine cutscenes: a first solo, a storm, a transatlantic crossing, a Mayday - and the first ever landing at Auera International. %d of %d chapters complete." % [Story.done_count(), Story.CHAPTERS.size()],
+		"scn:story5", func(): Game.goto("story"), {"ribbon": "NEW · STORY", "ribbon_color": UIStyle.GOLD, "title_size": 28, "kenburns": true}))
 	out.append(ImageCard.make("Fly the Stratos 320", "Golden hour over the Port Calder coast. Pick an aircraft, an airport and a time of day on the world map.",
 		"home_featured", func(): Game.goto("world_map", {"type": "s320", "airline": "SKF"}), {"ribbon": "FEATURED", "ribbon_color": UIStyle.ACCENT,
 			"title_size": 28, "kenburns": true}))

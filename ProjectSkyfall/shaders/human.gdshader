@@ -30,6 +30,8 @@ varying flat float v_stripe;
 varying flat float v_kind;
 varying flat float v_slot;
 varying flat float v_denim;
+varying flat float v_beard;
+varying flat float v_tone;
 varying vec3 v_rest;
 
 void rot(inout vec3 p, inout vec3 n, vec3 pivot, vec3 a) {
@@ -379,6 +381,8 @@ void vertex() {
 	else if (slot == 16) { c = formal ? vec3(0.95) : top; }
 	else if (slot == 17) { c = outfit == 3 ? vec3(0.03) : (outfit == 2 ? uniform_trim : mix(vec3(0.5, 0.1, 0.12), vec3(0.1, 0.15, 0.4), sh5)); rough = 0.5; }
 	else if (slot == 18) { c = sh5 > 0.6 ? vec3(0.62, 0.52, 0.28) : vec3(0.05); rough = 0.3; }
+	// bare arms (short sleeves) and legs (skirts) shade as skin, not fabric
+	if ((slot == 10 && !long_sleeve) || (slot == 11 && skirt)) v_kind = -1.0;
 	if (soot) { c *= 0.45; top *= 0.45; bottom *= 0.45; skin *= 0.6; }
 	v_albedo = c;
 	v_top = top;
@@ -387,6 +391,9 @@ void vertex() {
 	v_slot = float(slot);
 	v_rough = rough;
 	v_emit = (slot == 7 && has_phone && pose != 19) ? 1.0 : 0.0;
+	// stubble shadow on some men, and a per-person skin warmth
+	v_beard = (build < 0.35 && !elderly && sh4 > 0.5) ? 0.35 + 0.5 * fract(sh4 * 7.3) : 0.0;
+	v_tone = sh5;
 }
 
 float hash3(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
@@ -417,7 +424,8 @@ void fragment() {
 		if (v_kind > 1.5 && rp.z < 0.0 && abs(rp.x) < 0.006 && y > 1.02 && y < 1.3 && fract(y * 12.5) < 0.18) c = mix(c, vec3(0.75), 0.6);
 	}
 	// fabric texture
-	if ((v_slot > 0.5 && v_slot < 3.5) || (v_slot > 9.5 && v_slot < 11.5)) {
+	bool bare = v_kind < -0.5;
+	if (((v_slot > 0.5 && v_slot < 3.5) || (v_slot > 9.5 && v_slot < 11.5)) && !bare) {
 		float fab = vnoise(rp * 180.0) * 0.5 + vnoise(rp * 40.0) * 0.5;
 		c *= 0.93 + fab * 0.1;
 		if (v_denim > 0.5 && y < 1.0) {
@@ -436,12 +444,37 @@ void fragment() {
 		c *= 0.78 + strands * 0.4;
 		rough = 0.5 + strands * 0.2;
 	}
-	// skin: warmer cheeks, nose and lips region
-	if (v_slot < 0.5 && y > 1.58 && y < 1.75 && rp.z < -0.05) {
-		float bx = (abs(rp.x) - 0.045) / 0.02;
-		float by = (y - 1.64) / 0.025;
-		float blush = exp(-bx * bx - by * by);
-		c = mix(c, c * vec3(1.06, 0.88, 0.86), blush * 0.6);
+	// skin: mottling, warm cheeks, nose and ears, cooler under the eyes, stubble shadow
+	bool skin_px = v_slot < 0.5 || bare;
+	if (skin_px) {
+		float mott = vnoise(rp * 260.0) * 0.6 + vnoise(rp * 34.0) * 0.4;
+		c *= 0.955 + mott * 0.09;
+		c *= mix(vec3(1.0), vec3(1.03, 0.99, 0.97), v_tone);
+	}
+	if (v_slot < 0.5 && y > 1.53 && y < 1.75) {
+		float ax = abs(rp.x);
+		if (rp.z < -0.05) {
+			float bx = (ax - 0.045) / 0.02;
+			float by = (y - 1.64) / 0.025;
+			float blush = exp(-bx * bx - by * by);
+			// nose tip
+			float nb = exp(-pow(ax / 0.014, 2.0) - pow((y - 1.632) / 0.012, 2.0)) * step(rp.z, -0.092);
+			c = mix(c, c * vec3(1.07, 0.86, 0.84), clamp(blush * 0.6 + nb * 0.45, 0.0, 1.0));
+			// soft shadow under the eyes
+			float ue = exp(-pow((ax - 0.031) / 0.014, 2.0) - pow((y - 1.663) / 0.006, 2.0));
+			c *= 1.0 - 0.1 * ue;
+		}
+		// ears flush pink
+		if (ax > 0.07 && y > 1.63 && y < 1.69) c *= vec3(1.04, 0.92, 0.9);
+		// stubble on the jaw, chin and upper lip
+		if (v_beard > 0.0 && rp.z < 0.01) {
+			float jaw = smoothstep(1.632, 1.612, y) * smoothstep(1.535, 1.556, y);
+			float lip = exp(-pow((y - 1.615) / 0.004, 2.0)) * step(ax, 0.02);
+			float side = smoothstep(0.075, 0.06, ax) + step(rp.z, -0.04);
+			float m = clamp(jaw * clamp(side, 0.0, 1.0) + lip, 0.0, 1.0);
+			float grain = 0.55 + 0.45 * vnoise(rp * 900.0);
+			c = mix(c, c * vec3(0.58, 0.56, 0.58), m * v_beard * grain);
+		}
 	}
 	if (v_stripe > 0.5 && v_stripe < 1.5) {
 		float band = step(abs(y - 1.10), 0.022) + step(abs(y - 1.22), 0.022) + step(abs(y - 0.62), 0.02);
@@ -453,6 +486,8 @@ void fragment() {
 	ROUGHNESS = rough;
 	SPECULAR = (abs(v_slot - 14.0) < 0.5 || abs(v_slot - 15.0) < 0.5) ? 0.8 : 0.32;
 	RIM = v_slot < 0.5 ? 0.25 : 0.1;
+	// light bleeding through skin (ears and fingers glow when backlit, softer terminator)
+	if (skin_px) BACKLIGHT = c * vec3(0.16, 0.07, 0.05);
 	RIM_TINT = 0.6;
 	EMISSION = vec3(0.35, 0.45, 0.6) * v_emit * 1.5;
 }
