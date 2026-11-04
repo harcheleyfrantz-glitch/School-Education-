@@ -408,6 +408,81 @@ def convert(icao):
         adj[w] += [ei, len(edges) - 1]
         return w
 
+    # ---- bridge small gaps in the mapped network (separately drawn ways that stop a few metres
+    # short of each other) so every runway and apron joins one network
+    def components():
+        par = list(range(len(nodes)))
+        def fd(x):
+            while par[x] != x:
+                par[x] = par[par[x]]
+                x = par[x]
+            return x
+        for e in edges:
+            ra, rb = fd(e[0]), fd(e[1])
+            if ra != rb:
+                par[ra] = rb
+        comp = {}
+        for i in range(len(nodes)):
+            comp.setdefault(fd(i), []).append(i)
+        return list(comp.values())
+    for _ in range(12):
+        comps = sorted(components(), key=len, reverse=True)
+        if len(comps) < 2:
+            break
+        main_c = comps[0]
+        main_pts = np.array([nodes[i] for i in main_c])
+        joined = False
+        for cp in comps[1:]:
+            if len(cp) < 6:
+                continue
+            best = None
+            for i in cp:
+                d2 = ((main_pts - np.array(nodes[i])) ** 2).sum(axis=1)
+                j = int(d2.argmin())
+                if best is None or d2[j] < best[0]:
+                    best = (float(d2[j]), i, main_c[j])
+            if best is not None and best[0] < 160.0 ** 2:
+                edges.append([best[1], best[2], "", "taxi", -1])
+                adj[best[1]].append(len(edges) - 1)
+                adj[best[2]].append(len(edges) - 1)
+                joined = True
+        if not joined:
+            break
+    # ---- runway crossings: taxiway legs that meet a runway from opposite sides a short way apart
+    # are linked across it (taxi routes may cross a runway, not run along it)
+    for k, rl in enumerate(rw_lines):
+        A = np.array(rl.coords[0])
+        Bq = np.array(rl.coords[-1])
+        dvec = (Bq - A) / max(np.linalg.norm(Bq - A), 1e-6)
+        nvec = np.array([-dvec[1], dvec[0]])
+        ends = []
+        for i in range(len(nodes)):
+            if nk[i] != "rwy" or nrw[i] != k:
+                continue
+            sides = set()
+            nm0 = ""
+            for ei in adj[i]:
+                e = edges[ei]
+                if e[3] == "rwy":
+                    continue
+                o = e[1] if e[0] == i else e[0]
+                sd = float(np.dot(np.array(nodes[o]) - np.array(nodes[i]), nvec))
+                if abs(sd) > 0.5:
+                    sides.add(1 if sd > 0 else -1)
+                    nm0 = nm0 or e[2]
+            if sides:
+                ends.append((float(np.dot(np.array(nodes[i]) - A, dvec)), i, sides, nm0))
+        ends.sort()
+        for x in range(len(ends)):
+            for y in range(x + 1, len(ends)):
+                if ends[y][0] - ends[x][0] > 160.0:
+                    break
+                if ends[x][2] != ends[y][2] or len(ends[x][2]) == 2:
+                    na, nb = ends[x][1], ends[y][1]
+                    edges.append([na, nb, ends[x][3] or ends[y][3] or "X", "taxi", -1])
+                    adj[na].append(len(edges) - 1)
+                    adj[nb].append(len(edges) - 1)
+                    break
     # ---- holding points on every taxiway leg that reaches a runway
     holds = []
     for rn in range(len(nodes)):

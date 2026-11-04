@@ -11,6 +11,9 @@ var view: Node = null             # WorldView (provides origin)
 var material: ShaderMaterial
 var tree_material: ShaderMaterial
 var building_material: ShaderMaterial
+var car_material: ShaderMaterial
+var region_materials := {}     # region id -> building material with that region's signage
+var car_density := 0.6
 var lod_factor := 1.8
 var min_leaf := 1000.0
 var tree_density := 1.0
@@ -41,9 +44,13 @@ static var _palm_mesh: ArrayMesh
 static var _house_mesh: ArrayMesh
 static var _tower_mesh: ArrayMesh
 static var _city_meshes := {}      # CityMeshes name -> ArrayMesh (built on the main thread)
+static var _car_meshes := {}       # CarMeshes name -> ArrayMesh
 
 const CityStyles := preload("res://src/data/city_styles.gd")
 const CityMeshes := preload("res://src/world/models/city/city_meshes.gd")
+const CarMeshes := preload("res://src/world/models/city/car_meshes.gd")
+## how far moving traffic is drawn (cars are a few pixels beyond this)
+const CAR_RANGE := 2400.0
 ## visibility range per city mesh: small houses fade first, towers stay on the skyline
 const CITY_RANGE := {"plate": 5200.0, "house3": 3600.0, "wood_house3": 3600.0, "hip_house3": 3600.0, "villa": 3600.0,
 	"terrace": 5200.0, "canal": 5200.0, "shop_row": 5200.0, "shed": 6000.0, "tower_glass": 14000.0, "tower_res": 12000.0}
@@ -68,6 +75,9 @@ func setup(world_view: Node) -> void:
 	tree_material.shader = load("res://shaders/tree.gdshader")
 	building_material = ShaderMaterial.new()
 	building_material.shader = load("res://shaders/building.gdshader")
+	car_material = ShaderMaterial.new()
+	car_material.shader = load("res://shaders/traffic.gdshader")
+	car_density = float(Game.q("props"))
 	_ensure_meshes()
 	CityStyles.prepare(Geo.cities)
 
@@ -75,6 +85,8 @@ func setup(world_view: Node) -> void:
 static func _ensure_meshes() -> void:
 	if _city_meshes.is_empty():
 		_city_meshes = CityMeshes.build_all()
+	if _car_meshes.is_empty():
+		_car_meshes = CarMeshes.build_all()
 	if _tree_mesh != null:
 		return
 	# Trees: vertex alpha 1 marks foliage (tinted per instance), 0 bark. Low-poly but with
@@ -155,6 +167,24 @@ static func _ensure_meshes() -> void:
 	tw.add_box(Vector3(0, 0.7, 0), Vector3(0.64, 0.004, 0.64), Color(1, 1, 1, 0.0))
 	tw.add_cylinder(Vector3(0.1, 1.0, 0.1), Vector3(0.1, 1.12, 0.1), 0.01, 0.004, 4, Color(1, 1, 1, 0.25), false)
 	_tower_mesh = tw.commit()
+
+
+func _building_mat(region: int) -> ShaderMaterial:
+	if region == 0:
+		return building_material
+	if not region_materials.has(region):
+		var m: ShaderMaterial = building_material.duplicate()
+		m.set_shader_parameter("region", region)
+		region_materials[region] = m
+	return region_materials[region]
+
+
+func set_night(v: float) -> void:
+	building_material.set_shader_parameter("night", v)
+	for m in region_materials.values():
+		m.set_shader_parameter("night", v)
+	if car_material:
+		car_material.set_shader_parameter("night", v)
 
 
 func set_camera(x: float, z: float, alt: float, agl: float) -> void:
@@ -270,7 +300,7 @@ func _request(key: Vector3i) -> void:
 	var c := _center(key)
 	var detail := s <= DETAIL_SIZE
 	var job := {"key": key, "size": s, "cx": c.x, "cz": c.y, "res": res if key.x >= 4 else 16,
-		"detail": detail, "trees": tree_density, "buildings": building_density, "gen": _gen, "roads": _roads_near(c, s)}
+		"detail": detail, "trees": tree_density, "buildings": building_density, "cars": car_density, "gen": _gen, "roads": _roads_near(c, s)}
 	_tasks.append(WorkerThreadPool.add_task(_build_task.bind(job), false, "terrain chunk"))
 
 
@@ -443,7 +473,7 @@ func _collect_results() -> void:
 			mm.buffer = mm_data.buffer
 			var mmi := MultiMeshInstance3D.new()
 			mmi.multimesh = mm
-			mmi.material_override = tree_material if mm_data.kind == "tree" else building_material
+			mmi.material_override = tree_material if mm_data.kind == "tree" else (car_material if mm_data.kind == "car" else _building_mat(int(r.get("region", 0))))
 			mmi.position = pos
 			mmi.visible = false
 			mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if mm_data.kind == "building" else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -691,7 +721,14 @@ static func _scatter(result: Dictionary, job: Dictionary, hs: PackedFloat32Array
 				_push_instance(arr, Vector3(lx - size * 0.5, h, lz - size * 0.5), rot, Vector3(sc, sc * r.randf_range(0.9, 1.25), sc), tint, r.randf())
 				species[kind] = arr
 	# city blocks in the nearest city's street pattern (they also plant park and garden trees)
-	_build_city(result, job, hs, w, n, s, urban_grid, x0, z0, roads, species)
+	var cars := {}
+	_build_city(result, job, hs, w, n, s, urban_grid, x0, z0, roads, species, cars)
+	if float(job.get("cars", 0.0)) > 0.01 and not roads.is_empty():
+		_highway_cars(cars, job, hs, w, n, s, x0, z0, roads)
+	for cm in cars:
+		var cbuf: PackedFloat32Array = cars[cm]
+		if cbuf.size() > 0 and _car_meshes.has(cm):
+			result.multimeshes.append({"kind": "car", "mesh": _car_meshes[cm], "count": cbuf.size() / 16, "buffer": cbuf, "range": CAR_RANGE})
 	var meshes := {"broad": _tree_mesh, "spruce": _conifer_mesh, "birch": _birch_mesh, "pine": _pine_mesh, "palm": _palm_mesh}
 	for k in species:
 		var buf: PackedFloat32Array = species[k]
@@ -701,7 +738,7 @@ static func _scatter(result: Dictionary, job: Dictionary, hs: PackedFloat32Array
 
 # ------------------------------------------------------------------ cities (worker thread, pure data)
 static func _build_city(result: Dictionary, job: Dictionary, hs: PackedFloat32Array, w: int, n: int, s: float,
-		urban_grid: PackedFloat32Array, x0: float, z0: float, roads: Array, species: Dictionary) -> void:
+		urban_grid: PackedFloat32Array, x0: float, z0: float, roads: Array, species: Dictionary, cars: Dictionary = {}) -> void:
 	## Lays the nearest city's streets out in its own pattern (grid, radial, canal rings, warped
 	## old town, strip) and fills each block with that city's kind of buildings. Each block gets
 	## a ground plate carrying half the street, the pavement and the lot (or park, plaza, canal).
@@ -727,6 +764,9 @@ static func _build_city(result: Dictionary, job: Dictionary, hs: PackedFloat32Ar
 	var strip := String(st.pattern) == "strip"
 	var sa := deg_to_rad(float(st.rot))
 	var sax := Vector2(cos(sa), sin(sa))
+	var car_d := float(job.get("cars", 0.0))
+	var r_core := float(st.get("r_core", st.r))
+	var subs: Array = st.get("subs", [])
 	for lot in lots:
 		var wx: float = lot[0]
 		var wz: float = lot[1]
@@ -794,12 +834,20 @@ static func _build_city(result: Dictionary, job: Dictionary, hs: PackedFloat32Ar
 		var base := hmin - 1.5
 		var P := Vector3(lx - size * 0.5, top, lz - size * 0.5)
 		# zone: core / mid / edge
-		var dn := Vector2(wx - float(st.cx), wz - float(st.cz)).length() / float(st.r)
+		# downtown stays compact (the historic core radius) however far the metro sprawls
+		var dn := Vector2(wx - float(st.cx), wz - float(st.cz)).length() / r_core
 		var zone := "edge"
-		if dn < float(st.core_frac) and u > 0.72:
+		if dn < float(st.core_frac) * 1.25 and u > 0.7:
 			zone = "core"
 		elif u > 0.58:
 			zone = "mid"
+		# secondary business districts out in the metro
+		if zone != "core" and u > 0.5:
+			for sb in subs:
+				var dsb := Vector2(wx - float(sb[0]), wz - float(sb[1])).length()
+				if dsb < float(sb[2]):
+					zone = "core" if dsb < float(sb[2]) * 0.7 else "mid"
+					break
 		if strip:
 			var rel := Vector2(wx - float(st.cx), wz - float(st.cz))
 			var off_axis := absf(rel.dot(Vector2(-sax.y, sax.x)))
@@ -836,6 +884,8 @@ static func _build_city(result: Dictionary, job: Dictionary, hs: PackedFloat32Ar
 			"houses", "villas", "terrace", "canal":
 				lot_col = st.garden
 		_plate(pmb, P, a, cw, cd, base, lot_col, ptype)
+		if car_d > 0.01 and fill != "water":
+			_block_cars(cars, st, P, a, cw, cd, zone, rb, car_d)
 		var street := clampf(minf(cw, cd) * 0.06, 3.5, 8.0) + 3.0
 		var bw := cw - street * 2.0
 		var bd := cd - street * 2.0
@@ -843,6 +893,7 @@ static func _build_city(result: Dictionary, job: Dictionary, hs: PackedFloat32Ar
 			continue
 		_fill_lot(bufs, trees, st, fill, zone, P, a, bw, bd, rb, u)
 	species[tree_kind] = trees
+	result["region"] = int(st.get("signs", 0))
 	if pmb.vcount() > 0:
 		result["plates"] = pmb.arrays()
 	for mesh_name in bufs:
@@ -1225,3 +1276,154 @@ static func _push_instance(arr: PackedFloat32Array, pos: Vector3, rot_y: float, 
 		0.0, scale.y, 0.0, pos.y,
 		-sr * scale.x, 0.0, cr * scale.z, pos.z,
 		custom.r, custom.g, custom.b, extra])
+
+
+# ------------------------------------------------------------------ traffic (worker thread)
+const CAR_KINDS := ["sedan", "suv", "hatch", "van", "bus"]
+
+
+static func _pick_car(mix: Array, rb: RandomNumberGenerator) -> String:
+	var tot := 0.0
+	for wgt in mix:
+		tot += float(wgt)
+	var t := rb.randf() * tot
+	for i in mix.size():
+		t -= float(mix[i])
+		if t <= 0.0:
+			return CAR_KINDS[i]
+	return "sedan"
+
+
+static func _push_car(cars: Dictionary, kind: String, pos: Vector3, dir: Vector3, lane_len: float, speed: float, phase: float, pal_seed: float) -> void:
+	## One vehicle on a lane piece: centred on the piece, +x along the direction of travel (which
+	## may climb or descend), custom = lane length, speed, phase, palette + colour seed.
+	var x := dir.normalized()
+	var z := x.cross(Vector3.UP).normalized()
+	var y := z.cross(x).normalized()
+	if not cars.has(kind):
+		cars[kind] = PackedFloat32Array()
+	var arr: PackedFloat32Array = cars[kind]
+	arr.append_array([x.x, y.x, z.x, pos.x, x.y, y.y, z.y, pos.y, x.z, y.z, z.z, pos.z, lane_len, speed, phase, pal_seed])
+	cars[kind] = arr
+
+
+static func _block_cars(cars: Dictionary, st: Dictionary, P: Vector3, a: float, cw: float, cd: float, zone: String,
+		rb: RandomNumberGenerator, dens: float) -> void:
+	## Traffic on this block's half of the four streets around it: one lane per side, driving on
+	## the right (or on the left in left-hand-traffic countries), plus cars parked at the kerb
+	## away from downtown.
+	var sh := clampf(minf(cw, cd) * 0.06, 3.5, 8.0)
+	var ex := Vector2(cos(a), sin(a))
+	var ez := Vector2(-sin(a), cos(a))
+	var c := Vector2(P.x, P.z)
+	var de := 0.5 + 0.5 * dens
+	var spacing: float = {"core": 32.0, "mid": 60.0, "edge": 150.0}[zone] / de
+	var lht: bool = st.get("lht", false)
+	var mix: Array = st.get("cars", [5.0, 2.0, 3.0, 1.0, 0.4])
+	var pal := float(st.get("car_pal", 0))
+	if String(st.get("name", "")) == "New York":
+		pal = 3.0
+	for k in 4:
+		var nrm: Vector2 = [ex, -ex, ez, -ez][k]
+		var half_len: float = cd * 0.5 if k < 2 else cw * 0.5
+		var off: float = cw * 0.5 if k < 2 else cd * 0.5
+		var lane_len := half_len * 2.0 - sh * 2.2
+		if lane_len < 20.0:
+			continue
+		var d := Vector2(-nrm.y, nrm.x)
+		# right-hand traffic keeps the block on the driver's right
+		var right := Vector2(-d.y, d.x)
+		if (right.dot(-nrm) > 0.0) == lht:
+			d = -d
+		var lane_c := c + nrm * (off - sh * (0.62 if sh > 5.0 else 0.5))
+		var n_cars := int(lane_len / spacing + rb.randf())
+		var speed := rb.randf_range(4.5, 9.0) if zone == "core" else rb.randf_range(7.0, 12.5)
+		var ph0 := rb.randf()
+		var dir3 := Vector3(d.x, 0.0, d.y)
+		for i in n_cars:
+			var kind := _pick_car(mix, rb)
+			if kind == "bus" and zone == "edge":
+				kind = "sedan"
+			var ph := fposmod(ph0 + (float(i) + rb.randf_range(-0.3, 0.3)) / maxf(n_cars, 1), 1.0)
+			_push_car(cars, kind, Vector3(lane_c.x, P.y + 0.03, lane_c.y), dir3, lane_len, speed, ph, pal + rb.randf() * 0.999)
+		# parked cars along the kerb in the quieter streets
+		if zone != "core" and sh >= 4.5 and rb.randf() < 0.55:
+			var kerb := c + nrm * (off - sh + 1.15)
+			var n_park := int(lane_len / 26.0 * rb.randf_range(0.2, 0.7) * de)
+			for i in n_park:
+				var kind2 := _pick_car(mix, rb)
+				if kind2 == "bus":
+					kind2 = "van"
+				_push_car(cars, kind2, Vector3(kerb.x, P.y + 0.03, kerb.y), dir3, lane_len, 0.0, rb.randf(), pal + rb.randf() * 0.999)
+
+
+static func _highway_cars(cars: Dictionary, job: Dictionary, hs: PackedFloat32Array, w: int, n: int, s: float,
+		x0: float, z0: float, roads: Array) -> void:
+	## Motorway traffic on the stretch of each motorway inside this chunk: two lanes each way on
+	## the meandering alignment (Geo.highway_offset), in short pieces that follow the ground,
+	## with lorries in the inside lane.
+	var size: float = job.size
+	var de := 0.5 + 0.5 * float(job.cars)
+	var rb := RandomNumberGenerator.new()
+	rb.seed = U.hash_ints(int(job.cx), int(job.cz), 404)
+	var near := Geo.nearest_city(float(job.cx), float(job.cz))
+	var lht: bool = false if near.is_empty() else bool(CityStyles.style_for(near).get("lht", false))
+	for h in roads:
+		var a := Vector2(h[0], h[1])
+		var b := Vector2(h[2], h[3])
+		var ab := b - a
+		var L := ab.length()
+		if L < 100.0:
+			continue
+		var dv := ab / L
+		var nv := Vector2(-dv.y, dv.x)
+		# the stretch of this motorway (with its meander) that crosses the chunk
+		var s0 := INF
+		var s1 := -INF
+		var step := 60.0
+		var sv := 0.0
+		while sv <= L:
+			var q := a + dv * sv + nv * Geo.highway_offset(sv, L, float(h[4]))
+			if q.x >= x0 and q.x < x0 + size and q.y >= z0 and q.y < z0 + size:
+				s0 = minf(s0, sv)
+				s1 = maxf(s1, sv)
+			sv += step
+		if s0 > s1:
+			continue
+		var piece := 220.0
+		var np := maxi(1, int(ceil((s1 - s0 + step) / piece)))
+		for pi in np:
+			var sa := s0 + pi * piece
+			var sb := minf(sa + piece, s1 + step)
+			if sb - sa < 30.0:
+				continue
+			var pa := a + dv * sa + nv * Geo.highway_offset(sa, L, float(h[4]))
+			var pb := a + dv * sb + nv * Geo.highway_offset(sb, L, float(h[4]))
+			var seg := pb - pa
+			var sl := seg.length()
+			if sl < 1.0:
+				continue
+			var sd := seg / sl
+			var sn := Vector2(-sd.y, sd.x)
+			var ha := _height_sample(hs, w, clampf((pa.x - x0) / s, 0.0, n - 0.01), clampf((pa.y - z0) / s, 0.0, n - 0.01))
+			var hb := _height_sample(hs, w, clampf((pb.x - x0) / s, 0.0, n - 0.01), clampf((pb.y - z0) / s, 0.0, n - 0.01))
+			if minf(ha, hb) < 0.5:
+				continue
+			var mid := (pa + pb) * 0.5
+			if Geo.airport_weight(mid.x, mid.y) > 0.3:
+				continue
+			var hm := (ha + hb) * 0.5 + 0.12
+			for lane in [-8.4, -4.0, 4.0, 8.4]:
+				# right-hand traffic: the carriageway on the right of the direction of travel
+				var fwd: bool = (float(lane) > 0.0) != lht
+				var dir3 := Vector3(sd.x, (hb - ha) / sl, sd.y) * (1.0 if fwd else -1.0)
+				var lc := mid + sn * float(lane)
+				var outer := absf(float(lane)) > 6.0
+				var n_cars := int(sl / (95.0 / de) + rb.randf())
+				var speed := rb.randf_range(23.0, 28.0) if outer else rb.randf_range(28.0, 34.0)
+				for i in n_cars:
+					var kind := _pick_car([5.0, 3.0, 3.0, 0.8, 0.15], rb)
+					if outer and rb.randf() < 0.3:
+						kind = "truck"
+					_push_car(cars, kind, Vector3(lc.x - x0 - size * 0.5, hm, lc.y - z0 - size * 0.5), dir3, sl,
+						22.0 if kind == "truck" else speed, rb.randf(), rb.randf() * 0.999)

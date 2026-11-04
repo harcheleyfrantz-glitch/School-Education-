@@ -344,8 +344,23 @@ static func _build_airports() -> void:
 		airports_flat.append([float(a.x), float(a.z), float(a.elev), r_in, r_in + 2600.0])
 		ap_hulls.append(_airport_hull(icao, a))
 		var ci: Dictionary = a.city_info
-		cities.append({"x": a.x + ci.dx, "z": a.z + ci.dz, "r": float(ci.radius), "tall": float(ci.tall),
-			"name": a.city, "icao": icao, "pop": int(ci.pop), "coastal": bool(ci.coastal), "country": String(a.get("country", ""))})
+		# the metro area reaches far beyond the historic core: suburbs, edge cities and sprawl
+		# (the biggest metros take a quarter of an hour or more to fly across low and slow)
+		var r0 := float(ci.radius)
+		var pop := int(ci.pop)
+		var metro := 1.3
+		if pop >= 8000000:
+			metro = 5.4
+		elif pop >= 3000000:
+			metro = 4.0
+		elif pop >= 1500000:
+			metro = 3.0
+		elif pop >= 600000:
+			metro = 2.3
+		elif pop >= 200000:
+			metro = 1.7
+		cities.append({"x": a.x + ci.dx, "z": a.z + ci.dz, "r": minf(r0 * metro, 50000.0 if pop >= 8000000 else 45000.0), "r_core": r0, "tall": float(ci.tall),
+			"name": a.city, "icao": icao, "pop": pop, "coastal": bool(ci.coastal), "country": String(a.get("country", ""))})
 		for e in Airports.runway_ends(icao):
 			if e.surface != "asphalt":
 				continue
@@ -902,7 +917,7 @@ class Sampler:
 			# city cores in the real-world region stand on dry land; bays and rivers still cut through
 			for c in Geo.bucket_city.get(Geo._bkey(x, z), Geo.NONE):
 				var d := U.dist2d(x, z, c.x, c.z)
-				var r: float = c.r
+				var r: float = c.get("r_core", c.r)
 				if d < r * 0.75:
 					h = lerpf(h, 5.0, 1.0 - U.smooth01((d - r * 0.4) / (r * 0.35)))
 		if with_water:

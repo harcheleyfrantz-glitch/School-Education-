@@ -613,7 +613,7 @@ func update_lighting(force: bool) -> void:
 	env.fog_sun_scatter = 0.25 * (1.0 - cover) * (1.0 - night)
 	env.tonemap_exposure = lerpf(1.6, 1.0, day_factor)
 	terrain.material.set_shader_parameter("night", night)
-	terrain.building_material.set_shader_parameter("night", night)
+	terrain.set_night(night)
 	var sc := Color(col.r, col.g, col.b) * maxf(energy, 0.0) * 0.9
 	# clouds stay sunlit a little after sunset (they are higher than you are)
 	var ce := U.smooth01((s.y + 0.12) / 0.16)

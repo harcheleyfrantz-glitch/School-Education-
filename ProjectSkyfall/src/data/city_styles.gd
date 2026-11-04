@@ -277,6 +277,21 @@ const COUNTRY := {
 }
 
 
+## Countries that drive on the left.
+const LEFT_HAND := ["United Kingdom", "Ireland", "Japan", "Hong Kong", "Singapore", "Malaysia", "Thailand", "India",
+	"Indonesia", "Westmark"]
+## Traffic mix by city preset: [sedan, suv, hatch, van, bus] weights.
+const CAR_MIX := {
+	"default": [5.0, 2.0, 3.0, 1.0, 0.4], "us_metro": [5.0, 5.0, 0.6, 0.8, 0.4], "us_sunbelt": [4.0, 6.0, 0.4, 0.8, 0.3],
+	"us_town": [4.0, 6.0, 0.5, 0.6, 0.1], "tokyo": [3.0, 0.8, 6.0, 1.4, 0.5], "seoul": [5.0, 2.0, 3.0, 1.0, 0.6],
+	"gulf": [4.0, 6.0, 0.6, 0.8, 0.3], "paris": [3.0, 1.0, 6.0, 1.2, 0.5], "london": [3.5, 1.5, 5.0, 1.2, 0.6],
+	"central": [4.0, 1.5, 4.5, 1.2, 0.5], "amsterdam": [3.0, 1.0, 6.0, 1.0, 0.5], "med": [3.0, 0.8, 6.0, 1.0, 0.5],
+	"india": [3.0, 1.0, 5.0, 1.5, 1.2], "cairo": [4.0, 1.0, 4.0, 1.5, 1.0], "china": [5.0, 3.0, 2.5, 1.0, 0.8],
+}
+## Car colour palette by country: 0 mixed, 1 Japan (white, silver, black), 2 Gulf (white SUVs), 3 New York (yellow cabs).
+const CAR_PAL := {"Japan": 1, "United Arab Emirates": 2, "Qatar": 2, "Saudi Arabia": 2, "South Korea": 1, "China": 1}
+
+
 ## Build every city's style on the main thread (worker threads only read the cache).
 static func prepare(cities: Array) -> void:
 	for c in cities:
@@ -299,14 +314,33 @@ static func _make(city: Dictionary) -> Dictionary:
 	var over: Dictionary = entry[1]
 	s.merge(over, true)
 	var r := float(city.get("r", 5000.0))
-	if r < 3000.0 and String(entry[0]) in ["us_metro", "us_sunbelt"]:
+	var rc := float(city.get("r_core", r))
+	if rc < 3000.0 and String(entry[0]) in ["us_metro", "us_sunbelt"]:
 		s.merge(_preset("us_town"), true)
 	var cen: Array = s.get("center", [float(city.get("x", 0.0)), float(city.get("z", 0.0))])
 	s["cx"] = float(cen[0])
 	s["cz"] = float(cen[1])
 	s["r"] = r
+	s["r_core"] = rc
 	s["tall"] = clampf(float(city.get("tall", 0.7)), 0.15, 2.2)
 	s["name"] = name
+	# secondary business districts across a big metro (Shinjuku, La Defense, Canary Wharf)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = U.hash_str(name + "subs")
+	var subs := []
+	var pop := int(city.get("pop", 0))
+	var n_sub := 0 if r < rc * 1.5 else clampi(pop / 1500000 + 1, 1, 7)
+	for k in n_sub:
+		var ang := rng.randf() * TAU
+		var dist := r * rng.randf_range(0.22, 0.62)
+		subs.append([s.cx + cos(ang) * dist, s.cz + sin(ang) * dist, rng.randf_range(650.0, 1300.0)])
+	s["subs"] = subs
+	var country := String(city.get("country", ""))
+	s["lht"] = country in LEFT_HAND
+	s["cars"] = CAR_MIX.get(String(entry[0]), CAR_MIX["default"])
+	s["car_pal"] = int(CAR_PAL.get(country, 0))
+	# shop signs and neon: East Asian cities and the Las Vegas Strip
+	s["signs"] = 1 if String(entry[0]) in ["tokyo", "seoul", "china", "hongkong", "tropic_asia"] or name == "Las Vegas" else 0
 	# cumulative weights for the three zones
 	for z in ["core", "mid", "edge"]:
 		var lst: Array = s[z]
