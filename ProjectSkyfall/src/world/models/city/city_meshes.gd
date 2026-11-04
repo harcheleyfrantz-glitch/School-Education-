@@ -38,10 +38,10 @@ static func c(kind: float, surf: float) -> Color:
 
 static func build_all() -> Dictionary:
 	return {
-		"plate": plate(), "box_office": box(OFFICE, false), "box_stucco": box(STUCCO, true), "box_panel": box(PANEL, true),
+		"box_office": box(OFFICE, false), "box_stucco": box(STUCCO, true), "box_panel": box(PANEL, true),
 		"hip_block": hip_block(), "court_mansard": court_mansard(), "court_pitched": court_pitched(), "court_flat": court_flat(),
-		"terrace": terrace(), "canal": canal(), "house": house(HOUSE, 0.62, 0.07), "wood_house": house(WOOD, 0.5, 0.05),
-		"hip_house": hip_house(), "villa": villa(), "tower_glass": tower_glass(), "tower_res": tower_res(), "shed": shed(),
+		"terrace": terrace(), "canal": canal(), "house3": house_trio(HOUSE, 0.62, 0.07, false), "wood_house3": house_trio(WOOD, 0.5, 0.05, false),
+		"hip_house3": house_trio(HOUSE, 0.6, 0.05, true), "villa": villa(), "tower_glass": tower_glass(), "tower_res": tower_res(), "shed": shed(),
 		"shop_row": shop_row(),
 	}
 
@@ -253,8 +253,30 @@ static func canal() -> ArrayMesh:
 	return mb.commit()
 
 
+## Three detached houses per instance (gardens between them): a third of the instances of
+## single houses. The shader tints each house differently.
+const TRIO := [[-0.34, 0.06, 0.27, 0.92, 0.82], [0.0, -0.08, 0.25, 1.0, 0.9], [0.34, 0.03, 0.28, 0.86, 0.78]]
+
+
+static func house_trio(kind: float, yw: float, e: float, hip_roof: bool) -> ArrayMesh:
+	var mb := MeshBuilder.new()
+	for t in TRIO:
+		mb.xf = Transform3D(Basis.from_scale(Vector3(float(t[2]), float(t[3]), float(t[4]))), Vector3(float(t[0]), 0.0, float(t[1])))
+		if hip_roof:
+			_hip_house_into(mb)
+		else:
+			_house_into(mb, kind, yw, e)
+	mb.xf = Transform3D.IDENTITY
+	return mb.commit()
+
+
 static func house(kind: float, yw: float, e: float) -> ArrayMesh:
 	var mb := MeshBuilder.new()
+	_house_into(mb, kind, yw, e)
+	return mb.commit()
+
+
+static func _house_into(mb: MeshBuilder, kind: float, yw: float, e: float) -> void:
 	var w := c(kind, S_WALL)
 	walls(mb, K.rect(0.5, 0.5), 0.0, yw, w)
 	gable_z(mb, -0.5, 0.5, -0.5, 0.5, yw, 1.0, e, c(kind, S_PITCH), w)
@@ -262,19 +284,22 @@ static func house(kind: float, yw: float, e: float) -> ArrayMesh:
 	if kind == WOOD:
 		# porch roof over the front door
 		block(mb, Vector3(0.0, yw * 0.62, 0.56), Vector3(0.4, 0.03, 0.12), c(kind, S_TRIM))
-	return mb.commit()
 
 
 static func hip_house() -> ArrayMesh:
-	## Bungalow or Mediterranean house: hipped main roof and a hipped side wing.
 	var mb := MeshBuilder.new()
+	_hip_house_into(mb)
+	return mb.commit()
+
+
+static func _hip_house_into(mb: MeshBuilder) -> void:
+	## Bungalow or Mediterranean house: hipped main roof and a hipped side wing.
 	var w := c(HOUSE, S_WALL)
 	var r := c(HOUSE, S_PITCH)
 	walls(mb, K.rect(0.5, 0.32, 0.0, -0.18), 0.0, 0.58, w)
 	hip(mb, 0.5, 0.32, 0.0, -0.18, 0.58, 0.95, 0.05, r)
 	walls(mb, K.rect(0.2, 0.2, 0.28, 0.3), 0.0, 0.52, w)
 	hip(mb, 0.2, 0.2, 0.28, 0.3, 0.52, 0.8, 0.04, r)
-	return mb.commit()
 
 
 static func villa() -> ArrayMesh:

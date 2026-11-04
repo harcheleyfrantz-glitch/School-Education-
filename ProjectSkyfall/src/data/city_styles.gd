@@ -90,7 +90,7 @@ static func _preset(name: String) -> Dictionary:
 				"edge": [["terrace", 3], ["slabs", 1], ["houses", 2]], "h_core": [14.0, 18.0], "h_mid": [12.0, 18.0],
 				"facade": DUTCH, "house": DUTCH, "roof": [1, 3, 0], "tree": "broad", "bx": 90.0, "bz": 110.0, "rot": 12.0}, true)
 		"med":
-			s.merge({"pattern": "organic", "bx": 80.0, "bz": 70.0, "warp": 1.2,
+			s.merge({"pattern": "organic", "bx": 95.0, "bz": 85.0, "warp": 1.2,
 				"core": [["court_pitched", 5], ["midrise", 3], ["plaza", 0.6]], "mid": [["midrise", 4], ["court_pitched", 2], ["boxes", 1]],
 				"edge": [["villas", 3], ["midrise", 2], ["houses", 1]], "h_core": [14.0, 22.0], "h_mid": [10.0, 22.0],
 				"facade": ROMAN, "house": MED, "roof": [0, 0, 3], "house_mesh": "hip_house", "box": "box_stucco",
@@ -110,7 +110,7 @@ static func _preset(name: String) -> Dictionary:
 				"edge": [["houses", 6]], "h_core": [14.0, 22.0], "h_mid": [10.0, 18.0],
 				"facade": GERMAN, "house": NORDIC, "roof": [7, 1, 3], "house_mesh": "wood_house", "tree": "birch", "tree_p": 0.7}, true)
 		"nordic_town":
-			s.merge({"pattern": "organic", "bx": 80.0, "bz": 70.0, "warp": 1.0, "core": [["houses", 3], ["midrise", 1]],
+			s.merge({"pattern": "organic", "bx": 100.0, "bz": 90.0, "warp": 1.0, "core": [["houses", 3], ["midrise", 1]],
 				"mid": [["houses", 4], ["slabs", 0.5]], "edge": [["houses", 5]], "h_core": [8.0, 12.0], "h_mid": [8.0, 14.0],
 				"facade": NORDIC, "house": NORDIC, "roof": [7], "house_mesh": "wood_house", "tree": "birch", "tree_p": 0.25, "box": "box_panel"}, true)
 		"moscow":
@@ -120,10 +120,11 @@ static func _preset(name: String) -> Dictionary:
 				"bx": 160.0, "bz": 140.0, "rot": -15.0,
 				"facade": SOVIET, "house": SOVIET, "roof": [2, 5], "court": "court_flat", "box": "box_panel", "tree": "birch", "lot": Color(0.42, 0.46, 0.3)}, true)
 		"tokyo":
-			s.merge({"bx": 70.0, "bz": 60.0, "rot": 0.0, "pattern": "organic", "warp": 0.6,
+			s.merge({"bx": 95.0, "bz": 85.0, "rot": 0.0, "pattern": "organic", "warp": 0.6,
 				"core": [["tower", 3], ["boxes", 4], ["slim", 1]], "mid": [["boxes", 3], ["houses", 3], ["midrise", 2]],
 				"edge": [["houses", 6], ["boxes", 1]], "h_core": [25.0, 70.0], "h_mid": [8.0, 26.0], "tower_h": [100.0, 220.0],
-				"facade": ASIA, "house": ASIA, "roof": [4, 4, 5], "house_mesh": "house", "tree_p": 0.15, "lot": Color(0.58, 0.58, 0.56)}, true)
+				"facade": ASIA, "house": ASIA, "roof": [4, 4, 5], "house_mesh": "house", "tree_p": 0.15, "lot": Color(0.58, 0.58, 0.56),
+				"garden": Color(0.5, 0.5, 0.47)}, true)
 		"seoul":
 			s.merge({"bx": 150.0, "bz": 120.0, "rot": 12.0, "core": [["tower", 3], ["boxes", 3]],
 				"mid": [["slabs", 6], ["boxes", 1]], "edge": [["slabs", 4], ["houses", 2]], "h_core": [30.0, 70.0], "h_mid": [45.0, 70.0],
@@ -134,7 +135,7 @@ static func _preset(name: String) -> Dictionary:
 				"h_core": [30.0, 80.0], "h_mid": [40.0, 80.0], "tower_h": [120.0, 260.0],
 				"facade": CONCRETE, "house": ASIA, "roof": [4, 5], "box": "box_panel", "court": "court_pitched"}, true)
 		"hongkong":
-			s.merge({"pattern": "hillside", "bx": 70.0, "bz": 65.0, "warp": 1.0, "slope": 30.0,
+			s.merge({"pattern": "hillside", "bx": 90.0, "bz": 80.0, "warp": 1.0, "slope": 30.0,
 				"core": [["tower", 3], ["slim", 4]], "mid": [["slim", 6], ["boxes", 1]], "edge": [["slim", 3], ["villas", 1]],
 				"h_core": [40.0, 90.0], "h_mid": [30.0, 60.0], "tower_h": [110.0, 240.0],
 				"facade": CONCRETE, "house": TROPIC, "roof": [4, 5], "box": "box_stucco", "tree": "broad"}, true)
@@ -151,7 +152,7 @@ static func _preset(name: String) -> Dictionary:
 				"tower_h": [120.0, 250.0], "facade": TROPIC, "house": TROPIC, "roof": [0, 5], "box": "box_panel",
 				"tree": "palm", "tree_p": 0.8, "park_p": 0.08, "lot": Color(0.44, 0.52, 0.32)}, true)
 		"india":
-			s.merge({"pattern": "organic", "bx": 75.0, "bz": 65.0, "warp": 1.3,
+			s.merge({"pattern": "organic", "bx": 95.0, "bz": 85.0, "warp": 1.3,
 				"core": [["boxes", 3], ["court_flat", 2], ["tower", 0.5]], "mid": [["boxes", 4], ["shops", 3]],
 				"edge": [["shops", 3], ["boxes", 2], ["villas", 1]], "h_core": [12.0, 30.0], "h_mid": [8.0, 16.0],
 				"facade": INDIA, "house": INDIA, "roof": [5, 0], "box": "box_stucco", "court": "court_flat",
@@ -163,12 +164,12 @@ static func _preset(name: String) -> Dictionary:
 				"facade": SAND, "house": SAND, "glass": GLASS_GULF, "roof": [5], "box": "box_stucco",
 				"lot": LOT_SAND, "garden": Color(0.74, 0.66, 0.5), "tree": "palm", "tree_p": 0.5}, true)
 		"cairo":
-			s.merge({"pattern": "organic", "bx": 70.0, "bz": 60.0, "warp": 1.3,
+			s.merge({"pattern": "organic", "bx": 90.0, "bz": 80.0, "warp": 1.3,
 				"core": [["boxes", 4], ["court_flat", 3]], "mid": [["boxes", 5], ["shops", 2]], "edge": [["boxes", 3], ["shops", 2]],
 				"h_core": [15.0, 35.0], "h_mid": [12.0, 30.0], "facade": CAIRO, "house": CAIRO, "roof": [5],
 				"box": "box_stucco", "court": "court_flat", "lot": LOT_DUST, "tree": "palm", "tree_p": 0.15, "park_p": 0.01}, true)
 		"island":
-			s.merge({"pattern": "organic", "bx": 75.0, "bz": 65.0, "warp": 1.2, "slope": 14.0,
+			s.merge({"pattern": "organic", "bx": 95.0, "bz": 85.0, "warp": 1.2, "slope": 14.0,
 				"core": [["midrise", 2], ["shops", 2], ["plaza", 0.3]], "mid": [["villas", 2], ["houses", 3]],
 				"edge": [["houses", 4], ["villas", 2]], "h_core": [9.0, 14.0], "h_mid": [6.0, 10.0],
 				"facade": MED, "house": MED, "roof": [0], "house_mesh": "hip_house", "box": "box_stucco", "tree": "palm"}, true)
@@ -245,7 +246,7 @@ const CITY := {
 	"Nuuk": ["nordic_town", {"tree_p": 0.0, "mid": [["slabs", 3], ["houses", 3]]}],
 	"Moscow": ["moscow", {}],
 	"Tokyo": ["tokyo", {}],
-	"Osaka": ["tokyo", {"pattern": "grid", "rot": 0.0, "bx": 80.0, "bz": 80.0}],
+	"Osaka": ["tokyo", {"pattern": "grid", "rot": 0.0, "bx": 95.0, "bz": 95.0}],
 	"Seoul": ["seoul", {}],
 	"Beijing": ["china", {"core": [["court_pitched", 4], ["tower", 2], ["park", 0.6]], "h_core": [5.0, 9.0], "roof": [4],
 		"facade": [Color(0.5, 0.5, 0.52), Color(0.56, 0.54, 0.5), Color(0.46, 0.44, 0.44)]}],

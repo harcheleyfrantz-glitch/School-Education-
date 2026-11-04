@@ -45,7 +45,7 @@ static var _city_meshes := {}      # CityMeshes name -> ArrayMesh (built on the 
 const CityStyles := preload("res://src/data/city_styles.gd")
 const CityMeshes := preload("res://src/world/models/city/city_meshes.gd")
 ## visibility range per city mesh: small houses fade first, towers stay on the skyline
-const CITY_RANGE := {"plate": 5200.0, "house": 3600.0, "wood_house": 3600.0, "hip_house": 3600.0, "villa": 3600.0,
+const CITY_RANGE := {"plate": 5200.0, "house3": 3600.0, "wood_house3": 3600.0, "hip_house3": 3600.0, "villa": 3600.0,
 	"terrace": 5200.0, "canal": 5200.0, "shop_row": 5200.0, "shed": 6000.0, "tower_glass": 14000.0, "tower_res": 12000.0}
 
 
@@ -452,6 +452,21 @@ func _collect_results() -> void:
 			mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 			add_child(mmi)
 			ch.extras.append(mmi)
+		if r.has("plates"):
+			# city ground plates (streets, pavements, lots) as one plain mesh per chunk
+			var pmesh := ArrayMesh.new()
+			pmesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, r.plates)
+			var pmi := MeshInstance3D.new()
+			pmi.mesh = pmesh
+			pmi.material_override = building_material
+			pmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			pmi.position = pos
+			pmi.visible = false
+			pmi.visibility_range_end = float(CITY_RANGE.plate)
+			pmi.visibility_range_end_margin = float(CITY_RANGE.plate) * 0.15
+			pmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
+			add_child(pmi)
+			ch.extras.append(pmi)
 		chunks[key] = ch
 
 
@@ -698,6 +713,8 @@ static func _build_city(result: Dictionary, job: Dictionary, hs: PackedFloat32Ar
 	if lots.is_empty():
 		return
 	var bufs := {}
+	var pmb := MeshBuilder.new()      # ground plates merged into one plain mesh per chunk
+	pmb.use_uv2 = true
 	var tree_kind := String(st.tree)
 	if not species.has(tree_kind):
 		tree_kind = "broad"
@@ -811,7 +828,7 @@ static func _build_city(result: Dictionary, job: Dictionary, hs: PackedFloat32Ar
 				lot_col = Color(0.62, 0.58, 0.5)
 			"houses", "villas", "terrace", "canal":
 				lot_col = st.garden
-		_city_put(bufs, "plate", Vector3(P.x, base, P.z), a, 0.0, 0.0, Vector3(cw, top - base, cd), lot_col, ptype, rb.randf())
+		_plate(pmb, P, a, cw, cd, base, lot_col, ptype)
 		var street := clampf(minf(cw, cd) * 0.06, 3.5, 8.0) + 3.0
 		var bw := cw - street * 2.0
 		var bd := cd - street * 2.0
@@ -819,12 +836,14 @@ static func _build_city(result: Dictionary, job: Dictionary, hs: PackedFloat32Ar
 			continue
 		_fill_lot(bufs, trees, st, fill, zone, P, a, bw, bd, rb, u)
 	species[tree_kind] = trees
+	if pmb.vcount() > 0:
+		result["plates"] = pmb.arrays()
 	for mesh_name in bufs:
 		var buf: PackedFloat32Array = bufs[mesh_name]
 		if buf.is_empty():
 			continue
 		result.multimeshes.append({"kind": "plate" if mesh_name == "plate" else "building", "mesh": _city_meshes[mesh_name],
-			"count": buf.size() / 16, "buffer": buf, "range": float(CITY_RANGE.get(mesh_name, 7500.0))})
+			"count": buf.size() / 16, "buffer": buf, "range": float(CITY_RANGE.get(mesh_name, 7500.0)) * clampf(bdens + 0.3, 0.6, 1.0)})
 
 
 static func _city_lots(st: Dictionary, x0: float, z0: float, size: float) -> Array:
@@ -963,6 +982,49 @@ static func _radial_lots(lots: Array, st: Dictionary, o: Vector2, r_in: float, x
 			lots.append([p.x, p.y, a, cw, ring_w, tag])
 
 
+static func _plate(pmb: MeshBuilder, P: Vector3, a: float, cw: float, cd: float, base: float, col: Color, ptype: int) -> void:
+	## One ground plate: flat top at P.y with low walls down to base. UV = metres from the plate
+	## centre, UV2 = plate size (marks merged plates for the building shader), colour a = type.
+	var ex := Vector3(cos(a), 0.0, sin(a))
+	var ez := Vector3(-sin(a), 0.0, cos(a))
+	var hx := cw * 0.5
+	var hz := cd * 0.5
+	var c := Color(col.r, col.g, col.b, (float(ptype) + 0.5) / 8.0)
+	var size := Vector2(cw, cd)
+	var loc := [Vector2(-hx, -hz), Vector2(hx, -hz), Vector2(hx, hz), Vector2(-hx, hz)]
+	var top := []
+	var bot := []
+	for l in loc:
+		var q: Vector2 = l
+		var w := Vector3(P.x, 0.0, P.z) + ex * q.x + ez * q.y
+		top.append(Vector3(w.x, P.y, w.z))
+		bot.append(Vector3(w.x, base, w.z))
+	_pquad(pmb, top[0], top[1], top[2], top[3], Vector3.UP, c, loc[0], loc[1], loc[2], loc[3], size)
+	for k in 4:
+		var k2 := (k + 1) % 4
+		var mid: Vector2 = (loc[k] + loc[k2]) * 0.5
+		var out := ex * mid.x + ez * mid.y
+		_pquad(pmb, bot[k], bot[k2], top[k2], top[k], out, c, loc[k], loc[k2], loc[k2], loc[k], size)
+
+
+static func _pquad(pmb: MeshBuilder, p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3, outward: Vector3, c: Color,
+		u0: Vector2, u1: Vector2, u2: Vector2, u3: Vector2, size: Vector2) -> void:
+	var n := (p1 - p0).cross(p3 - p0).normalized()
+	var flip := n.dot(outward) < 0.0
+	if flip:
+		n = -n
+	var i0 := pmb.add_vertex(p0, n, c, u0, size)
+	var i1 := pmb.add_vertex(p1, n, c, u1, size)
+	var i2 := pmb.add_vertex(p2, n, c, u2, size)
+	var i3 := pmb.add_vertex(p3, n, c, u3, size)
+	if flip:
+		pmb.add_tri_idx(i0, i1, i2)
+		pmb.add_tri_idx(i0, i2, i3)
+	else:
+		pmb.add_tri_idx(i0, i2, i1)
+		pmb.add_tri_idx(i0, i3, i2)
+
+
 static func _city_put(bufs: Dictionary, mesh: String, P: Vector3, a: float, ox: float, oz: float, sc: Vector3,
 		col: Color, roof: int, sd: float, yaw: float = 0.0) -> void:
 	## One instance at block offset (ox, oz) in the block frame; custom.a packs the roof family
@@ -1014,7 +1076,7 @@ static func _fill_lot(bufs: Dictionary, trees: PackedFloat32Array, st: Dictionar
 		"terrace", "canal":
 			var canal := fill == "canal"
 			var td := minf(15.0 if canal else 11.0, D * 0.42)
-			var seg_target := 31.0 if canal else 52.0
+			var seg_target := 40.0 if canal else 66.0
 			var nseg := maxi(1, int(round(L / seg_target)))
 			var seg := L / nseg
 			var col0: Color = U.pick(rb, house_pal if not canal else facade)
@@ -1030,24 +1092,25 @@ static func _fill_lot(bufs: Dictionary, trees: PackedFloat32Array, st: Dictionar
 				for k in 2:
 					_city_tree(trees, P, a, rb.randf_range(-L * 0.4, L * 0.4) if along_x else rb.randf_range(-3.0, 3.0), rb.randf_range(-3.0, 3.0) if along_x else rb.randf_range(-L * 0.4, L * 0.4), rb)
 		"houses":
-			var mesh := String(st.house_mesh)
-			var fw := rb.randf_range(19.0, 24.0)
-			var cnt := clampi(int(L / fw), 1, 7)
-			var hd := minf(rb.randf_range(10.0, 13.0), D * 0.4)
+			# rows of three detached houses (one instance each) facing the street, gardens behind
+			var mesh := String(st.house_mesh) + "3"
+			var hd := minf(rb.randf_range(10.0, 13.0), D * 0.4) / 0.82
+			var trio_len := rb.randf_range(54.0, 66.0)
+			var cnt := clampi(int(round(L / trio_len)), 1, 3)
 			for side in [-1.0, 1.0]:
 				for i in cnt:
-					var l := -L * 0.5 + (i + 0.5) * L / cnt + rb.randf_range(-1.5, 1.5)
-					var t: float = side * (D * 0.5 - hd * 0.5 - rb.randf_range(3.0, 6.0))
-					var hsz := Vector3(rb.randf_range(9.0, 12.0), rb.randf_range(7.0, 9.0) if mesh != "wood_house" else rb.randf_range(7.5, 10.0), hd)
-					var y2: float = yaw + (0.0 if side > 0.0 else PI) + rb.randf_range(-0.05, 0.05)
-					_city_put(bufs, mesh, Pb, a, l if along_x else t, t if along_x else l, hsz, U.pick(rb, house_pal), int(U.pick(rb, roofs)), rb.randf(), y2 + (PI * 0.5 if mesh == "house" else 0.0))
-					if rb.randf() < float(st.tree_p) * 0.8:
-						var tt: float = side * maxf(D * 0.5 - hd - 9.0, 2.0)
-						var tl := l + rb.randf_range(-6.0, 6.0)
+					var l := -L * 0.5 + (i + 0.5) * L / cnt
+					var t: float = side * (D * 0.5 - hd * 0.5 - rb.randf_range(2.5, 5.0))
+					var hsz := Vector3(L / cnt - 3.0, rb.randf_range(7.0, 9.0) if mesh != "wood_house3" else rb.randf_range(7.5, 10.0), hd)
+					var y2: float = yaw + (0.0 if side > 0.0 else PI)
+					_city_put(bufs, mesh, Pb, a, l if along_x else t, t if along_x else l, hsz, U.pick(rb, house_pal), int(U.pick(rb, roofs)), rb.randf(), y2)
+					if rb.randf() < float(st.tree_p):
+						var tt: float = side * maxf(D * 0.5 - hd - 8.0, 2.0)
+						var tl := l + rb.randf_range(-L * 0.3, L * 0.3) / cnt
 						_city_tree(trees, P, a, tl if along_x else tt, tt if along_x else tl, rb)
 		"villas":
 			var plot := clampf(D * 0.5, 22.0, 36.0)
-			var nx := clampi(int(L / plot), 1, 4)
+			var nx := clampi(int(L / plot), 1, 3)
 			var nz := clampi(int(D / plot), 1, 2)
 			for i in nx:
 				for j in nz:
@@ -1059,7 +1122,7 @@ static func _fill_lot(bufs: Dictionary, trees: PackedFloat32Array, st: Dictionar
 						_city_tree(trees, P, a, (l + L / nx * 0.32) if along_x else t, t if along_x else (l + L / nx * 0.32), rb)
 		"boxes", "lot_boxes":
 			var mesh := String(st.box)
-			var cnt := 1 if zone == "core" and rb.randf() < 0.6 else rb.randi_range(2, 4)
+			var cnt := 1 if zone == "core" and rb.randf() < 0.6 else rb.randi_range(1, 4)
 			var col0: Color = U.pick(rb, facade)
 			for k in cnt:
 				var hh := rb.randf_range(float(hr[0]), float(hr[1])) * hk
@@ -1124,7 +1187,7 @@ static func _fill_lot(bufs: Dictionary, trees: PackedFloat32Array, st: Dictionar
 					U.pick(rb, [Color(0.72, 0.74, 0.76), Color(0.6, 0.64, 0.66), Color(0.75, 0.7, 0.62), Color(0.55, 0.62, 0.7), Color(0.8, 0.8, 0.78)]), 5, rb.randf(), yaw)
 		"shops":
 			var td := minf(14.0, D * 0.42)
-			var nseg := maxi(1, int(round(L / 40.0)))
+			var nseg := maxi(1, int(round(L / 60.0)))
 			var seg := L / nseg
 			for side in [-1.0, 1.0]:
 				var t: float = side * (D * 0.5 - td * 0.5)

@@ -38,16 +38,35 @@ vec3 roof_color(float id, float sd) {
 	return pow(c, vec3(2.2));
 }
 
+vec3 house_tint(vec3 base, float fx, float sd) {
+	// houses packed three to an instance each get their own paint
+	float third = floor(clamp(fx + 0.5, 0.0, 0.999) * 3.0);
+	float h = hash12(vec2(third * 7.0 + 1.0, sd * 113.0));
+	vec3 alt = h < 0.2 ? vec3(0.85, 0.84, 0.8) : (h < 0.4 ? vec3(0.78, 0.68, 0.5) : (h < 0.55 ? vec3(0.55, 0.62, 0.68) : (h < 0.7 ? vec3(0.45, 0.2, 0.14) : base)));
+	return mix(base, alt, 0.65);
+}
+
 void vertex() {
-	vec3 sc = vec3(length(MODEL_MATRIX[0].xyz), length(MODEL_MATRIX[1].xyz), length(MODEL_MATRIX[2].xyz));
-	lpos = VERTEX * sc;
-	vsc = sc;
 	onrm = NORMAL;
-	facade = pow(INSTANCE_CUSTOM.rgb, vec3(2.2));
-	float ra = clamp(INSTANCE_CUSTOM.a, 0.0, 0.9999) * 8.0;
-	fam = floor(ra);
-	seed = fract(ra);
-	vkind = vec2(COLOR.r, COLOR.a);
+	if (UV2.x > 0.5) {
+		// merged ground plates (one plain mesh per chunk): UV = metres from the plate centre,
+		// UV2 = plate size, COLOR.rgb = lot colour, COLOR.a = plate type / 8
+		lpos = vec3(UV.x, VERTEX.y, UV.y);
+		vsc = vec3(UV2.x, 1.0, UV2.y);
+		facade = pow(COLOR.rgb, vec3(2.2));
+		fam = floor(COLOR.a * 8.0);
+		seed = 0.5;
+		vkind = vec2(0.05, NORMAL.y > 0.5 ? 0.37 : 1.0);
+	} else {
+		vec3 sc = vec3(length(MODEL_MATRIX[0].xyz), length(MODEL_MATRIX[1].xyz), length(MODEL_MATRIX[2].xyz));
+		lpos = VERTEX * sc;
+		vsc = sc;
+		facade = pow(INSTANCE_CUSTOM.rgb, vec3(2.2));
+		float ra = clamp(INSTANCE_CUSTOM.a, 0.0, 0.9999) * 8.0;
+		fam = floor(ra);
+		seed = fract(ra);
+		vkind = vec2(COLOR.r, COLOR.a);
+	}
 }
 
 void fragment() {
@@ -156,6 +175,7 @@ void fragment() {
 			col = vec3(0.3, 0.29, 0.27);
 		} else if (kind < 0.16) {
 			// wooden house: painted clapboard, white trim, two storeys of windows
+			col = house_tint(col, lpos.x / vsc.x, seed);
 			col *= 0.88 + 0.12 * mix(0.5, step(0.5, fract(v / 0.3)), fine);
 			float wx = fract(u / 3.4);
 			float wy = fract(v / 2.8);
@@ -167,6 +187,7 @@ void fragment() {
 			emit = win * night * step(0.45, hash12(floor(vec2(u / 3.4, v / 2.8)) + seed * 71.0)) * vec3(1.0, 0.72, 0.42) * 1.3;
 		} else if (kind < 0.24) {
 			// house: two storeys of sash windows
+			col = house_tint(col, lpos.x / vsc.x, seed);
 			float wx = fract(u / 3.6);
 			float wy = fract(v / 2.8);
 			float win = step(0.3, wx) * step(wx, 0.7) * step(0.32, wy) * step(wy, 0.82) * step(0.4, v);
