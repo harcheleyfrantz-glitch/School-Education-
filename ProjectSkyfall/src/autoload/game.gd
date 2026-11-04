@@ -10,20 +10,20 @@ const SAVE_PATH := "user://skyfall_world.json"
 const SAVE_VERSION := 1
 
 const QUALITY := {
-	"potato": {"label": "Very low (old PCs)", "render_scale": 0.5, "msaa": 0, "fxaa": false, "shadows": 0, "shadow_distance": 250.0,
+	"potato": {"label": "Very low (old PCs)", "model_res": 0.55, "airport_res": 0.5, "props": 0.0, "render_scale": 0.5, "msaa": 0, "fxaa": false, "shadows": 0, "shadow_distance": 250.0,
 		"ssao": false, "glow": false, "lod": 0.9, "min_leaf": 4000.0, "view": 28000.0, "trees": 0.12,
 		"buildings": 0.3, "clouds": 0, "crowd": 0.25, "lights": false, "fps": 60, "sky_res": 32, "fog_vol": false,
 		"backdrop": false, "studio": false},
-	"low": {"label": "Low", "render_scale": 0.65, "msaa": 0, "fxaa": true, "shadows": 0, "shadow_distance": 400.0,
+	"low": {"label": "Low", "model_res": 0.7, "airport_res": 0.7, "props": 0.25, "render_scale": 0.65, "msaa": 0, "fxaa": true, "shadows": 0, "shadow_distance": 400.0,
 		"ssao": false, "glow": true, "lod": 1.15, "min_leaf": 2000.0, "view": 45000.0, "trees": 0.25,
 		"buildings": 0.45, "clouds": 0, "crowd": 0.4, "lights": false, "fps": 60, "sky_res": 64, "fog_vol": false, "backdrop": false, "studio": true},
-	"medium": {"label": "Medium", "render_scale": 0.85, "msaa": 0, "fxaa": true, "shadows": 1, "shadow_distance": 700.0,
+	"medium": {"label": "Medium", "model_res": 1.0, "airport_res": 1.0, "props": 0.6, "render_scale": 0.85, "msaa": 0, "fxaa": true, "shadows": 1, "shadow_distance": 700.0,
 		"ssao": false, "glow": true, "lod": 1.4, "min_leaf": 1000.0, "view": 70000.0, "trees": 0.55,
 		"buildings": 0.7, "clouds": 1, "crowd": 0.7, "lights": true, "fps": 60, "sky_res": 128, "fog_vol": false, "backdrop": true, "studio": true},
-	"high": {"label": "High", "render_scale": 1.0, "msaa": 1, "fxaa": false, "shadows": 2, "shadow_distance": 1200.0,
+	"high": {"label": "High", "model_res": 1.8, "airport_res": 1.7, "props": 1.0, "render_scale": 1.0, "msaa": 1, "fxaa": false, "shadows": 2, "shadow_distance": 1200.0,
 		"ssao": true, "glow": true, "lod": 1.8, "min_leaf": 1000.0, "view": 110000.0, "trees": 1.0,
 		"buildings": 1.0, "clouds": 2, "crowd": 1.0, "lights": true, "fps": 0, "sky_res": 256, "fog_vol": false, "backdrop": true, "studio": true},
-	"ultra": {"label": "Ultra", "render_scale": 1.0, "msaa": 2, "fxaa": false, "shadows": 3, "shadow_distance": 2000.0,
+	"ultra": {"label": "Ultra", "model_res": 3.2, "airport_res": 3.0, "props": 1.6, "render_scale": 1.0, "msaa": 2, "fxaa": false, "shadows": 3, "shadow_distance": 2000.0,
 		"ssao": true, "glow": true, "lod": 2.3, "min_leaf": 500.0, "view": 160000.0, "trees": 1.4,
 		"buildings": 1.2, "clouds": 3, "crowd": 1.0, "lights": true, "fps": 0, "sky_res": 256, "fog_vol": true, "backdrop": true, "studio": true},
 }

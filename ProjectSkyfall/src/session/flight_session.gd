@@ -791,6 +791,7 @@ func _update_interior_visibility() -> void:
 		people.visible = in_cabin
 	if ac.model:
 		ac.model.show_exterior_fuselage(not (m == "cockpit" or in_cabin))
+		ac.model.set_interior_proxy(cabin == null or not cabin.visible, cockpit == null or not cockpit.visible)
 	view.set_interior(m == "cockpit" or in_cabin)
 
 

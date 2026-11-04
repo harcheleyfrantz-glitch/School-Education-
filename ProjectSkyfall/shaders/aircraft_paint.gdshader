@@ -89,6 +89,10 @@ uniform float cargo_h = 1.25;
 uniform vec4 main_door = vec4(-1e4, 1.7, 1.6, 0.0); // freighter main deck door: z, half w, half h, centre y
 uniform float nose_door = -1e4;                     // freighter visor nose door split station (body z)
 uniform float cockpit_z1 = -1e4;                    // flight deck glazing lives ahead of this
+// see-through glazing: within see_range metres of the camera the window and flight deck glass
+// opens onto the interior built behind it (AircraftModel's cabin and flight deck proxy)
+uniform float see_through = 0.0;
+uniform float see_range = 170.0;
 uniform int pane_count = 0;
 uniform vec3 pane_o[5];
 uniform vec3 pane_u[5];
@@ -319,6 +323,7 @@ vec2 fin_art(vec2 a, vec2 s, float span) {
 }
 
 void fragment() {
+	float hole = 0.0;
 	int pid = int(COLOR.r * 64.0 + 0.5);
 	vec3 col = body_col;
 	float rough = 0.3;
@@ -419,6 +424,7 @@ void fragment() {
 				vec2 q = vec2(zz - wz, yy - win.x);
 				float d = sd_window(q, win.zy, win_shape);
 				float glass = fill(d);
+				hole = max(hole, glass);
 				float seal = fill(d - 0.022) * (1.0 - glass);
 				float rim = fill(d - 0.045) * (1.0 - glass - seal);
 				col = mix(col, col * 0.82, rim * 0.6);
@@ -475,6 +481,7 @@ void fragment() {
 			vec2 wq = vec2(zz - exit_z[i], yy - win.x);
 			float wd = sd_window(wq, win.zy, win_shape);
 			float glass = fill(wd);
+			hole = max(hole, glass);
 			col = mix(col, vec3(0.32, 0.33, 0.35), fill(wd - 0.022) * (1.0 - glass));
 			col = mix(col, vec3(0.006, 0.008, 0.011), glass);
 			rough = mix(rough, 0.04, glass);
@@ -525,6 +532,7 @@ void fragment() {
 			}
 			if (d < 0.5) {
 				float glass = fill(d);
+				hole = max(hole, glass);
 				float seal = fill(d - 0.03) * (1.0 - glass);
 				float frame = fill(d - 0.075) * (1.0 - glass - seal);
 				float mk = mask * fill(d - 0.2);
@@ -768,4 +776,7 @@ void fragment() {
 	EMISSION = emit;
 	AO = ao;
 	AO_LIGHT_AFFECT = 0.25;
+	if (see_through > 0.5 && hole > 0.5 && length(VERTEX) < see_range) {
+		discard;
+	}
 }

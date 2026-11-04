@@ -40,6 +40,7 @@ const CHEVRONS := {"q740": 2, "f4": 2, "w280": 1}
 ## Fine detail meshes (antennas, probes, wipers, strakes, drains) are culled beyond this distance
 ## (metres); at 500 m a 0.3 m antenna is about one pixel at a 40 degree field of view.
 const DETAIL_RANGE := 500.0
+const CabinProxy := preload("res://src/aircraft/model/cabin_proxy.gd")
 
 static var _mat_cache := {}
 static var _kit_cache := {}
@@ -51,6 +52,11 @@ static var _quad: QuadMesh = null
 var spec: Dictionary
 var detail := 1.0
 var hi := true
+## Tessellation multiplier for full-detail models, from the quality preset ("model_res"): about
+## 0.55 on very low up to 3.2 on ultra (a hero airliner of half a million triangles and more).
+var res := 1.0
+var interior_proxy: Node3D = null   # see-through cabin and flight deck (CabinProxy)
+var _reg := ""
 var mat: ShaderMaterial
 var exterior: Node3D            # fuselage-only node (stays visible from inside the cabin)
 var airframe: MeshInstance3D
@@ -92,11 +98,13 @@ func build(type_id: String, airline_code: String, reg: String, detail_level: flo
 	spec = AircraftTypes.get_type(type_id)
 	_type_id = type_id if AircraftTypes.TYPES.has(type_id) else "s320"
 	detail = detail_level
+	_reg = reg
 	hi = detail_level > 0.5
+	res = clampf(float(Game.q("model_res")), 0.4, 4.0) if detail_level >= 0.99 and Game.q("model_res") != null else 1.0
 	body_len = float(spec.length)
 	cg_z = -body_len * float(spec.cg_frac)
 	_setup_geometry()
-	var key := _type_id + (":hi" if hi else ":lo")
+	var key := _type_id + (":hi" if hi else ":lo") + ":%.2f" % res
 	if not _kit_cache.has(key):
 		_kit_cache[key] = _make_kit()
 	var kit: Dictionary = _kit_cache[key]
@@ -104,6 +112,17 @@ func build(type_id: String, airline_code: String, reg: String, detail_level: flo
 	mat = _material(livery, _type_id, kit.shader)
 	_instantiate(kit)
 	_build_labels(livery, reg)
+
+
+func _n(h: int, l: int) -> int:
+	## A tessellation count: the full-detail value scaled by the preset's resolution, never below
+	## the low-detail value.
+	return maxi(int(round(float(h) * res)), l) if hi else l
+
+
+func _n4(h: int, l: int) -> int:
+	## As _n, rounded to a multiple of four (left/right and top/bottom symmetric sections).
+	return maxi(int(round(float(h) * res / 4.0)) * 4, l) if hi else l
 
 
 func _make_kit() -> Dictionary:
@@ -146,6 +165,10 @@ func _instantiate(kit: Dictionary) -> void:
 			dmi.visibility_range_end = DETAIL_RANGE
 			dmi.visibility_range_end_margin = 20.0
 			dmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# what you see through the windows from outside: cabin and flight deck behind the glass
+	if mat and float(mat.get_shader_parameter("see_through")) > 0.5:
+		interior_proxy = CabinProxy.build(_type_id, spec, livery, _reg, kit.shader)
+		exterior.add_child(interior_proxy)
 	anchors = kit.anchors
 	door_l1_local = kit.door_l1
 	for p in kit.parts:
@@ -266,6 +289,9 @@ static func _material(lv: String, type_id: String, geo: Dictionary) -> ShaderMat
 		if l.has(k):
 			m.set_shader_parameter(k + "_col", l[k])
 	m.set_shader_parameter("logo_shape", int(l.get("logo_shape", 0)))
+	# see-through glazing (and the interior behind it) on every preset but the lowest
+	m.set_shader_parameter("see_through", 1.0 if Game.q("props") != null and float(Game.q("props")) > 0.0 else 0.0)
+	m.set_shader_parameter("see_range", CabinProxy.RANGE - 5.0)
 	m.set_shader_parameter("engine_style", int(l.get("engine_style", 0)))
 	for k in ["belly_h", "nose_dip", "rise_t", "rise_h", "flow_t", "flow_h", "tail_band", "metal_belly", "nose_paint", "event_art"]:
 		if l.has(k):
@@ -717,7 +743,7 @@ func _hinged(name: String, secs: Array, x0: float, x1: float, part: int, max_deg
 	var o := opts.duplicate()
 	o["cap0"] = true
 	o["cap1"] = true
-	_surf(tmp, secs, x0, x1, part, 5 if hi else 3, o)
+	_surf(tmp, secs, x0, x1, part, _n(5, 3), o)
 	if extra != null:
 		tmp.add_mesh_builder(extra)
 	if not hi and not name.begins_with("flap"):
@@ -951,21 +977,21 @@ func _fuse_stations() -> Array:
 	var tn := _nose_frac(spec)
 	var tt := 1.0 - _tail_frac(spec)
 	var out := []
-	var n_nose := 34 if hi else 10
+	var n_nose := _n(34, 10)
 	for i in n_nose:
 		out.append(tn * (1.0 - cos(float(i) / n_nose * PI * 0.5)))
 	# the mid body has a constant section (bulges and the hump add their own stations), so its rings
 	# can be sparse without changing the shape or the shading
-	var step := (2.4 if hi else 4.0) / body_len
+	var step := (2.4 / res if hi else 4.0) / body_len
 	var n_body := maxi(int(ceil((tt - tn) / step)), 2)
 	for i in n_body:
 		out.append(lerpf(tn, tt, float(i) / n_body))
-	var n_tail := 24 if hi else 8
+	var n_tail := _n(24, 8)
 	for i in n_tail + 1:
 		out.append(lerpf(tt, 1.0, float(i) / n_tail))
 	for bg in _bulges:
 		var zz: Array = bg.z
-		var n_b := 14 if hi else 6
+		var n_b := _n(14, 6)
 		for i in n_b + 1:
 			var z := lerpf(float(zz[0]), float(zz[3]), float(i) / n_b)
 			out.append(clampf((z - cg_z) / body_len, 0.0, 1.0))
@@ -981,7 +1007,7 @@ func _fuse_stations() -> Array:
 
 
 func _build_fuselage(mb: MeshBuilder) -> void:
-	var segs := 64 if hi else 22
+	var segs := _n4(64, 22)
 	var ts := _fuse_stations()
 	var rows := ts.size()
 	var cols := segs + 1
@@ -1030,7 +1056,7 @@ func _build_fuselage(mb: MeshBuilder) -> void:
 	if spec.category != "trainer":
 		var r_apu := clampf(minf(_rw * spe.x, _rh * (spe.y + spe.z) * 0.5) * 0.7, 0.06, 0.32)
 		var prof := [Vector2(-0.1, r_apu * 1.02), Vector2(0.1, r_apu), Vector2(0.11, r_apu * 0.86), Vector2(-0.12, r_apu * 0.84), Vector2(-0.12, 0.0)]
-		_revolve(mb, ctr, Vector3(0, 0, 1), prof, [P_EXHAUST, P_EXHAUST, P_DARK, P_DARK], [0.0, 0.5, 1.0, 1.0, 1.0], 18 if hi else 8)
+		_revolve(mb, ctr, Vector3(0, 0, 1), prof, [P_EXHAUST, P_EXHAUST, P_DARK, P_DARK], [0.0, 0.5, 1.0, 1.0, 1.0], _n(18, 8))
 		_k.anchors["tail"] = ctr
 
 
@@ -1052,8 +1078,8 @@ func _build_wings(mb: MeshBuilder) -> void:
 	var rk: float = _W.rake
 	var sl0 := s_fus + 0.35
 	var sl1 := minf(semi * 0.965, rk)
-	var nx := 15 if hi else 6
-	var step := 1.2 if hi else 4.5
+	var nx := _n(15, 6)
+	var step := (1.2 / res if hi else 4.5)
 	var brk := [kink, rk, flap_end, ail_end]
 	var wl: String = spec.winglet
 	var tip_cap := wl == "none" or wl == "raked"
@@ -1220,7 +1246,7 @@ func _canoe(front: MeshBuilder, rear: MeshBuilder, side: float, s: float, xh: fl
 	var sd := td.cross(cd).normalized()
 	var prof := [[0.38, 0.005, 0.006], [0.44, 0.026, 0.035], [0.54, 0.037, 0.065], [0.65, 0.042, 0.088], [xh, 0.043, 0.098],
 		[0.86, 0.042, 0.104], [1.0, 0.037, 0.092], [1.12, 0.028, 0.066], [1.24, 0.015, 0.037], [1.32, 0.004, 0.012]]
-	var n := 12 if hi else 6
+	var n := _n(12, 6)
 	var rings_f := []
 	var cen_f := []
 	var rings_r := []
@@ -1260,7 +1286,7 @@ func _winglet(mb: MeshBuilder, side: float, kind: String) -> void:
 	var phi_max := PI * 0.5 - cant
 	var arc_len := rb * phi_max
 	var total := arc_len + maxf(h - rb, 0.2)
-	var n := 12 if hi else 4
+	var n := _n(12, 4)
 	var secs := []
 	var le0: Vector3 = tip.le
 	for i in n + 1:
@@ -1286,7 +1312,7 @@ func _winglet(mb: MeshBuilder, side: float, kind: String) -> void:
 		var td := cd.cross(T).normalized() * side
 		secs.append(_sec(le, cd, td, c, lerpf(float(tip.tc), 0.08, u), u, 0.0))
 	var sf := 1.0 if side > 0.0 else 0.0
-	_surf(mb, secs, 0.0, 1.0, P_WINGLET, 10 if hi else 5, {"side": sf, "cap1": true, "uv2": "zy"})
+	_surf(mb, secs, 0.0, 1.0, P_WINGLET, _n(10, 5), {"side": sf, "cap1": true, "uv2": "zy"})
 	if hi:
 		var top: Dictionary = secs[n - 1]
 		var te := _spt(top, 1.0, true)
@@ -1298,7 +1324,7 @@ func _ventral_tip(mb: MeshBuilder, side: float) -> void:
 	var tip := _wsec(side, _W.semi)
 	var ct: float = tip.c
 	var length := ct * 0.5
-	var n := 6 if hi else 3
+	var n := _n(6, 3)
 	var secs := []
 	var le0: Vector3 = tip.le + Vector3(0, 0, ct * 0.18)
 	var T := Vector3(side * 0.3, -0.95, 0.0).normalized()
@@ -1308,7 +1334,7 @@ func _ventral_tip(mb: MeshBuilder, side: float) -> void:
 		var u := float(i) / n
 		var le := le0 + T * (u * length) + Vector3(0, 0, u * length * 0.75)
 		secs.append(_sec(le, cd, td, ct * lerpf(0.6, 0.28, u), lerpf(0.09, 0.07, u), u, 0.0))
-	_surf(mb, secs, 0.0, 1.0, P_WINGLET, 6 if hi else 3, {"side": 0.0 if side > 0.0 else 1.0, "cap1": true, "uv2": "zy"})
+	_surf(mb, secs, 0.0, 1.0, P_WINGLET, _n(6, 3), {"side": 0.0 if side > 0.0 else 1.0, "cap1": true, "uv2": "zy"})
 
 
 ## Rounded wingtip closing a plain wing.
@@ -1324,7 +1350,7 @@ func _round_tip(mb: MeshBuilder, side: float) -> void:
 		s["tc"] = float(base.tc) * sqrt(1.0 - float(f) * float(f))
 		s["c"] = ct * (1.0 - 0.08 * float(f) * float(f))
 		secs.append(s)
-	_surf(mb, secs, 0.0, 1.0, P_WING, 10 if hi else 5, {"side": 1.0 if side > 0.0 else 0.0, "cap1": true})
+	_surf(mb, secs, 0.0, 1.0, P_WING, _n(10, 5), {"side": 1.0 if side > 0.0 else 0.0, "cap1": true})
 
 
 ## Streamlined strut between two points.
@@ -1335,7 +1361,7 @@ func _strut(mb: MeshBuilder, a: Vector3, b: Vector3, chord: float, thick: float,
 	var lat := ax.cross(fwd).normalized()
 	var rings := []
 	var cens := []
-	var n := 10 if hi else 6
+	var n := _n(10, 6)
 	for e in [a, b]:
 		var ring := PackedVector3Array()
 		for k in n:
@@ -1368,7 +1394,7 @@ func _build_tail(mb: MeshBuilder) -> void:
 		var sp := section(spec, t)
 		y_root = minf(y_root, sp.w + _rh * sp.y)
 	var fy := y_root - 0.03
-	var nf := 8 if hi else 3
+	var nf := _n(8, 3)
 	var fin_secs := func(h0: float, h1: float, n: int) -> Array:
 		var out := []
 		for i in n + 1:
@@ -1379,7 +1405,7 @@ func _build_tail(mb: MeshBuilder) -> void:
 		return out
 	var fo := {"uv2": "zy", "side_from_upper": true}
 	var sub := -0.25 * _rh
-	_surf(mb, fin_secs.call(sub, fin_h, nf), 0.0, 0.72, P_TAIL, 12 if hi else 5, {"uv2": "zy", "side_from_upper": true, "cap1": true})
+	_surf(mb, fin_secs.call(sub, fin_h, nf), 0.0, 0.72, P_TAIL, _n(12, 5), {"uv2": "zy", "side_from_upper": true, "cap1": true})
 	_surf(mb, fin_secs.call(sub, fin_h * 0.05, 1), 0.72, 1.0, P_TAIL, 4, {"uv2": "zy", "side_from_upper": true, "cap1": true})
 	_surf(mb, fin_secs.call(fin_h * 0.97, fin_h, 1), 0.72, 1.0, P_TAIL, 4, {"uv2": "zy", "side_from_upper": true, "cap0": true, "cap1": true})
 	var rwick := _new_mb()
@@ -1388,7 +1414,7 @@ func _build_tail(mb: MeshBuilder) -> void:
 			var rs: Dictionary = (fin_secs.call(fin_h * float(f), fin_h, 1) as Array)[0]
 			var te := _spt(rs, 1.0, true)
 			rwick.add_cylinder(te - Vector3(0, 0, 0.02), te + Vector3(0, -0.06, 0.25), 0.008, 0.004, 4, _c(P_DARK), false)
-	_hinged("rudder", fin_secs.call(fin_h * 0.05, fin_h * 0.97, 3 if hi else 1), 0.72, 1.0, P_TAIL, 25.0, true, Vector3.ZERO, mb, fo, rwick)
+	_hinged("rudder", fin_secs.call(fin_h * 0.05, fin_h * 0.97, _n(3, 1)), 0.72, 1.0, P_TAIL, 25.0, true, Vector3.ZERO, mb, fo, rwick)
 	# dorsal fillet
 	if cat != "trainer" and cat != "cargo":
 		var dl := fin_cr * (0.55 if cat == "turboprop" else 0.32)
@@ -1400,7 +1426,7 @@ func _build_tail(mb: MeshBuilder) -> void:
 			var le_z := lerpf(fz - dl, fz + dh * slope, pow(f, 0.7))
 			var c := lerpf(dl + fin_cr * 0.3, fin_cr * 0.2, f)
 			ds.append(_sec(Vector3(0, fy + s, le_z), Vector3(0, 0, 1), Vector3(1, 0, 0), c, lerpf(0.06, 0.12, f), clampf(s / fin_h, 0.0, 1.0), 0.0))
-		_surf(mb, ds, 0.0, 1.0, P_TAIL, 8 if hi else 4, {"uv2": "zy", "side_from_upper": true})
+		_surf(mb, ds, 0.0, 1.0, P_TAIL, _n(8, 4), {"uv2": "zy", "side_from_upper": true})
 	# fin art placement for the shader
 	var mid_c := lerpf(fin_cr, fin_ct, 0.5)
 	_k.shader["logo_xf"] = Vector4(fz + fin_h * 0.5 * slope + mid_c * 0.47, fy + fin_h * 0.52, 0.42 * minf(fin_h, mid_c * 1.15), 0.0)
@@ -1418,7 +1444,7 @@ func _build_tail(mb: MeshBuilder) -> void:
 		var br := fin_ct * 0.1
 		var prof := [Vector2(0.0, 0.0), Vector2(0.06 * bl, br * 0.55), Vector2(0.22 * bl, br * 0.92), Vector2(0.45 * bl, br),
 			Vector2(0.78 * bl, br * 0.8), Vector2(bl, br * 0.15), Vector2(bl * 1.01, 0.0)]
-		_revolve(mb, hs_root + Vector3(0, 0.02, -bl * 0.18), Vector3(0, 0, 1), prof, [P_TAIL], [0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.0], 16 if hi else 8, 1.0)
+		_revolve(mb, hs_root + Vector3(0, 0.02, -bl * 0.18), Vector3(0, 0, 1), prof, [P_TAIL], [0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.0], _n(16, 8), 1.0)
 	else:
 		hs_root = Vector3(0, _rh * 0.12, tail_z - hs_cr * 0.35)
 	var hsweep := tan(deg_to_rad(float(spec.sweep) + 6.0))
@@ -1435,7 +1461,7 @@ func _build_tail(mb: MeshBuilder) -> void:
 					lerpf(hs_cr, hs_ct, s / hs_semi), lerpf(0.11, 0.09, s / hs_semi), s / hs_semi, 0.0))
 			return out
 		var so := {"side": sf}
-		_surf(mb, hs.call(0.0, hs_semi, 5 if hi else 2), 0.0, 0.7, P_STAB, 11 if hi else 5, {"side": sf, "cap1": true})
+		_surf(mb, hs.call(0.0, hs_semi, _n(5, 2)), 0.0, 0.7, P_STAB, _n(11, 5), {"side": sf, "cap1": true})
 		_surf(mb, hs.call(0.0, hs_semi * 0.08, 1), 0.7, 1.0, P_STAB, 4, {"side": sf, "cap1": true})
 		_surf(mb, hs.call(hs_semi * 0.97, hs_semi, 1), 0.7, 1.0, P_STAB, 4, {"side": sf, "cap0": true, "cap1": true})
 		var ew := _new_mb()
@@ -1444,7 +1470,7 @@ func _build_tail(mb: MeshBuilder) -> void:
 				var es: Dictionary = (hs.call(hs_semi * float(f), hs_semi, 1) as Array)[0]
 				var te := _spt(es, 1.0, true)
 				ew.add_cylinder(te - Vector3(0, 0, 0.02), te + Vector3(0, 0, 0.22), 0.007, 0.004, 4, _c(P_DARK), false)
-		_hinged("elevator_" + sn, hs.call(hs_semi * 0.08, hs_semi * 0.97, 2 if hi else 1), 0.7, 1.0, P_STAB, 25.0, true, Vector3.ZERO, mb, so, ew)
+		_hinged("elevator_" + sn, hs.call(hs_semi * 0.08, hs_semi * 0.97, _n(2, 1)), 0.7, 1.0, P_STAB, 25.0, true, Vector3.ZERO, mb, so, ew)
 		_k.anchors["stab_tip_" + sn] = hs_root + Vector3(side * hs_semi, hs_semi * tan(hdih), hs_semi * hsweep)
 
 
@@ -1466,7 +1492,7 @@ func _turbofan(mb: MeshBuilder, p: Vector3, idx: int) -> void:
 	var D: float = spec.get("fan_diam", 1.8)
 	var rear: bool = spec.engine_mount == "rear"
 	var cat: String = spec.category
-	var segs := 40 if hi else 14
+	var segs := _n4(40, 14)
 	var Ln := D * (1.95 if rear else 1.55)
 	var Rm := D * (0.56 if rear else 0.57)
 	var Rh := D * 0.53
@@ -1548,14 +1574,14 @@ func _turbofan(mb: MeshBuilder, p: Vector3, idx: int) -> void:
 			var x := lerpf(root_x, tip_x, f)
 			var c := Ln * lerpf(0.62, 0.48, f)
 			secs.append(_sec(Vector3(x, p.y, fz_c - c * 0.35 + f * c * 0.08), Vector3(0, 0, 1), Vector3(0, 1, 0), c, 0.14, f, 0.0))
-		_surf(mb, secs, 0.0, 1.0, P_PYLON, 8 if hi else 4, {"uv2": "xz"})
+		_surf(mb, secs, 0.0, 1.0, P_PYLON, _n(8, 4), {"uv2": "xz"})
 	else:
 		_pylon(mb, o, D, Ln, Rm, wsec)
 	# rotor: spinner and fan blades
 	var rmb := _new_mb()
 	var sp := [Vector2(-0.27 * D, 0.0), Vector2(-0.25 * D, 0.03 * D), Vector2(-0.19 * D, 0.08 * D), Vector2(-0.11 * D, 0.125 * D),
 		Vector2(-0.03 * D, 0.158 * D), Vector2(0.03 * D, 0.172 * D), Vector2(0.07 * D, 0.172 * D)]
-	_revolve(rmb, Vector3.ZERO, ax, sp, [P_SPINNER], [0.0, 0.1, 0.3, 0.55, 0.8, 0.94, 1.0], 28 if hi else 10)
+	_revolve(rmb, Vector3.ZERO, ax, sp, [P_SPINNER], [0.0, 0.1, 0.3, 0.55, 0.8, 0.94, 1.0], _n(28, 10))
 	var nb := 18
 	if cat in ["widebody", "cargo"]:
 		nb = 22
@@ -1613,8 +1639,8 @@ func _tri_n(mb: MeshBuilder, a: Vector3, b: Vector3, c: Vector3, ns: Array, col:
 func _fan_blades(mb: MeshBuilder, D: float, nb: int) -> void:
 	var r0 := 0.16 * D
 	var r1 := 0.495 * D
-	var ns := 5 if hi else 2
-	var nc := 4 if hi else 2
+	var ns := _n(5, 2)
+	var nc := _n(4, 2)
 	for k in nb:
 		var a := TAU * float(k) / nb
 		var rad := Vector3(sin(a), cos(a), 0.0)
@@ -1660,11 +1686,11 @@ func _pylon(mb: MeshBuilder, o: Vector3, D: float, Ln: float, Rm: float, wsec: D
 	var c: float = wsec.c
 	var z_a := o.z + 0.2 * Ln
 	var z_end := le.z + c * 1.02
-	var n := 14 if hi else 6
+	var n := _n(14, 6)
 	var rings := []
 	var cens := []
 	var vs := []
-	var m := 12 if hi else 6
+	var m := _n(12, 6)
 	var hw0 := 0.11 * D
 	for i in n + 1:
 		var f := float(i) / n
@@ -1709,7 +1735,7 @@ func _turboprop(mb: MeshBuilder, p: Vector3, idx: int) -> void:
 		[z_prop + 0.08, 0.27, 0.27, 0.29], [z_prop + 0.35, 0.38, 0.38, 0.47], [z_prop + 0.9, 0.46, 0.5, 0.62],
 		[le.z - 0.2, 0.5, 0.75, 0.68], [le.z + c * 0.4, 0.5, 0.9, 0.64], [le.z + c * 0.85, 0.42, 0.9, 0.48],
 		[le.z + c * 1.15, 0.26, 0.85, 0.28], [le.z + c * 1.38, 0.04, 0.8, 0.05]]
-	var m := 18 if hi else 8
+	var m := _n(18, 8)
 	var rings := []
 	var cens := []
 	var vs := []
@@ -1734,14 +1760,14 @@ func _turboprop(mb: MeshBuilder, p: Vector3, idx: int) -> void:
 	# chin intake and exhaust
 	mb.add_rounded_box(Vector3(p.x, y_ax - 0.5, z_prop + 0.62), Vector3(0.36, 0.14, 0.42), _c(P_DARK), 0.4, 10, 6)
 	var ex0 := Vector3(p.x + side * 0.44, y_ax + 0.02, le.z + c * 0.2)
-	mb.add_cylinder(ex0 - Vector3(side * 0.12, 0, 0.1), ex0 + Vector3(side * 0.08, -0.02, 0.32), 0.13, 0.12, 10 if hi else 6, _c(P_EXHAUST), false)
-	mb.add_cylinder(ex0 + Vector3(side * 0.08, -0.02, 0.32), ex0 + Vector3(side * 0.02, -0.02, 0.1), 0.115, 0.115, 10 if hi else 6, _c(P_DARK), true)
+	mb.add_cylinder(ex0 - Vector3(side * 0.12, 0, 0.1), ex0 + Vector3(side * 0.08, -0.02, 0.32), 0.13, 0.12, _n(10, 6), _c(P_EXHAUST), false)
+	mb.add_cylinder(ex0 + Vector3(side * 0.08, -0.02, 0.32), ex0 + Vector3(side * 0.02, -0.02, 0.1), 0.115, 0.115, _n(10, 6), _c(P_DARK), true)
 	_k.anchors["engine_%d" % idx] = Vector3(p.x, y_ax, z_prop)
 	_k.anchors["engine_d_%d" % idx] = D * 0.3
 	# propeller: spinner (rotor) and blades
 	var rmb := _new_mb()
 	var spn := [Vector2(-0.62, 0.0), Vector2(-0.58, 0.06), Vector2(-0.46, 0.15), Vector2(-0.28, 0.23), Vector2(-0.08, 0.27), Vector2(0.06, 0.275), Vector2(0.08, 0.0)]
-	_revolve(rmb, Vector3.ZERO, Vector3(0, 0, 1), spn, [P_GEAR], [0.0, 0.1, 0.3, 0.6, 0.85, 1.0, 1.0], 24 if hi else 10)
+	_revolve(rmb, Vector3.ZERO, Vector3(0, 0, 1), spn, [P_GEAR], [0.0, 0.1, 0.3, 0.6, 0.85, 1.0, 1.0], _n(24, 10))
 	var bmb := _new_mb()
 	_prop_blades(bmb, D, 6, 0.24, -0.15)
 	if hi:
@@ -1758,8 +1784,8 @@ func _turboprop(mb: MeshBuilder, p: Vector3, idx: int) -> void:
 ## Propeller blades in the hub frame (disc at z = z0): twisted, tapered and swept-back tips.
 func _prop_blades(mb: MeshBuilder, D: float, nb: int, r_hub: float, z0: float) -> void:
 	var R := D * 0.5
-	var ns := 7 if hi else 3
-	var nc := 5 if hi else 2
+	var ns := _n(7, 3)
+	var nc := _n(5, 2)
 	for k in nb:
 		var a := TAU * float(k) / nb
 		var rad := Vector3(sin(a), cos(a), 0.0)
@@ -1810,7 +1836,7 @@ func _piston(mb: MeshBuilder, p: Vector3, idx: int) -> void:
 	_k.anchors["engine_d_%d" % idx] = 0.6
 	var rmb := _new_mb()
 	var spn := [Vector2(-0.36, 0.0), Vector2(-0.33, 0.05), Vector2(-0.24, 0.11), Vector2(-0.12, 0.155), Vector2(0.0, 0.17), Vector2(0.03, 0.17), Vector2(0.04, 0.0)]
-	_revolve(rmb, Vector3.ZERO, Vector3(0, 0, 1), spn, [P_FLAT], [0.0, 0.15, 0.4, 0.7, 0.95, 1.0, 1.0], 22 if hi else 10)
+	_revolve(rmb, Vector3.ZERO, Vector3(0, 0, 1), spn, [P_FLAT], [0.0, 0.15, 0.4, 0.7, 0.95, 1.0, 1.0], _n(22, 10))
 	var bmb := _new_mb()
 	_prop_blades(bmb, D, 2, 0.12, -0.08)
 	_k.engines.append({"pos": hub, "mesh": rmb.commit(), "blades": bmb.commit(), "disc": D, "nb": 2})
@@ -1878,7 +1904,7 @@ func _wheel_mesh(wr: float, tw: float) -> ArrayMesh:
 ## Full detail: rim flange, recessed web, raised bolt circle with tie bolts and a hub cap.
 func _wheel_into(mb: MeshBuilder, c: Vector3, wr: float, tw: float) -> void:
 	# bogie types carry 10-18 wheels: fewer segments keep the hero model within its budget
-	var segs := (24 if spec.category in ["widebody", "cargo"] else 30) if hi else 12
+	var segs := _n(24 if spec.category in ["widebody", "cargo"] else 30, 12)
 	var h := tw * 0.5
 	var rr := wr * 0.56
 	var prof := [Vector2(-h * 0.86, rr), Vector2(-h * 0.98, rr + (wr - rr) * 0.25), Vector2(-h, rr + (wr - rr) * 0.55),
@@ -1928,7 +1954,7 @@ func _gear_leg(mb: MeshBuilder, g: Dictionary) -> void:
 	var stroke := clampf(0.12 * gh, 0.15, 0.55) * (0.8 if nose else 1.0)
 	var lmb := _new_mb()
 	var smb := _new_mb()
-	var seg := 14 if hi else 7
+	var seg := _n(14, 7)
 	var bogie: bool = g.bogie
 	var twin: bool = g.twin
 	var off := rc * 0.85 + tw * 0.5 + 0.05
@@ -1945,7 +1971,7 @@ func _gear_leg(mb: MeshBuilder, g: Dictionary) -> void:
 		else:
 			lmb.add_cylinder(Vector3(0, 0.05, 0), Vector3(0, -leg + stroke, 0), rc, rc, seg, _c(P_GEAR), true)
 			smb.add_cylinder(Vector3(0, stroke + 0.2, 0), Vector3(0, 0.05, 0), rc * 0.7, rc * 0.7, seg, _c(P_CHROME), false)
-		smb.add_sphere(Vector3(0, 0.03, 0.04), Vector3(tw * 0.75, wr * 0.88, wr * 1.75), 14 if hi else 8, 7 if hi else 4, _c(P_FLAT))
+		smb.add_sphere(Vector3(0, 0.03, 0.04), Vector3(tw * 0.75, wr * 0.88, wr * 1.75), _n(14, 8), _n(7, 4), _c(P_FLAT))
 		wheels.append(Vector3.ZERO)
 	else:
 		# oleo: painted cylinder with gland nut, chrome piston on the sliding part
@@ -1985,8 +2011,8 @@ func _gear_leg(mb: MeshBuilder, g: Dictionary) -> void:
 			var k1 := Vector3(inb * leg * 0.62, -0.05, 0.12)
 			var knee := k0.lerp(k1, 0.5) + Vector3(0, -0.12, 0.05)
 			var br := rc * (0.44 if hi else 0.38)
-			lmb.add_cylinder(k0, knee, br, br * 0.9, 8 if hi else 6, _c(P_GEAR), true)
-			lmb.add_cylinder(knee, k1, br * 0.9, br, 8 if hi else 6, _c(P_GEAR), true)
+			lmb.add_cylinder(k0, knee, br, br * 0.9, _n(8, 6), _c(P_GEAR), true)
+			lmb.add_cylinder(knee, k1, br * 0.9, br, _n(8, 6), _c(P_GEAR), true)
 			if hi:
 				lmb.add_sphere(knee, Vector3.ONE * rc * 0.52, 8, 4, _c(P_METAL))
 				# lock link from the knee back to the leg, with its spring and actuator
@@ -2031,7 +2057,7 @@ func _gear_leg(mb: MeshBuilder, g: Dictionary) -> void:
 				lmb.add_box(Vector3(rc * 0.98, cy, rc * 0.35), Vector3(0.05, 0.03, rc * 0.55), _c(P_METAL))
 		# axle, bogie
 		if bogie:
-			smb.add_cylinder(Vector3(0, 0.0, -wb * 0.62), Vector3(0, 0.0, wb * 0.62), rc * 0.55, rc * 0.55, 10 if hi else 8, _c(P_GEAR), true)
+			smb.add_cylinder(Vector3(0, 0.0, -wb * 0.62), Vector3(0, 0.0, wb * 0.62), rc * 0.55, rc * 0.55, _n(10, 8), _c(P_GEAR), true)
 			smb.add_box(Vector3(0, 0.08, 0), Vector3(rc * 1.4, rc * 1.2, rc * 2.0), _c(P_GEAR))
 			for az in [-wb * 0.5, wb * 0.5]:
 				smb.add_cylinder(Vector3(-off - tw * 0.3, 0, az), Vector3(off + tw * 0.3, 0, az), rc * 0.3, rc * 0.3, 8, _c(P_METAL), false)
@@ -2951,6 +2977,18 @@ func _set_surface_deg(name: String, deg: float) -> void:
 	_set_surface(name, deg_to_rad(deg) / maxf(float(s.max), 0.001))
 
 
+func set_interior_proxy(cabin_on: bool, deck_on: bool) -> void:
+	## Hide the stand-in cabin / flight deck while the real interiors are being shown.
+	if interior_proxy == null:
+		return
+	for c in interior_proxy.get_children():
+		var nm := String(c.name)
+		if nm == "FlightDeck":
+			c.visible = deck_on
+		elif nm in ["CabinShell", "CabinFittings", "Seats", "People"]:
+			c.visible = cabin_on
+
+
 func show_exterior_fuselage(show: bool) -> void:
 	## From inside, the exterior skin stays visible (seen through the windows, its inner faces
 	## are culled) and keeps casting its shadow: the closed skin is what keeps direct sun out of
@@ -2958,6 +2996,8 @@ func show_exterior_fuselage(show: bool) -> void:
 	## their own lights and an interior ambient probe.
 	exterior.visible = true
 	fuselage_mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+	if interior_proxy:
+		interior_proxy.visible = show
 	for l in label_nodes:
 		l.visible = show
 	for d in doors.values():
