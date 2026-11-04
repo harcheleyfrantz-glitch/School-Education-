@@ -176,5 +176,7 @@ void fragment() {
 	ALBEDO = col;
 	ROUGHNESS = rough;
 	SPECULAR = 0.4;
-	EMISSION = (col * 0.6 + vec3(0.09, 0.075, 0.05)) * flood * night * (mode == 2 ? 1.6 : 0.0);
+	// floodlit apron: warm pools of light under the masts rather than a uniformly glowing slab
+	float pools = 0.55 + 0.45 * (0.5 + 0.5 * sin(UV.x * 0.05)) * (0.5 + 0.5 * sin(UV.y * 0.045 + 1.3));
+	EMISSION = (col * vec3(0.42, 0.36, 0.27) + vec3(0.05, 0.038, 0.02)) * pools * flood * night * (mode == 2 ? 1.0 : 0.0);
 }

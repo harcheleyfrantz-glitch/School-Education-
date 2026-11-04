@@ -1,4 +1,3 @@
-class_name AirportLandside
 extends RefCounted
 ## The kerbside in front of a passenger terminal (0-80 m from its landside face): pavements and
 ## kerbs, the departures / arrivals roads with lane markings and zebra crossings, a raised

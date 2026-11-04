@@ -10,6 +10,22 @@ extends Node3D
 ## points of interest.
 
 const FLOOR := 4.5                 # departures level, level with the jet bridge stubs
+const Landside := preload("res://src/world/models/airports/landside.gd")
+## Flagship hubs get a hand-picked, extra-rich hall (vaulted or timber ceilings, hanging flags,
+## overhead departure banks, indoor palms where it is warm); every other airport gets a style
+## drawn from its ICAO hash so no two halls look alike.
+const FLAGSHIP := {
+	"KMIA": {"ceil": "vault", "ceil_c": Color(0.95, 0.95, 0.94), "floor": Color(0.86, 0.82, 0.74), "carpet": Color(0.08, 0.32, 0.36), "accent": Color(0.2, 0.5, 0.52), "seat": Color(0.1, 0.25, 0.42), "mull": Color(0.92, 0.93, 0.94)},
+	"KLAX": {"ceil": "wood", "ceil_c": Color(0.62, 0.45, 0.3), "floor": Color(0.82, 0.82, 0.8), "carpet": Color(0.3, 0.27, 0.24), "accent": Color(0.48, 0.4, 0.3), "seat": Color(0.1, 0.1, 0.11), "mull": Color(0.85, 0.86, 0.87)},
+	"KJFK": {"ceil": "panel", "ceil_c": Color(0.94, 0.94, 0.93), "floor": Color(0.42, 0.42, 0.44), "carpet": Color(0.1, 0.15, 0.3), "accent": Color(0.2, 0.28, 0.45), "seat": Color(0.08, 0.12, 0.25), "mull": Color(0.3, 0.32, 0.35)},
+	"KATL": {"ceil": "slats", "ceil_c": Color(0.93, 0.93, 0.92), "floor": Color(0.76, 0.75, 0.72), "carpet": Color(0.38, 0.1, 0.13), "accent": Color(0.5, 0.2, 0.2), "seat": Color(0.12, 0.12, 0.13), "mull": Color(0.6, 0.62, 0.65)},
+	"EGLL": {"ceil": "vault", "ceil_c": Color(0.9, 0.91, 0.92), "floor": Color(0.6, 0.6, 0.61), "carpet": Color(0.22, 0.24, 0.28), "accent": Color(0.32, 0.36, 0.42), "seat": Color(0.36, 0.37, 0.4), "mull": Color(0.9, 0.91, 0.92)},
+	"OMDB": {"ceil": "vault", "ceil_c": Color(0.93, 0.88, 0.76), "floor": Color(0.9, 0.87, 0.82), "carpet": Color(0.42, 0.32, 0.18), "accent": Color(0.6, 0.48, 0.25), "seat": Color(0.4, 0.3, 0.2), "mull": Color(0.85, 0.78, 0.6)},
+	"WSSS": {"ceil": "wood", "ceil_c": Color(0.68, 0.5, 0.32), "floor": Color(0.7, 0.68, 0.64), "carpet": Color(0.36, 0.12, 0.3), "accent": Color(0.5, 0.22, 0.42), "seat": Color(0.3, 0.1, 0.26), "mull": Color(0.88, 0.88, 0.88)},
+	"RJTT": {"ceil": "wood", "ceil_c": Color(0.8, 0.66, 0.48), "floor": Color(0.86, 0.85, 0.83), "carpet": Color(0.3, 0.32, 0.35), "accent": Color(0.42, 0.44, 0.47), "seat": Color(0.15, 0.15, 0.16), "mull": Color(0.92, 0.92, 0.92)},
+	"LFPG": {"ceil": "vault", "ceil_c": Color(0.76, 0.64, 0.48), "floor": Color(0.55, 0.55, 0.56), "carpet": Color(0.14, 0.14, 0.24), "accent": Color(0.25, 0.25, 0.38), "seat": Color(0.58, 0.1, 0.12), "mull": Color(0.35, 0.36, 0.38)},
+	"SKPC": {"ceil": "vault", "ceil_c": Color(0.95, 0.95, 0.95), "floor": Color(0.8, 0.79, 0.76), "carpet": Color(0.1, 0.3, 0.36), "accent": Color(0.2, 0.42, 0.46), "seat": Color(0.1, 0.1, 0.11), "mull": Color(0.92, 0.93, 0.94)},
+}
 const DOOR_W := 2.4
 const BRANDS := [
 	["Calder Coffee Co.", "cafe", Color(0.42, 0.25, 0.14)], ["SkyNews & Books", "shop", Color(0.75, 0.12, 0.12)],
@@ -38,9 +54,10 @@ var _fids_t := 0.0
 var _mbs := {}
 var _yaw := 0.0
 var _center := Vector2.ZERO
+var style: Dictionary = {}          # interior finish (see style_for)
 
 static var _mats := {}
-static var _seat_mesh: ArrayMesh
+static var _seat_meshes := {}
 static var _plant_mesh: ArrayMesh
 static var _table_mesh: ArrayMesh
 static var _chair_mesh: ArrayMesh
@@ -56,11 +73,16 @@ func build(view_ap: Node, terminal: Dictionary, layout: Dictionary, airport_name
 	length = float(terminal.len)
 	ceil_h = float(terminal.h) - (2.0 if hub else 1.2)
 	_center = terminal.center
+	style = style_for(icao, hub)
 	var ax: Vector2 = terminal.axis
 	_yaw = atan2(ax.x, ax.y)
 	transform = Transform3D(Basis(Vector3.UP, _yaw), Vector3(_center.x, 0.0, _center.y))
 	# which long faces open onto aprons
 	for fc in layout.facades:
+		# only this building's own apron faces (satellites and other units have their own)
+		var fl := point_local(fc.origin)
+		if absf(absf(fl.x) - depth * 0.5) > 10.0 or absf(fl.z) > length * 0.5 + 10.0:
+			continue
 		var n := _dir_local(fc.normal)
 		sides.append({"s": signf(n.x) if absf(n.x) > 0.5 else 1.0, "fc": fc})
 	if sides.size() == 1:
@@ -72,6 +94,7 @@ func build(view_ap: Node, terminal: Dictionary, layout: Dictionary, airport_name
 	_retail()
 	_boards()
 	_wayfinding()
+	_showpieces()
 	_commit()
 	add_child(CabinInterior.make_interior_probe("TerminalProbe", Vector3(0, (FLOOR + ceil_h) * 0.5, 0),
 		Vector3(depth + 1.0, ceil_h - FLOOR + 2.0, length + 1.0), Color(0.95, 0.96, 0.98), 0.62))
@@ -97,6 +120,52 @@ func _b(key: String) -> MeshBuilder:
 	if not _mbs.has(key):
 		_mbs[key] = MeshBuilder.new()
 	return _mbs[key]
+
+
+static func style_for(code: String, is_hub: bool) -> Dictionary:
+	var st: Dictionary
+	if FLAGSHIP.has(code):
+		st = (FLAGSHIP[code] as Dictionary).duplicate()
+		st.flagship = true
+	else:
+		var h := U.hash_str(code + "interior")
+		var ceils := ["slats", "wood", "panel", "slats", "panel"]
+		var floors := [Color(0.8, 0.79, 0.76), Color(0.7, 0.7, 0.71), Color(0.84, 0.8, 0.72), Color(0.5, 0.5, 0.52), Color(0.88, 0.87, 0.85)]
+		var carpets := [[Color(0.2, 0.23, 0.29), Color(0.33, 0.38, 0.46)], [Color(0.32, 0.12, 0.14), Color(0.45, 0.22, 0.22)],
+			[Color(0.12, 0.28, 0.3), Color(0.22, 0.42, 0.42)], [Color(0.26, 0.26, 0.27), Color(0.38, 0.38, 0.4)], [Color(0.16, 0.24, 0.16), Color(0.3, 0.38, 0.26)]]
+		var seats := [Color(0.1, 0.1, 0.11), Color(0.12, 0.2, 0.38), Color(0.32, 0.33, 0.35), Color(0.4, 0.12, 0.12)]
+		var cp: Array = carpets[(h / 7) % carpets.size()]
+		var ce: String = ceils[h % ceils.size()]
+		if is_hub and (h / 3) % 4 == 0:
+			ce = "vault"
+		st = {"ceil": ce, "ceil_c": Color(0.66, 0.5, 0.34) if ce == "wood" else Color(0.92, 0.92, 0.91), "floor": floors[(h / 5) % floors.size()],
+			"carpet": cp[0], "accent": cp[1], "seat": seats[(h / 11) % seats.size()], "mull": [Color(0.32, 0.34, 0.37), Color(0.88, 0.89, 0.9), Color(0.6, 0.62, 0.65)][(h / 13) % 3],
+			"flagship": false}
+	st.warm = code in Landside.WARM
+	st.id = code
+	return st
+
+
+func _style_mat(key: String) -> Material:
+	## Per-airport variants of the hall surfaces (floor, carpet, ceiling); everything else shared.
+	if not key in ["floor", "carpet", "ceiling"] or style.is_empty():
+		return material(key)
+	var ck := "%s|%s" % [key, String(style.id)]
+	if _mats.has(ck):
+		return _mats[ck]
+	var sm: ShaderMaterial = (material(key) as ShaderMaterial).duplicate()
+	match key:
+		"floor":
+			sm.set_shader_parameter("base_color", style.floor)
+		"carpet":
+			sm.set_shader_parameter("base_color", style.carpet)
+			sm.set_shader_parameter("accent", style.accent)
+		"ceiling":
+			if String(style.ceil) == "panel":
+				sm.set_shader_parameter("kind", 0)
+			sm.set_shader_parameter("base_color", style.ceil_c)
+	_mats[ck] = sm
+	return sm
 
 
 static func material(key: String) -> Material:
@@ -152,9 +221,12 @@ func _commit() -> void:
 		var mi := MeshInstance3D.new()
 		mi.name = "T_" + key
 		mi.mesh = mb.commit()
-		mi.material_override = material(key)
+		mi.material_override = _style_mat(key)
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF if key in ["emit", "glass", "frosted", "floor", "carpet"] else GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 		mi.visibility_range_end = 2500.0
+		if key == "ceiling":
+			# the hall ceiling shades the floor whatever the roof outside is made of
+			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_DOUBLE_SIDED
 		add_child(mi)
 	_mbs.clear()
 
@@ -202,18 +274,30 @@ func _shell() -> void:
 	var f := _b("floor")
 	f.add_quad(Vector3(-hx, FLOOR + 0.01, -hz), Vector3(-hx, FLOOR + 0.01, hz), Vector3(hx, FLOOR + 0.01, hz), Vector3(hx, FLOOR + 0.01, -hz), Color.WHITE)
 	var c := _b("ceiling")
-	c.add_quad(Vector3(-hx, ceil_h, -hz), Vector3(hx, ceil_h, -hz), Vector3(hx, ceil_h, hz), Vector3(-hx, ceil_h, hz), Color.WHITE)
+	var vault := String(style.get("ceil", "")) == "vault" and ceil_h - FLOOR > 10.0
+	if vault:
+		_vault(hx, hz)
+	else:
+		c.add_quad(Vector3(-hx, ceil_h, -hz), Vector3(hx, ceil_h, -hz), Vector3(hx, ceil_h, hz), Vector3(-hx, ceil_h, hz), Color.WHITE)
 	# long light lines in the ceiling: they give the hall its depth
 	var em := _b("emit")
 	var step_x := 7.0 if hub else 6.0
 	var x := -hx + step_x * 0.5
 	while x < hx:
-		em.add_box(Vector3(x, ceil_h - 0.03, 0), Vector3(0.22, 0.04, length - 4.0), Color(0.98, 0.96, 0.9))
+		em.add_box(Vector3(x, ceiling_at(x) - 0.06, 0), Vector3(0.22, 0.04, length - 4.0), Color(0.98, 0.96, 0.9))
 		x += step_x
+	if String(style.get("ceil", "")) == "wood":
+		# timber baffles hanging under the slats
+		var wb := _b("vcol")
+		var xb := -hx + 1.5
+		while xb < hx:
+			wb.add_box(Vector3(xb, ceil_h - 0.5, 0), Vector3(0.12, 0.9, length - 2.0), Color(style.ceil_c, 0.9))
+			xb += 2.4
 	# glazing from inside: mullions on the exterior's 3.2 m x 4.2 m grid, a sill and the glass
 	var v := _b("vcol")
 	var gl := _b("glass")
-	var mull := Color(0.32, 0.34, 0.37, 0.3)
+	var mc: Color = style.get("mull", Color(0.32, 0.34, 0.37))
+	var mull := Color(mc, 0.3 if mc.v < 0.5 else 0.75)
 	for sx in [-1.0, 1.0]:
 		var xw: float = sx * (hx - 0.12)
 		var z := -hz
@@ -244,10 +328,103 @@ func _shell() -> void:
 	var zc := -hz + 9.0
 	while zc < hz - 4.0:
 		for cx in col_x:
-			v.add_cylinder(Vector3(cx, FLOOR, zc), Vector3(cx, ceil_h, zc), 0.42, 0.42, 14, Color(0.93, 0.93, 0.92, 0.75), false)
+			v.add_cylinder(Vector3(cx, FLOOR, zc), Vector3(cx, ceiling_at(cx) + 0.2, zc), 0.42, 0.42, 14, Color(0.93, 0.93, 0.92, 0.75), false)
 			v.add_cylinder(Vector3(cx, FLOOR, zc), Vector3(cx, FLOOR + 0.12, zc), 0.5, 0.5, 14, Color(0.8, 0.8, 0.82, 0.3), true)
 			_circle(Vector2(cx, zc), 0.55)
 		zc += 18.0
+
+
+func ceiling_at(x: float) -> float:
+	## Height of the ceiling surface above x (vaulted halls curve up towards the middle).
+	if String(style.get("ceil", "")) != "vault" or ceil_h - FLOOR <= 10.0:
+		return ceil_h
+	var t := clampf(x / (depth * 0.5), -1.0, 1.0)
+	return ceil_h - 3.5 + 5.0 * sqrt(maxf(1.0 - t * t, 0.0))
+
+
+func _vault(hx: float, hz: float) -> void:
+	## A barrel vault across the hall (faces inward), lined with slats, carried on trussed
+	## steel arches every 18 m.
+	var c := _b("ceiling")
+	var segs := 16
+	for i in segs:
+		var x0 := -hx + 2.0 * hx * float(i) / segs
+		var x1 := -hx + 2.0 * hx * float(i + 1) / segs
+		var y0 := ceiling_at(x0)
+		var y1 := ceiling_at(x1)
+		var mid := Vector3((x0 + x1) * 0.5, (y0 + y1) * 0.5, 0)
+		ModelKit.quad(c, Vector3(x0, y0, -hz), Vector3(x1, y1, -hz), Vector3(x1, y1, hz), Vector3(x0, y0, hz), Vector3(0, ceil_h - 8.0, 0) - mid, Color.WHITE)
+		# end walls of the vault above the glazing line
+		for sz in [-1.0, 1.0]:
+			var zw: float = sz * (hz - 0.02)
+			ModelKit.quad(c, Vector3(x0, ceil_h - 3.5, zw), Vector3(x1, ceil_h - 3.5, zw), Vector3(x1, y1, zw), Vector3(x0, y0, zw), Vector3(0, 0, -sz), Color.WHITE)
+	var v := _b("vcol")
+	var steel := Color(0.93, 0.94, 0.95, 0.75)
+	var z := -hz + 9.0
+	var n := 24
+	while z < hz - 4.0:
+		var prev_hi := Vector3.ZERO
+		var prev_lo := Vector3.ZERO
+		for k in n + 1:
+			var xk := -hx + 2.0 * hx * float(k) / n
+			var hi := Vector3(xk, ceiling_at(xk) - 0.15, z)
+			var lo := Vector3(xk * 0.98, ceiling_at(xk) - 1.4, z)
+			if k > 0:
+				ModelKit.bar(v, prev_hi, hi, 0.09, steel, 4)
+				ModelKit.bar(v, prev_lo, lo, 0.12, steel, 4)
+				ModelKit.bar(v, prev_lo if k % 2 == 0 else prev_hi, hi if k % 2 == 0 else lo, 0.05, steel, 3)
+			prev_hi = hi
+			prev_lo = lo
+		z += 18.0
+
+
+func _showpieces() -> void:
+	## What makes a flagship hall: rows of hanging national flags over the concourses and
+	## overhead departure banks (all overhead: no new floor obstacles).
+	if not bool(style.get("flagship", false)):
+		return
+	var v := _b("vcol")
+	var country := String(Airports.get_ap(icao).get("country", ""))
+	var names: Array = Landside._flag_list(icao + "hall", country, 40)
+	var fi := 0
+	for sd in sides:
+		var s: float = sd.s
+		var bnd := _band(s)
+		var x := (float(bnd.gate_in) + float(bnd.conc_in)) * 0.5
+		var top := ceiling_at(x)
+		var y := minf(FLOOR + 10.5, top - 2.5)
+		var z := -length * 0.5 + 30.0
+		while z < length * 0.5 - 30.0:
+			var pat: Array = Landside.FLAGS.get(String(names[fi % names.size()]), Landside.FLAGS["United States"])
+			fi += 1
+			Landside._flag(v, Vector3(x, y, z - 1.6), 3.2, 2.0, pat)
+			for dz in [-1.5, 1.5]:
+				v.add_box(Vector3(x, (y + top) * 0.5, z + dz), Vector3(0.02, top - y, 0.02), Color(0.6, 0.62, 0.65, 0.3))
+			z += 9.0
+		for fz in [-length * 0.17, length * 0.17]:
+			_overhead_board(Vector3(x, FLOOR + 6.2, fz))
+
+
+func _overhead_board(p: Vector3) -> void:
+	## Double-sided hanging departures screen over a concourse, facing along it.
+	var v := _b("vcol")
+	var em := _b("emit")
+	var w := 6.4
+	var h := 2.9
+	var top_y := ceiling_at(p.x)
+	v.add_box(p, Vector3(w + 0.3, h + 0.3, 0.5), Color(0.12, 0.13, 0.15, 0.55))
+	for k in [-1.0, 1.0]:
+		v.add_box(Vector3(p.x + k * w * 0.35, (p.y + h * 0.5 + top_y) * 0.5, p.z), Vector3(0.06, top_y - p.y - h * 0.5, 0.06), Color(0.6, 0.62, 0.65, 0.3))
+	for sz in [-1.0, 1.0]:
+		var f2 := Vector3(0, 0, sz)
+		em.add_box(p + f2 * 0.26, Vector3(w, h, 0.02), Color(0.015, 0.025, 0.06))
+		var vright := Vector3.UP.cross(f2).normalized()
+		var t0 := p + Vector3(0, h * 0.5 - 0.25, 0) + f2 * 0.29 - vright * (w * 0.5 - 0.2)
+		var title := _label("DEPARTURES   %s" % Airports.get_ap(icao).get("short", icao), t0, f2, 0.16, Color(1.0, 0.82, 0.3), 48, true)
+		var lines: Array[Label3D] = []
+		for i in 9:
+			lines.append(_label("", t0 - Vector3(0, 0.34 + i * 0.255, 0), f2, 0.12, Color(0.92, 0.95, 1.0), 48, true))
+		_fids.append({"lines": lines, "title": title})
 
 
 # ================================================================== airside: gates
@@ -270,6 +447,8 @@ func _airside(sd: Dictionary, layout: Dictionary, view_ap: Node) -> void:
 		if not bool(st.get("bridge", false)) or (st.normal as Vector2).dot(fn) < 0.9:
 			continue
 		var gate_c := point_local(st.facade_origin)
+		if absf(gate_c.z) > length * 0.5 - 2.0 or absf(absf(gate_c.x) - depth * 0.5) > 10.0:
+			continue
 		# the bridge root sits 9 m along the facade from the stand centre
 		var nn: Vector2 = st.normal
 		var left := Vector2(-nn.y, nn.x)
@@ -365,7 +544,7 @@ func _gate_seating(s: float, bnd: Dictionary, zg: float, zd: float, pod: Vector3
 			z += seg_len + 1.6
 		x -= s * (0.95 if row % 2 == 0 else 2.6)      # back-to-back pair, then an aisle
 		row += 1
-	_mm(_seat_unit(), xfs, "vcol")
+	_mm(_seat_unit(style.get("seat", Color(0.1, 0.1, 0.11))), xfs, "vcol")
 	# planters at the lounge corners
 	var plants: Array[Transform3D] = []
 	for pz in [z0 - 1.5, z1 + 1.5]:
@@ -373,6 +552,12 @@ func _gate_seating(s: float, bnd: Dictionary, zg: float, zd: float, pod: Vector3
 		plants.append(Transform3D(Basis(Vector3.UP, pz * 0.37), pp))
 		_circle(Vector2(pp.x, pp.z), 0.6)
 	_mm(_plant(), plants, "vcol")
+	if bool(style.get("warm", false)):
+		# indoor palms rising out of the lounge planters
+		var palms: Array[Transform3D] = []
+		for t in plants:
+			palms.append(Transform3D(t.basis.scaled(Vector3(0.55, 0.55, 0.55)), t.origin + Vector3(0, 0.75, 0)))
+		_mm(Landside._palm(), palms, "vcol")
 
 
 static func _floor_quad(mb: MeshBuilder, xa: float, xb: float, za: float, zb: float, y: float) -> void:
@@ -400,13 +585,14 @@ func _mm(mesh: Mesh, xfs: Array[Transform3D], key: String) -> void:
 
 
 # ================================================================== furniture meshes
-static func _seat_unit() -> ArrayMesh:
+static func _seat_unit(col: Color = Color(0.1, 0.1, 0.11)) -> ArrayMesh:
 	## One seat of a beam row (faces -Z, origin on the floor under the seat): leather cushions,
 	## a chrome beam, leg and armrest shared with the neighbour.
-	if _seat_mesh:
-		return _seat_mesh
+	var key := col.to_html(false)
+	if _seat_meshes.has(key):
+		return _seat_meshes[key]
 	var mb := MeshBuilder.new()
-	var leather := Color(0.1, 0.1, 0.11, 0.75)
+	var leather := Color(col, 0.75)
 	var chrome := Color(0.75, 0.76, 0.78, 0.3)
 	mb.add_box(Vector3(0, 0.3, 0.12), Vector3(0.56, 0.06, 0.07), chrome)
 	mb.add_box(Vector3(0.28, 0.15, 0.12), Vector3(0.05, 0.3, 0.05), chrome)
@@ -416,8 +602,9 @@ static func _seat_unit() -> ArrayMesh:
 	mb.add_box(Vector3(0, 0.36, 0.0), Vector3(0.46, 0.04, 0.42), chrome)
 	mb.add_box(Vector3(0.28, 0.62, -0.02), Vector3(0.05, 0.03, 0.42), chrome)
 	mb.add_box(Vector3(0.28, 0.48, 0.12), Vector3(0.03, 0.28, 0.03), chrome)
-	_seat_mesh = mb.commit()
-	return _seat_mesh
+	var m := mb.commit()
+	_seat_meshes[key] = m
+	return m
 
 
 static func _plant() -> ArrayMesh:

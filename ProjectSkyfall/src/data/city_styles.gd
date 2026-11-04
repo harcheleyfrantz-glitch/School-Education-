@@ -10,7 +10,6 @@ extends RefCounted
 ## roof: roof families for the building shader (0 terracotta, 1 slate, 2 zinc, 3 brown tile,
 ##   4 dark glazed, 5 light metal, 6 shingle, 7 painted Nordic metal).
 
-const C := preload("res://src/data/city_styles.gd")
 
 static var _cache := {}
 

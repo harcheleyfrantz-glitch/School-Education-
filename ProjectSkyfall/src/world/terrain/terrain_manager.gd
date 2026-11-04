@@ -40,6 +40,13 @@ static var _pine_mesh: ArrayMesh
 static var _palm_mesh: ArrayMesh
 static var _house_mesh: ArrayMesh
 static var _tower_mesh: ArrayMesh
+static var _city_meshes := {}      # CityMeshes name -> ArrayMesh (built on the main thread)
+
+const CityStyles := preload("res://src/data/city_styles.gd")
+const CityMeshes := preload("res://src/world/models/city/city_meshes.gd")
+## visibility range per city mesh: small houses fade first, towers stay on the skyline
+const CITY_RANGE := {"plate": 5200.0, "house": 3600.0, "wood_house": 3600.0, "hip_house": 3600.0, "villa": 3600.0,
+	"terrace": 5200.0, "canal": 5200.0, "shop_row": 5200.0, "shed": 6000.0, "tower_glass": 14000.0, "tower_res": 12000.0}
 
 
 func setup(world_view: Node) -> void:
@@ -62,9 +69,12 @@ func setup(world_view: Node) -> void:
 	building_material = ShaderMaterial.new()
 	building_material.shader = load("res://shaders/building.gdshader")
 	_ensure_meshes()
+	CityStyles.prepare(Geo.cities)
 
 
 static func _ensure_meshes() -> void:
+	if _city_meshes.is_empty():
+		_city_meshes = CityMeshes.build_all()
 	if _tree_mesh != null:
 		return
 	# Trees: vertex alpha 1 marks foliage (tinted per instance), 0 bark. Low-poly but with
@@ -433,7 +443,7 @@ func _collect_results() -> void:
 			mm.buffer = mm_data.buffer
 			var mmi := MultiMeshInstance3D.new()
 			mmi.multimesh = mm
-			mmi.material_override = tree_material if mm_data.kind != "building" else building_material
+			mmi.material_override = tree_material if mm_data.kind == "tree" else building_material
 			mmi.position = pos
 			mmi.visible = false
 			mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if mm_data.kind == "building" else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -623,7 +633,7 @@ static func _scatter(result: Dictionary, job: Dictionary, hs: PackedFloat32Array
 				var p := f * f * 0.95 + 0.008
 				var urb := _grid_sample(urban_grid, n, fx, fz)
 				if urb > 0.25:
-					p = 0.035 * (1.0 - urb)       # street trees and gardens
+					p = 0.035 * (1.0 - urb) if urb < 0.3 or job.buildings <= 0.01 else 0.0   # city lots plant their own
 				if r.randf() > p:
 					continue
 				var h := _height_sample(hs, w, fx, fz)
@@ -661,105 +671,481 @@ static func _scatter(result: Dictionary, job: Dictionary, hs: PackedFloat32Array
 				var arr: PackedFloat32Array = species[kind]
 				_push_instance(arr, Vector3(lx - size * 0.5, h, lz - size * 0.5), rot, Vector3(sc, sc * r.randf_range(0.9, 1.25), sc), tint, r.randf())
 				species[kind] = arr
+	# city blocks in the nearest city's street pattern (they also plant park and garden trees)
+	_build_city(result, job, hs, w, n, s, urban_grid, x0, z0, roads, species)
 	var meshes := {"broad": _tree_mesh, "spruce": _conifer_mesh, "birch": _birch_mesh, "pine": _pine_mesh, "palm": _palm_mesh}
 	for k in species:
 		var buf: PackedFloat32Array = species[k]
 		if buf.size() > 0:
 			result.multimeshes.append({"kind": "tree", "mesh": meshes[k], "count": buf.size() / 16, "buffer": buf, "range": 3000.0 + 1800.0 * density})
-	# buildings on the 95 m street grid used by the terrain shader
-	var bdens: float = job.buildings
-	# how high-rise the nearest city is (Manhattan 1.6, Paris 0.45), and the European look
-	var city := Geo.nearest_city(float(job.cx), float(job.cz))
-	var tall := clampf(float(city.get("tall", 0.7)), 0.15, 1.8)
-	var tower_p := minf(0.45 * pow(tall, 1.5), 0.8)
-	var tower_k := 0.55 + 0.45 * tall
-	var euro := float(job.cz) > Geo.MAP_HALF and RealWorld.to_lonlat(float(job.cx), float(job.cz)).x > -30.0
-	if euro:
-		tower_p *= 0.3      # European towers stand in their business districts (the skyline clusters)
-	if bdens > 0.01:
-		var blds := PackedFloat32Array()
-		var houses := PackedFloat32Array()
-		var towers := PackedFloat32Array()
-		var block := 95.0
-		var bx0 := int(floor(x0 / block))
-		var bz0 := int(floor(z0 / block))
-		var nb := int(size / block) + 1
-		for bj in nb:
-			for bi in nb:
-				var gx := (bx0 + bi + 0.5) * block
-				var gz := (bz0 + bj + 0.5) * block
-				var lx2 := gx - x0
-				var lz2 := gz - z0
-				if lx2 < 0.0 or lz2 < 0.0 or lx2 >= size or lz2 >= size:
-					continue
-				var u := _grid_sample(urban_grid, n, lx2 / s, lz2 / s)
-				if u < 0.3:
-					continue
-				var hb := U.hash_ints(bx0 + bi, bz0 + bj, 17)
-				var rb := RandomNumberGenerator.new()
-				rb.seed = hb
-				if rb.randf() > bdens * (0.6 + u * 0.4):
-					continue
-				var h2 := _height_sample(hs, w, lx2 / s, lz2 / s)
-				if h2 < 1.0:
-					continue
-				if Geo.water_level(gx, gz) > h2 - 0.6:
-					continue
-				var ox0 := lx2 - size * 0.5
-				var oz0 := lz2 - size * 0.5
-				if not roads.is_empty() and Geo.highway_distance(gx, gz, roads) < 70.0:
-					continue
-				if u < 0.55:
-					# suburbs: detached houses with gardens along the block edges
-					var nh := rb.randi_range(5, 9)
-					for k in nh:
-						var edge := k % 4
-						var along := rb.randf_range(-30.0, 30.0)
-						var off := 26.0
-						var hp := Vector2(along, -off) if edge == 0 else (Vector2(off, along) if edge == 1 else (Vector2(along, off) if edge == 2 else Vector2(-off, along)))
-						var hy := 0.0 if edge % 2 == 0 else PI * 0.5
-						var hw := rb.randf_range(8.0, 12.0)
-						var hd := rb.randf_range(9.0, 14.0)
-						var hh := rb.randf_range(6.5, 9.5)
-						var hcol := U.pick(rb, [Color(0.88, 0.85, 0.78), Color(0.8, 0.72, 0.6), Color(0.9, 0.88, 0.84), Color(0.72, 0.52, 0.42), Color(0.85, 0.8, 0.66), Color(0.7, 0.74, 0.76)])
-						_push_instance(houses, Vector3(ox0 + hp.x, h2 - 0.5, oz0 + hp.y), hy, Vector3(hw, hh + 0.5, hd), hcol, rb.randf())
-					continue
-				if u > 0.82 and rb.randf() < tower_p:
-					# downtown tower with setbacks and a glass curtain wall
-					var tw_w := rb.randf_range(28.0, 46.0)
-					var tw_h := rb.randf_range(45.0, 120.0) * (0.7 + u * 0.5) * tower_k
-					var gcol := U.pick(rb, [Color(0.42, 0.52, 0.62), Color(0.35, 0.45, 0.5), Color(0.55, 0.6, 0.65), Color(0.3, 0.38, 0.48), Color(0.6, 0.56, 0.5)])
-					_push_instance(towers, Vector3(ox0, h2 - 2.0, oz0), float(rb.randi() % 4) * PI * 0.5, Vector3(tw_w, tw_h + 2.0, tw_w * rb.randf_range(0.8, 1.2)), gcol, rb.randf())
-					continue
-				var count := 1 if u > 0.75 else rb.randi_range(2, 4)
-				for k in count:
-					var fw := 66.0 if count == 1 else rb.randf_range(18.0, 30.0)
-					var fd := 66.0 if count == 1 else rb.randf_range(16.0, 28.0)
-					var ox := 0.0 if count == 1 else (-17.0 if k % 2 == 0 else 17.0)
-					var oz := 0.0 if count == 1 else (-17.0 if k < 2 else 17.0)
-					var height := rb.randf_range(6.0, 14.0) + u * u * rb.randf_range(4.0, 38.0)
-					if u > 0.85 and rb.randf() < 0.3 * minf(tall, 1.0):
-						height += rb.randf_range(20.0, 70.0) * tower_k
-					if euro and u > 0.5:
-						# old-town blocks: six to eight storeys of stone and stucco
-						height = rb.randf_range(16.0, 27.0)
-					var industrial := hb % 7 == 0 and u < 0.75
-					if industrial:
-						height = rb.randf_range(7.0, 11.0)
-						fw *= 1.4
-					var bcol := U.pick(rb, [Color(0.78, 0.74, 0.68), Color(0.66, 0.62, 0.58), Color(0.82, 0.8, 0.76), Color(0.6, 0.5, 0.42), Color(0.55, 0.6, 0.66), Color(0.86, 0.82, 0.7)])
-					if euro:
-						bcol = U.pick(rb, [Color(0.88, 0.83, 0.72), Color(0.84, 0.78, 0.66), Color(0.9, 0.87, 0.8), Color(0.72, 0.6, 0.5), Color(0.8, 0.72, 0.6)])
-					if industrial:
-						bcol = U.pick(rb, [Color(0.72, 0.74, 0.76), Color(0.6, 0.64, 0.66), Color(0.75, 0.7, 0.62)])
-					_push_instance(blds, Vector3(ox0 + ox, h2 - 2.0, oz0 + oz), 0.0, Vector3(fw, height + 2.0, fd), bcol, rb.randf())
-		if blds.size() > 0:
-			result.multimeshes.append({"kind": "building", "mesh": _building_mesh, "count": blds.size() / 16, "buffer": blds, "range": 6500.0})
-		if houses.size() > 0:
-			result.multimeshes.append({"kind": "building", "mesh": _house_mesh, "count": houses.size() / 16, "buffer": houses, "range": 3800.0})
-		if towers.size() > 0:
-			result.multimeshes.append({"kind": "building", "mesh": _tower_mesh, "count": towers.size() / 16, "buffer": towers, "range": 14000.0})
 
+
+# ------------------------------------------------------------------ cities (worker thread, pure data)
+static func _build_city(result: Dictionary, job: Dictionary, hs: PackedFloat32Array, w: int, n: int, s: float,
+		urban_grid: PackedFloat32Array, x0: float, z0: float, roads: Array, species: Dictionary) -> void:
+	## Lays the nearest city's streets out in its own pattern (grid, radial, canal rings, warped
+	## old town, strip) and fills each block with that city's kind of buildings. Each block gets
+	## a ground plate carrying half the street, the pavement and the lot (or park, plaza, canal).
+	var bdens: float = job.buildings
+	if bdens <= 0.01 or _city_meshes.is_empty():
+		return
+	var size: float = job.size
+	var city := Geo.nearest_city(float(job.cx), float(job.cz))
+	if city.is_empty():
+		return
+	var st := CityStyles.style_for(city)
+	var lots := _city_lots(st, x0, z0, size)
+	if lots.is_empty():
+		return
+	var bufs := {}
+	var tree_kind := String(st.tree)
+	if not species.has(tree_kind):
+		tree_kind = "broad"
+	var trees: PackedFloat32Array = species[tree_kind]
+	var max_slope: float = st.slope
+	var strip := String(st.pattern) == "strip"
+	var sa := deg_to_rad(float(st.rot))
+	var sax := Vector2(cos(sa), sin(sa))
+	for lot in lots:
+		var wx: float = lot[0]
+		var wz: float = lot[1]
+		var a: float = lot[2]
+		var cw: float = lot[3]
+		var cd: float = lot[4]
+		var tag: String = lot[5]
+		var lx := wx - x0
+		var lz := wz - z0
+		var u := _grid_sample(urban_grid, n, clampf(lx / s, 0.0, n - 0.001), clampf(lz / s, 0.0, n - 0.001))
+		if u < 0.3:
+			continue
+		var rb := RandomNumberGenerator.new()
+		rb.seed = U.hash_ints(int(floor(wx)), int(floor(wz)), 17)
+		# the quality setting thins the outskirts; dense districts stay continuous
+		var plate_only := rb.randf() > bdens * (0.6 + u * 0.4) + (0.45 if u > 0.6 else 0.0)
+		if plate_only and u < 0.6:
+			continue
+		var ex := Vector2(cos(a), sin(a))
+		var ez := Vector2(-sin(a), cos(a))
+		var hmin := INF
+		var hmax := -INF
+		var ok := true
+		for k in 4:
+			var cp := Vector2(wx, wz) + ex * (cw * (0.5 if k % 2 == 0 else -0.5)) + ez * (cd * (0.5 if k < 2 else -0.5))
+			var fx := clampf((cp.x - x0) / s, -0.99, n + 0.99)
+			var fz := clampf((cp.y - z0) / s, -0.99, n + 0.99)
+			var hh := _height_sample(hs, w, fx, fz)
+			hmin = minf(hmin, hh)
+			hmax = maxf(hmax, hh)
+			if _grid_sample(urban_grid, n, clampf(fx, 0.0, n - 0.001), clampf(fz, 0.0, n - 0.001)) < 0.1:
+				ok = false
+				break
+			if tag != "water" and Geo.water_level(cp.x, cp.y) > hh - 0.6:
+				ok = false
+				break
+		var hc := _height_sample(hs, w, lx / s, lz / s)
+		if hc < 1.0 or Geo.water_level(wx, wz) > hc - 0.6:
+			continue
+		if not ok:
+			# waterfront: a tree-lined promenade on the dry half of the block
+			if tag == "water" or u < 0.45:
+				continue
+			cw *= 0.5
+			cd *= 0.5
+			ok = true
+			hmin = hc
+			hmax = hc
+			for k in 4:
+				var cp2 := Vector2(wx, wz) + ex * (cw * (0.5 if k % 2 == 0 else -0.5)) + ez * (cd * (0.5 if k < 2 else -0.5))
+				var hh2 := _height_sample(hs, w, clampf((cp2.x - x0) / s, -0.99, n + 0.99), clampf((cp2.y - z0) / s, -0.99, n + 0.99))
+				hmin = minf(hmin, hh2)
+				hmax = maxf(hmax, hh2)
+				if Geo.water_level(cp2.x, cp2.y) > hh2 - 0.6:
+					ok = false
+					break
+			if not ok:
+				continue
+			tag = "boulevard"
+		if hmax - hmin > max_slope:
+			continue
+		if not roads.is_empty() and Geo.highway_distance(wx, wz, roads) < 30.0 + maxf(cw, cd) * 0.55:
+			continue
+		var top := lerpf(hc, hmax, 0.6) + 0.25
+		var base := hmin - 1.5
+		var P := Vector3(lx - size * 0.5, top, lz - size * 0.5)
+		# zone: core / mid / edge
+		var dn := Vector2(wx - float(st.cx), wz - float(st.cz)).length() / float(st.r)
+		var zone := "edge"
+		if dn < float(st.core_frac) and u > 0.72:
+			zone = "core"
+		elif u > 0.58:
+			zone = "mid"
+		if strip:
+			var rel := Vector2(wx - float(st.cx), wz - float(st.cz))
+			var off_axis := absf(rel.dot(Vector2(-sax.y, sax.x)))
+			if off_axis < 380.0 and absf(rel.dot(sax)) < float(st.r) * 0.85 and u > 0.5:
+				zone = "core"
+			elif zone == "core":
+				zone = "mid"
+		var fill := tag
+		if fill == "":
+			fill = CityStyles.pick_fill(st, zone, rb.randf())
+			if rb.randf() < float(st.park_p) and zone != "core":
+				fill = "park"
+		if plate_only and not fill in ["park", "plaza", "water", "boulevard"]:
+			fill = "plaza" if zone == "core" else "lot"
+		# ground plate: half the street on each side, then pavement, then the lot
+		var ptype := 0
+		var lot_col: Color = st.lot
+		match fill:
+			"park":
+				ptype = 1
+				lot_col = Color(0.3, 0.42, 0.2)
+			"plaza":
+				ptype = 2
+				lot_col = Color(0.74, 0.7, 0.64)
+			"water":
+				ptype = 3
+				lot_col = Color(0.1, 0.16, 0.17)
+			"boulevard":
+				ptype = 4
+				lot_col = Color(0.62, 0.58, 0.5)
+			"houses", "villas", "terrace", "canal":
+				lot_col = st.garden
+		_city_put(bufs, "plate", Vector3(P.x, base, P.z), a, 0.0, 0.0, Vector3(cw, top - base, cd), lot_col, ptype, rb.randf())
+		var street := clampf(minf(cw, cd) * 0.06, 3.5, 8.0) + 3.0
+		var bw := cw - street * 2.0
+		var bd := cd - street * 2.0
+		if bw < 12.0 or bd < 12.0:
+			continue
+		_fill_lot(bufs, trees, st, fill, zone, P, a, bw, bd, rb, u)
+	species[tree_kind] = trees
+	for mesh_name in bufs:
+		var buf: PackedFloat32Array = bufs[mesh_name]
+		if buf.is_empty():
+			continue
+		result.multimeshes.append({"kind": "plate" if mesh_name == "plate" else "building", "mesh": _city_meshes[mesh_name],
+			"count": buf.size() / 16, "buffer": buf, "range": float(CITY_RANGE.get(mesh_name, 7500.0))})
+
+
+static func _city_lots(st: Dictionary, x0: float, z0: float, size: float) -> Array:
+	## Block centres in the city's street pattern whose centre falls inside this chunk:
+	## [world x, world z, frame angle (rad), cell width along the frame x, cell depth, tag].
+	var lots := []
+	var o := Vector2(float(st.cx), float(st.cz))
+	var pattern := String(st.pattern)
+	var r_in := 0.0
+	if pattern == "radial" or pattern == "canal":
+		r_in = float(st.inner) * float(st.r)
+		_radial_lots(lots, st, o, r_in, x0, z0, size)
+	var a := deg_to_rad(float(st.rot))
+	var cw: float = st.bx
+	var cd: float = st.bz
+	var warp: float = st.warp
+	if pattern == "hillside":
+		warp = maxf(warp, 1.0)
+	var amp := 70.0 * warp
+	var lam := 480.0
+	var ex := Vector2(cos(a), sin(a))
+	var ez := Vector2(-sin(a), cos(a))
+	var mnu := INF
+	var mxu := -INF
+	var mnv := INF
+	var mxv := -INF
+	for k in 4:
+		var q := Vector2(x0 + (size if k % 2 == 1 else 0.0), z0 + (size if k >= 2 else 0.0)) - o
+		mnu = minf(mnu, q.dot(ex))
+		mxu = maxf(mxu, q.dot(ex))
+		mnv = minf(mnv, q.dot(ez))
+		mxv = maxf(mxv, q.dot(ez))
+	var i0 := floori((mnu - amp) / cw) - 1
+	var i1 := floori((mxu + amp) / cw) + 1
+	var j0 := floori((mnv - amp) / cd) - 1
+	var j1 := floori((mxv + amp) / cd) + 1
+	var ph := float(U.hash_ints(int(o.x), int(o.y), 5) % 1000) * 0.0063
+	for j in range(j0, j1 + 1):
+		for i in range(i0, i1 + 1):
+			var uu := (i + 0.5) * cw
+			var vv := (j + 0.5) * cd
+			var ang := a
+			var cwi := cw
+			var cdi := cd
+			if warp > 0.0:
+				var su := uu + amp * sin(vv / lam + ph)
+				var sv := vv + amp * sin(uu / lam + ph * 1.7)
+				ang += 0.5 * amp / lam * (cos(uu / lam + ph * 1.7) - cos(vv / lam + ph))
+				ang += (float(U.hash_ints(i, j, 23) % 1000) * 0.001 - 0.5) * 0.08 * warp
+				uu = su
+				vv = sv
+				cwi *= 0.97
+				cdi *= 0.97
+			var p := o + ex * uu + ez * vv
+			if p.x < x0 or p.x >= x0 + size or p.y < z0 or p.y >= z0 + size:
+				continue
+			if r_in > 0.0 and p.distance_to(o) < r_in + maxf(cw, cd) * 0.5 + 10.0:
+				continue
+			lots.append([p.x, p.y, ang, cwi, cdi, ""])
+	return lots
+
+
+static func _radial_lots(lots: Array, st: Dictionary, o: Vector2, r_in: float, x0: float, z0: float, size: float) -> void:
+	## Rings of blocks round the centre with radial avenues (Paris, Moscow, Vienna) or canal rings
+	## lined with tree-planted quays (Amsterdam).
+	var ring_w: float = st.ring_w
+	var arc: float = st.arc
+	var canal := String(st.pattern) == "canal"
+	var avenues := int(st.avenues)
+	var cc := Vector2(clampf(o.x, x0, x0 + size), clampf(o.y, z0, z0 + size))
+	var dmin := cc.distance_to(o)
+	var dmax := 0.0
+	var corners := []
+	for k in 4:
+		var q := Vector2(x0 + (size if k % 2 == 1 else 0.0), z0 + (size if k >= 2 else 0.0))
+		corners.append(q)
+		dmax = maxf(dmax, q.distance_to(o))
+	if dmin > r_in:
+		return
+	var full := dmin < 1.0
+	var th_c := (Vector2(x0 + size * 0.5, z0 + size * 0.5) - o).angle()
+	var dlo := 0.0
+	var dhi := 0.0
+	if not full:
+		for q in corners:
+			var d := wrapf((q - o).angle() - th_c, -PI, PI)
+			dlo = minf(dlo, d)
+			dhi = maxf(dhi, d)
+	var k0 := maxi(floori(dmin / ring_w) - 1, 0)
+	var k1 := floori(minf(dmax, r_in) / ring_w)
+	for k in range(k0, k1 + 1):
+		var rk := (k + 0.5) * ring_w
+		if rk + ring_w * 0.5 > r_in:
+			break
+		var nk := maxi(6, int(TAU * rk / arc))
+		var dth := TAU / nk
+		var off := float(U.hash_ints(k, 77) % 1000) * 0.001 * dth
+		var s0 := 0
+		var s1 := nk - 1
+		if not full:
+			var margin := dth + atan2(ring_w, maxf(rk, 1.0))
+			s0 = floori((th_c + dlo - margin - off) / dth)
+			s1 = floori((th_c + dhi + margin - off) / dth)
+			if s1 - s0 >= nk:
+				s0 = 0
+				s1 = nk - 1
+		var water_ring := canal and k >= 2 and k % 3 == 1
+		var boulevard_ring := not canal and k >= 3 and k % 7 == 4
+		for sidx in range(s0, s1 + 1):
+			var th := off + (sidx + 0.5) * dth
+			var dir := Vector2(cos(th), sin(th))
+			var p := o + dir * rk
+			if p.x < x0 or p.x >= x0 + size or p.y < z0 or p.y >= z0 + size:
+				continue
+			var cw := rk * dth * 1.06
+			var a := th + PI * 0.5
+			var tag := ""
+			if k == 0:
+				tag = "plaza"
+			elif boulevard_ring:
+				tag = "boulevard"
+			elif avenues > 0 and k >= 2:
+				for m in avenues:
+					var am := float(m) * TAU / avenues + 0.2
+					if absf(wrapf(th - am, -PI, PI)) * rk < cw * 0.5 + 4.0:
+						tag = "boulevard"
+						break
+			if water_ring:
+				var quay := (ring_w - 30.0) * 0.5
+				lots.append([p.x, p.y, a, cw, 30.0, "water"])
+				var pin := o + dir * (rk - 15.0 - quay * 0.5)
+				var pout := o + dir * (rk + 15.0 + quay * 0.5)
+				lots.append([pin.x, pin.y, a, cw, quay, "boulevard"])
+				lots.append([pout.x, pout.y, a, cw, quay, "boulevard"])
+				continue
+			lots.append([p.x, p.y, a, cw, ring_w, tag])
+
+
+static func _city_put(bufs: Dictionary, mesh: String, P: Vector3, a: float, ox: float, oz: float, sc: Vector3,
+		col: Color, roof: int, sd: float, yaw: float = 0.0) -> void:
+	## One instance at block offset (ox, oz) in the block frame; custom.a packs the roof family
+	## (or plate type) with a random seed: (family + seed) / 8.
+	var p := Vector2(P.x, P.z) + Vector2(cos(a), sin(a)) * ox + Vector2(-sin(a), cos(a)) * oz
+	if not bufs.has(mesh):
+		bufs[mesh] = PackedFloat32Array()
+	var arr: PackedFloat32Array = bufs[mesh]
+	_push_instance(arr, Vector3(p.x, P.y, p.y), -a + yaw, sc, col, (float(roof) + 0.05 + 0.9 * sd) / 8.0)
+	bufs[mesh] = arr
+
+
+static func _city_tree(trees: PackedFloat32Array, P: Vector3, a: float, ox: float, oz: float, rb: RandomNumberGenerator) -> void:
+	var p := Vector2(P.x, P.z) + Vector2(cos(a), sin(a)) * ox + Vector2(-sin(a), cos(a)) * oz
+	var sc := rb.randf_range(0.8, 1.3)
+	_push_instance(trees, Vector3(p.x, P.y - 0.3, p.y), rb.randf() * TAU, Vector3(sc, sc * rb.randf_range(0.9, 1.2), sc),
+		Color(rb.randf_range(0.85, 1.15), rb.randf_range(0.9, 1.15), rb.randf_range(0.8, 1.05)), rb.randf())
+
+
+static func _fill_lot(bufs: Dictionary, trees: PackedFloat32Array, st: Dictionary, fill: String, zone: String, P: Vector3,
+		a: float, bw: float, bd: float, rb: RandomNumberGenerator, u: float) -> void:
+	## Buildings for one block (bw x bd metres inside the pavements), by fill type.
+	var along_x := bw >= bd
+	var L := maxf(bw, bd)
+	var D := minf(bw, bd)
+	var yaw := 0.0 if along_x else PI * 0.5
+	var hr: Array = st.h_core if zone == "core" else st.h_mid
+	var hk := 1.0 if zone != "edge" else 0.75
+	var facade: Array = st.facade
+	var house_pal: Array = st.house
+	var roofs: Array = st.roof
+	var tall: float = st.tall
+	var Pb := P - Vector3(0, 0.3, 0)
+	match fill:
+		"court_mansard", "court_pitched", "court_flat", "court":
+			var mesh := String(st.court) if fill == "court" else fill
+			var eave := rb.randf_range(float(hr[0]), float(hr[1])) * hk
+			var hh := eave * (1.0 if mesh == "court_flat" else 1.3)
+			var col: Color = U.pick(rb, facade)
+			if L > D * 1.7:
+				for sgn in [-1.0, 1.0]:
+					var o: float = sgn * L * 0.25
+					_city_put(bufs, mesh, Pb, a, o if along_x else 0.0, 0.0 if along_x else o,
+						Vector3(L * 0.5 - 1.0 if along_x else D, hh * rb.randf_range(0.92, 1.06), D if along_x else L * 0.5 - 1.0), col, int(U.pick(rb, roofs)), rb.randf())
+			else:
+				_city_put(bufs, mesh, Pb, a, 0.0, 0.0, Vector3(bw, hh, bd), col, int(U.pick(rb, roofs)), rb.randf())
+				if rb.randf() < 0.6 and D > 50.0:
+					_city_tree(trees, P, a, rb.randf_range(-4.0, 4.0), rb.randf_range(-4.0, 4.0), rb)
+		"terrace", "canal":
+			var canal := fill == "canal"
+			var td := minf(15.0 if canal else 11.0, D * 0.42)
+			var seg_target := 31.0 if canal else 52.0
+			var nseg := maxi(1, int(round(L / seg_target)))
+			var seg := L / nseg
+			var col0: Color = U.pick(rb, house_pal if not canal else facade)
+			for side in [-1.0, 1.0]:
+				var t: float = side * (D * 0.5 - td * 0.5)
+				for i in nseg:
+					var l := -L * 0.5 + (i + 0.5) * seg
+					var col := col0 if rb.randf() < 0.5 else Color(U.pick(rb, house_pal if not canal else facade))
+					var hh := rb.randf_range(15.0, 19.0) if canal else rb.randf_range(9.5, 12.0) + (3.0 if zone == "core" else 0.0)
+					var y2: float = yaw + (0.0 if side > 0.0 else PI)
+					_city_put(bufs, fill, Pb, a, l if along_x else t, t if along_x else l, Vector3(seg - (0.4 if canal else 1.6), hh, td), col, int(U.pick(rb, roofs)), rb.randf(), y2)
+			if D - td * 2.0 > 10.0 and rb.randf() < float(st.tree_p):
+				for k in 2:
+					_city_tree(trees, P, a, rb.randf_range(-L * 0.4, L * 0.4) if along_x else rb.randf_range(-3.0, 3.0), rb.randf_range(-3.0, 3.0) if along_x else rb.randf_range(-L * 0.4, L * 0.4), rb)
+		"houses":
+			var mesh := String(st.house_mesh)
+			var fw := rb.randf_range(19.0, 24.0)
+			var cnt := clampi(int(L / fw), 1, 7)
+			var hd := minf(rb.randf_range(10.0, 13.0), D * 0.4)
+			for side in [-1.0, 1.0]:
+				for i in cnt:
+					var l := -L * 0.5 + (i + 0.5) * L / cnt + rb.randf_range(-1.5, 1.5)
+					var t: float = side * (D * 0.5 - hd * 0.5 - rb.randf_range(3.0, 6.0))
+					var hsz := Vector3(rb.randf_range(9.0, 12.0), rb.randf_range(7.0, 9.0) if mesh != "wood_house" else rb.randf_range(7.5, 10.0), hd)
+					var y2: float = yaw + (0.0 if side > 0.0 else PI) + rb.randf_range(-0.05, 0.05)
+					_city_put(bufs, mesh, Pb, a, l if along_x else t, t if along_x else l, hsz, U.pick(rb, house_pal), int(U.pick(rb, roofs)), rb.randf(), y2 + (PI * 0.5 if mesh == "house" else 0.0))
+					if rb.randf() < float(st.tree_p) * 0.8:
+						var tt: float = side * maxf(D * 0.5 - hd - 9.0, 2.0)
+						var tl := l + rb.randf_range(-6.0, 6.0)
+						_city_tree(trees, P, a, tl if along_x else tt, tt if along_x else tl, rb)
+		"villas":
+			var plot := clampf(D * 0.5, 22.0, 36.0)
+			var nx := clampi(int(L / plot), 1, 4)
+			var nz := clampi(int(D / plot), 1, 2)
+			for i in nx:
+				for j in nz:
+					var l := -L * 0.5 + (i + 0.5) * L / nx
+					var t := -D * 0.5 + (j + 0.5) * D / nz
+					var y2: float = yaw + (0.0 if j == nz - 1 else PI)
+					_city_put(bufs, "villa", Pb, a, l if along_x else t, t if along_x else l, Vector3(L / nx - 2.0, rb.randf_range(7.5, 9.5), D / nz - 2.0), U.pick(rb, house_pal), 5, rb.randf(), y2)
+					if rb.randf() < float(st.tree_p):
+						_city_tree(trees, P, a, (l + L / nx * 0.32) if along_x else t, t if along_x else (l + L / nx * 0.32), rb)
+		"boxes", "lot_boxes":
+			var mesh := String(st.box)
+			var cnt := 1 if zone == "core" and rb.randf() < 0.6 else rb.randi_range(2, 4)
+			var col0: Color = U.pick(rb, facade)
+			for k in cnt:
+				var hh := rb.randf_range(float(hr[0]), float(hr[1])) * hk
+				if zone == "core" and rb.randf() < 0.25 * minf(tall, 1.2):
+					hh += rb.randf_range(15.0, 50.0) * tall
+				var col := col0 if rb.randf() < 0.4 else Color(U.pick(rb, facade))
+				if cnt == 1:
+					_city_put(bufs, mesh, Pb, a, 0.0, 0.0, Vector3(bw, hh, bd), col, 5, rb.randf())
+				elif cnt == 2:
+					var o := (-0.25 if k == 0 else 0.25) * L
+					_city_put(bufs, mesh, Pb, a, o if along_x else 0.0, 0.0 if along_x else o, Vector3(L * 0.5 - 4.0 if along_x else D, hh, D if along_x else L * 0.5 - 4.0), col, 5, rb.randf())
+				else:
+					var ox := (-0.25 if k % 2 == 0 else 0.25) * bw
+					var oz := (-0.25 if k < 2 else 0.25) * bd
+					_city_put(bufs, mesh, Pb, a, ox, oz, Vector3(bw * 0.5 - 4.0, hh, bd * 0.5 - 4.0), col, 5, rb.randf())
+		"midrise":
+			var cnt := 4 if D > 55.0 else 2
+			for k in cnt:
+				var hh := rb.randf_range(float(hr[0]), float(hr[1])) * hk * 1.2
+				var col: Color = U.pick(rb, facade)
+				if cnt == 2:
+					var o := (-0.25 if k == 0 else 0.25) * L
+					_city_put(bufs, "hip_block", Pb, a, o if along_x else 0.0, 0.0 if along_x else o, Vector3(L * 0.5 - 5.0 if along_x else D, hh, D if along_x else L * 0.5 - 5.0), col, int(U.pick(rb, roofs)), rb.randf())
+				else:
+					_city_put(bufs, "hip_block", Pb, a, (-0.25 if k % 2 == 0 else 0.25) * bw, (-0.25 if k < 2 else 0.25) * bd, Vector3(bw * 0.5 - 5.0, hh, bd * 0.5 - 5.0), col, int(U.pick(rb, roofs)), rb.randf())
+		"slabs":
+			var hh := rb.randf_range(float(hr[0]), float(hr[1])) * (1.0 if zone != "edge" else 0.8)
+			var col: Color = U.pick(rb, facade)
+			var depth := 13.0
+			var rows := 2 if D > 44.0 else 1
+			for k in rows:
+				var t := 0.0 if rows == 1 else (-1.0 if k == 0 else 1.0) * (D * 0.5 - depth * 0.5 - 2.0)
+				_city_put(bufs, "box_panel", Pb, a, 0.0 if along_x else t, t if along_x else 0.0, Vector3(L * 0.86, hh * rb.randf_range(0.85, 1.1), depth), col, 5, rb.randf(), yaw)
+			if rows == 2:
+				for k in 3:
+					_city_tree(trees, P, a, rb.randf_range(-L * 0.4, L * 0.4) if along_x else rb.randf_range(-4.0, 4.0), rb.randf_range(-4.0, 4.0) if along_x else rb.randf_range(-L * 0.4, L * 0.4), rb)
+		"tower":
+			var tw := minf(D * 0.85, rb.randf_range(30.0, 48.0))
+			var th := rb.randf_range(float(st.tower_h[0]), float(st.tower_h[1])) * (0.6 + 0.4 * minf(tall, 1.6)) * (0.75 + 0.35 * u)
+			var o := 0.0
+			if L > D * 1.6:
+				o = -L * 0.25
+				var hh := rb.randf_range(float(hr[0]), float(hr[1]))
+				_city_put(bufs, String(st.box), Pb, a, L * 0.25 if along_x else 0.0, 0.0 if along_x else L * 0.25, Vector3(L * 0.5 - 4.0 if along_x else D, hh, D if along_x else L * 0.5 - 4.0), U.pick(rb, facade), 5, rb.randf())
+			_city_put(bufs, "tower_glass", Pb, a, o if along_x else 0.0, 0.0 if along_x else o, Vector3(tw * rb.randf_range(0.9, 1.15), th, tw), U.pick(rb, st.glass), 5, rb.randf(), float(rb.randi() % 4) * PI * 0.5)
+		"slim":
+			var nl := 2 if L > 85.0 else 1
+			var nd := 2 if D > 85.0 else 1
+			var sz := minf(minf(L / nl, D / nd) - 6.0, rb.randf_range(30.0, 40.0))
+			var col: Color = U.pick(rb, facade)
+			for i in nl:
+				for j in nd:
+					var l := -L * 0.5 + (i + 0.5) * L / nl
+					var t := -D * 0.5 + (j + 0.5) * D / nd
+					var th := rb.randf_range(float(st.tower_h[0]), float(st.tower_h[1])) * rb.randf_range(0.5, 0.8) * (0.7 + 0.3 * minf(tall, 1.6))
+					_city_put(bufs, "tower_res", Pb, a, l if along_x else t, t if along_x else l, Vector3(sz, th, sz), col, 5, rb.randf(), yaw)
+		"sheds":
+			var cnt := 1 if L < 80.0 else 2
+			for k in cnt:
+				var l := 0.0 if cnt == 1 else (-0.25 if k == 0 else 0.25) * L
+				_city_put(bufs, "shed", Pb, a, l if along_x else 0.0, 0.0 if along_x else l, Vector3(L / cnt - 6.0 if along_x else D * 0.8, rb.randf_range(8.0, 12.0), D * 0.8 if along_x else L / cnt - 6.0),
+					U.pick(rb, [Color(0.72, 0.74, 0.76), Color(0.6, 0.64, 0.66), Color(0.75, 0.7, 0.62), Color(0.55, 0.62, 0.7), Color(0.8, 0.8, 0.78)]), 5, rb.randf(), yaw)
+		"shops":
+			var td := minf(14.0, D * 0.42)
+			var nseg := maxi(1, int(round(L / 40.0)))
+			var seg := L / nseg
+			for side in [-1.0, 1.0]:
+				var t: float = side * (D * 0.5 - td * 0.5)
+				for i in nseg:
+					var l := -L * 0.5 + (i + 0.5) * seg
+					var y2: float = yaw + (0.0 if side > 0.0 else PI)
+					_city_put(bufs, "shop_row", Pb, a, l if along_x else t, t if along_x else l, Vector3(seg - 1.0, rb.randf_range(9.0, 16.0), td), U.pick(rb, facade), int(U.pick(rb, roofs)), rb.randf(), y2)
+		"park":
+			var nt := clampi(int(bw * bd / 650.0), 3, 14)
+			for k in nt:
+				_city_tree(trees, P, a, rb.randf_range(-bw, bw) * 0.45, rb.randf_range(-bd, bd) * 0.45, rb)
+		"plaza":
+			for k in 4:
+				_city_tree(trees, P, a, (bw * 0.42) * (1.0 if k % 2 == 0 else -1.0), (bd * 0.42) * (1.0 if k < 2 else -1.0), rb)
+		"boulevard":
+			var nt := clampi(int(L / 14.0), 1, 10)
+			for side in [-1.0, 1.0]:
+				for k in nt:
+					var l := -L * 0.5 + (k + 0.5) * L / nt
+					var t: float = side * D * 0.3
+					_city_tree(trees, P, a, l if along_x else t, t if along_x else l, rb)
 
 static func _push_instance(arr: PackedFloat32Array, pos: Vector3, rot_y: float, scale: Vector3, custom: Color, extra: float) -> void:
 	var cr := cos(rot_y)
