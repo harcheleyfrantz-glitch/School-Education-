@@ -74,10 +74,16 @@ They are excluded from exports.
 
 ## Real airports
 
-24 real airports (Tokyo Haneda, New York JFK, Los Angeles, Atlanta, Chicago O'Hare, Miami,
-San Francisco, Dallas/Fort Worth, Denver, London Heathrow, Paris CDG, Amsterdam, Frankfurt,
-Dubai, Singapore, Hong Kong, Seoul Incheon, Istanbul, Doha, Osaka Kansai, Beijing, Toronto,
-Seattle and Las Vegas) use one-to-one layouts built from open data: real runways, the named
+65 real airports use one-to-one layouts built from open data (the full list is in
+src/data/real_airports.gd: Tokyo Haneda, New York JFK and Newark, Los Angeles, Atlanta, Chicago,
+London Heathrow, Paris CDG, Dubai, Singapore, Madrid, Munich, Delhi, Kuala Lumpur and more): real runways, the named
 taxiway network with holding points, every gate at its real position and number, aprons and
 the real building footprints and heights. See tools/real_airports and
 data/real_airports/ATTRIBUTION.txt (OpenStreetMap contributors, ODbL; OurAirports; FlightGear).
+
+## Cities
+
+Metro areas scale with population (the biggest run 75-80 km across), with a compact downtown,
+secondary business districts, moving street and motorway traffic (left-hand traffic where the
+country drives on the left), rooms you can see into behind glass and office windows, and per-building
+facade designs, twisted and tapered towers and neon signage in East Asian cities.

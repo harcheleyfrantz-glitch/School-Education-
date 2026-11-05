@@ -15,10 +15,12 @@ func _ready() -> void:
 		if String(c.name) == name:
 			city = c
 	var size := 2048.0
-	for k in 6:
-		var d := float(k) * 7000.0
-		var cx := float(city.x) + d
-		var cz := float(city.z) + d * 0.3
+	var dirs := [Vector2(1, 0.3), Vector2(-1, 0), Vector2(0, -1), Vector2(0.7, -0.7)]
+	for k in 16:
+		var dv: Vector2 = dirs[k / 4].normalized()
+		var d := float(k % 4) * 9000.0 + 4000.0
+		var cx := float(city.x) + dv.x * d
+		var cz := float(city.z) + dv.y * d
 		var job := {"key": Vector3i(12, k, 0), "size": size, "cx": cx, "cz": cz, "res": 32, "detail": true, "trees": 0.55, "buildings": 0.7,
 			"cars": props, "gen": 0, "roads": []}
 		for h in Geo.highways():
@@ -39,5 +41,6 @@ func _ready() -> void:
 			elif mm.kind == "car":
 				cars += int(mm.count)
 		var u: float = Geo.main_sampler.landuse(cx, cz).urban
-		print("CHUNK %s %4.1f km out: urban %.2f  build %6.1f ms  buildings %5d  cars %5d" % [name, d / 1000.0 * 1.044, u, ms, bld, cars])
+		var h := Geo.main_sampler.height(cx, cz)
+		print("CHUNK %s dir %d %4.1f km out: urban %.2f h %5.1f build %6.1f ms  buildings %5d  cars %5d" % [name, k / 4, d / 1000.0, u, h, ms, bld, cars])
 	get_tree().quit()
