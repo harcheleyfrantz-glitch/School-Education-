@@ -93,7 +93,11 @@ func setup(sess: Node) -> void:
 		phone = BoardingPhone.new()
 		add_child(phone)
 		phone.setup(session)
-		show_toast("Press F2 to check the %s app: boarding is live" % String(Airlines.get_al(String(session.ac.airline)).name), "info")
+		show_toast("Press F2 for your phone: the %s app has live boarding and a seat map" % String(Airlines.get_al(String(session.ac.airline)).name), "info")
+	# final boarding call: passengers who never turned up at the gate
+	if session.people:
+		session.people.noshow_check.connect(_on_noshow_check)
+		session.people.noshow_result.connect(_on_noshow_result)
 	_refresh_top()
 
 
@@ -698,6 +702,61 @@ func _close_modal() -> void:
 	for c in modal_root.get_children():
 		c.queue_free()
 	modal_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+
+var _noshow_modal := false
+var _noshow_choice := ""
+
+
+func _on_noshow_check(names: Array) -> void:
+	var cp: CabinPeople = session.people
+	if cp == null or cp.has_meta("noshow_resolved") or cp.holding_door():
+		return
+	var n := names.size()
+	var who := ", ".join(names.slice(0, 3))
+	if session.mode != "pilot":
+		# travelling as a passenger: the gate makes the call and you hear it on the PA
+		var wait := randf() < 0.55
+		show_toast("Gate: final call for %s. %s" % [who, "We are holding the door for a moment." if wait else "The doors are closing."], "info")
+		cp.resolve_noshows(wait)
+		return
+	if modal_root.get_child_count() > 0:
+		# another decision is on screen: ask again in a moment
+		get_tree().create_timer(2.0).timeout.connect(func(): _on_noshow_check(names))
+		return
+	_noshow_modal = true
+	var al := String(Airlines.get_al(String(session.ac.airline)).name)
+	_modal("Final boarding call",
+		"Everyone else is on board, but [b]%d passenger%s never turned up at the gate[/b]: %s.\n\nThe %s gate agent needs your call. Hold the door and page them again (it costs a few minutes), or close up now and take their bags off the aircraft?" % [n, "" if n == 1 else "s", who, al],
+		[["Hold the door for them", func():
+			_noshow_modal = false
+			_noshow_choice = "wait"
+			show_toast("Holding the door. The gate is paging them again...", "info")
+			cp.resolve_noshows(true)],
+		["Close the doors and offload their bags", func():
+			_noshow_modal = false
+			_noshow_choice = "close"
+			cp.resolve_noshows(false)]])
+
+
+func _on_noshow_result(outcome: String, runner: String, names: Array) -> void:
+	if _noshow_modal:
+		# the gate stopped waiting for an answer
+		_noshow_modal = false
+		_close_modal()
+	var n := names.size()
+	match outcome:
+		"ran":
+			show_toast("Gate: %s made it! Sprinting down the jet bridge now." % runner, "good")
+			if session.mode == "pilot" and _noshow_choice == "wait":
+				Achievements.unlock("hold_door")
+		"gave_up":
+			show_toast("Gate: no sign of them. Closing the flight.", "caution")
+		"closed":
+			if session.mode == "pilot" and _noshow_choice == "close":
+				Achievements.unlock("tight_ship")
+	if n > 0:
+		show_toast("%d passenger%s did not travel. Bags offloaded: %s." % [n, "" if n == 1 else "s", ", ".join(names.slice(0, 3))], "info")
 
 
 func _on_decision(ev: Dictionary, choices: Array) -> void:

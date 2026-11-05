@@ -50,6 +50,36 @@ func setup(sess: Node, world_view: WorldView) -> void:
 
 
 # ================================================================== helpers
+func _stand_blockers(icao: String, skip: Dictionary = {}) -> Array:
+	## Ground footprints already taken at an airport: parked traffic, traffic taxiing in to a
+	## stand, the player's stands, and the player's aircraft while it is on the ground there.
+	var out := []
+	for p in parked:
+		if p != skip and String(p.get("icao", "")) == icao and p.has("sd"):
+			out.append(AirportLayout.parked_footprint(p.sd, AircraftTypes.get_type(String(p.type))))
+	for m in moving:
+		if m != skip and String(m.get("icao", "")) == icao and String(m.get("phase", "")) == "taxi_in" and m.has("sd"):
+			out.append(AirportLayout.parked_footprint(m.sd, AircraftTypes.get_type(String(m.type))))
+	var ac: Aircraft = session.get("ac")
+	if ac == null:
+		return out
+	var L := AirportLayout.get_layout(icao)
+	for pair in [["dep_icao", "stand"], ["arr_icao", "arr_stand"]]:
+		if String(session.get(pair[0])) != icao:
+			continue
+		var own := AirportLayout.stand_by_name(L, String(session.get(pair[1])))
+		if not own.is_empty():
+			out.append(AirportLayout.parked_footprint(own, ac.spec))
+	if ac.fdm.on_ground:
+		var ap: Dictionary = Airports.get_ap(icao)
+		var me := Vector2(ac.world_x() - float(ap.x), ac.world_z() - float(ap.z))
+		if me.length() < 6000.0:
+			var h := deg_to_rad(ac.fdm.heading_deg())
+			out.append(AirportLayout.footprint_at(me, Vector2(sin(h), -cos(h)), ac.spec))
+	return out
+
+
+
 func _ap_local(icao: String, p: Vector2, y: float) -> Vector3:
 	var ap: Dictionary = Airports.get_ap(icao)
 	return view.world_to_local(float(ap.x) + p.x, y, float(ap.z) + p.y)
@@ -109,6 +139,12 @@ static func _basis(hdg: float, pitch: float = 0.0, bank: float = 0.0) -> Basis:
 func _populate_parked(icao: String, count: int) -> void:
 	var L := AirportLayout.get_layout(icao)
 	var used := [String(session.get("stand"))]
+	# footprints already taken: the player's own stand first, then each aircraft parked here
+	var blockers := []
+	var own := AirportLayout.stand_by_name(L, String(session.get("stand")))
+	var ac: Aircraft = session.get("ac")
+	if not own.is_empty() and ac != null:
+		blockers.append(AirportLayout.parked_footprint(own, ac.spec))
 	var stands: Array = L.stands.duplicate()
 	U.shuffle(_rng, stands)
 	var n := 0
@@ -118,6 +154,16 @@ func _populate_parked(icao: String, count: int) -> void:
 		if String(sd.name) in used or _rng.randf() < 0.3:
 			continue
 		var t := _type_for_span(float(sd.max_span), ["narrowbody", "regional", "widebody", "turboprop", "bizjet"])
+		# neighbouring stands can share apron space: never park two aircraft into each other
+		var fp := AirportLayout.parked_footprint(sd, AircraftTypes.get_type(t))
+		var clash := false
+		for b in blockers:
+			if AirportLayout.footprints_clash(fp, b):
+				clash = true
+				break
+		if clash:
+			continue
+		blockers.append(fp)
 		var al := _airline_for(t, icao)
 		var item := {"icao": icao, "stand": sd.name, "type": t, "airline": al, "model": null, "callsign": _callsign(al),
 			"sd": sd, "phase": "parked", "id": _next_id}
@@ -641,7 +687,7 @@ func _begin_taxi_in(item: Dictionary) -> void:
 	var occupied := [String(session.get("arr_stand")), String(session.get("stand"))]
 	for p in parked:
 		occupied.append(String(p.stand))
-	var sd := AirportLayout.free_stand(L, float(AircraftTypes.get_type(String(item.type)).span), occupied, _rng.randi())
+	var sd := AirportLayout.free_stand_clear(L, AircraftTypes.get_type(String(item.type)), occupied, _stand_blockers(icao, item), _rng.randi())
 	if sd.is_empty() or from < 0:
 		_retire(item)
 		return

@@ -23,6 +23,15 @@ const LIST := [
 	{"id": "skipper", "title": "Skipper", "desc": "Skip ahead ten times.", "icon": "clock", "group": "Flying", "goal": 10, "stat": "skips"},
 	{"id": "close_call", "title": "Close Call", "desc": "Have a near miss with another airliner.", "icon": "bell", "group": "Drama"},
 	{"id": "shutterbug", "title": "Shutterbug", "desc": "Take a photo in flight (F10).", "icon": "star", "group": "Flying"},
+	{"id": "hold_door", "title": "Hold the Door", "desc": "Hold the door at the final boarding call and see the late passenger make it.", "icon": "user", "group": "Flying"},
+	{"id": "tight_ship", "title": "Tight Ship", "desc": "Close the doors on time and offload a no-show's bags.", "icon": "clock", "group": "Flying"},
+	# ---------------------------------------------------------------- real world
+	{"id": "real_deal", "title": "The Real Deal", "desc": "Fly five of the real-world aircraft (737, A320neo, 787, A350, 777, 747, A380...).", "icon": "plane", "group": "Real World", "goal": 5, "stat": "real_types"},
+	{"id": "type_collector", "title": "Every Real Type", "desc": "Fly all eleven real-world aircraft.", "icon": "trophy", "group": "Real World", "goal": 11, "stat": "real_types"},
+	{"id": "flag_carrier", "title": "Flag Carrier", "desc": "Fly with five real-world airlines.", "icon": "globe", "group": "Real World", "goal": 5, "stat": "real_airlines"},
+	{"id": "ten_liveries", "title": "Ten Liveries", "desc": "Fly with all ten real-world airlines.", "icon": "globe", "group": "Real World", "goal": 10, "stat": "real_airlines"},
+	{"id": "jumbo", "title": "The Original Jumbo", "desc": "Fly the Boeing 747-400.", "icon": "plane", "group": "Real World"},
+	{"id": "superjumbo", "title": "Superjumbo", "desc": "Fly the Airbus A380-800.", "icon": "plane", "group": "Real World"},
 	# ---------------------------------------------------------------- places
 	{"id": "big_apple", "title": "The Big Apple", "desc": "Land at New York JFK.", "icon": "pin", "group": "Places"},
 	{"id": "mind_gap", "title": "Mind the Gap", "desc": "Land at London Heathrow.", "icon": "pin", "group": "Places"},
@@ -184,6 +193,15 @@ static func on_flight_result(res: Dictionary, cons: Dictionary = {}) -> void:
 		unlock("queen")
 	if type_id == "q740":
 		unlock("monarch")
+	if type_id in AircraftTypes.REAL:
+		_add("real_types", type_id)
+	if type_id == "b744":
+		unlock("jumbo")
+	if type_id == "a388":
+		unlock("superjumbo")
+	var al_code := Airlines.base_code(String(res.get("airline", "")))
+	if al_code in Airlines.REAL:
+		_add("real_airlines", al_code)
 	_add("hours", float(res.get("block_hours", 0.0)))
 	var hz: Dictionary = res.get("hazards", {})
 	if hz.has("lightning"):

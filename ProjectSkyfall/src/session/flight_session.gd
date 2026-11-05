@@ -366,6 +366,12 @@ func _setup_people() -> void:
 	ac.add_child(people)
 	var lod := 0 if String(Game.settings.get("quality", "high")) in ["high", "ultra"] else 1
 	people.setup(ac, manifest, crew, lod)
+	if mode == "passenger" and String(params.get("seat", "")) != "":
+		# whoever you are travelling as always turns up (before any no-shows are offloaded)
+		for pp0 in people.pax:
+			if String(pp0.seat.id) == String(params.get("seat", "")):
+				pp0.erase("noshow")
+				pp0.erase("late")
 	people.crew_report.connect(func(t, k): toast.emit("Cabin: " + t, k))
 	people.evacuee_out.connect(_on_evacuee_out)
 	if String(params.get("start", "gate")) == "gate":
@@ -395,6 +401,9 @@ func _setup_people() -> void:
 					best = score
 					pick = pp2
 		if not pick.is_empty():
+			# whoever you are travelling as always turns up
+			pick.erase("noshow")
+			pick.erase("late")
 			pax_seat = String(pick.seat.id)
 			pick.state = "player"
 

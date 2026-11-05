@@ -774,3 +774,77 @@ static func free_stand(L: Dictionary, span: float, occupied: Array, seed_value: 
 	if candidates.is_empty():
 		return L.stands[0] if not L.stands.is_empty() else {}
 	return candidates[seed_value % candidates.size()]
+
+
+static func free_stand_clear(L: Dictionary, spec: Dictionary, occupied: Array, blockers: Array, seed_value: int = 0) -> Dictionary:
+	## A free stand for this aircraft whose parked footprint keeps clear of every footprint in
+	## blockers (aircraft already parked there, the player's aircraft). {} when none is left.
+	var candidates := []
+	for s in L.stands:
+		if float(s.max_span) >= float(spec.span) and not s.name in occupied:
+			candidates.append(s)
+	if candidates.is_empty():
+		return {}
+	var start := seed_value % candidates.size()
+	for i in candidates.size():
+		var s: Dictionary = candidates[(start + i) % candidates.size()]
+		var fp := parked_footprint(s, spec)
+		var clear := true
+		for b in blockers:
+			if footprints_clash(fp, b):
+				clear = false
+				break
+		if clear:
+			return s
+	return {}
+
+
+# ------------------------------------------------------------------ stand footprints
+static func parked_footprint(sd: Dictionary, spec: Dictionary) -> Array:
+	## Ground footprint of an aircraft parked nose-in on a stand (nose about 7 m from the facade).
+	var n: Vector2 = sd.normal
+	var face: Vector2 = sd.get("facade_origin", sd.stop)
+	var nose_gap := 7.0 + (2.0 if String(spec.get("category", "")) == "widebody" else 0.0)
+	var cg := face + n * (nose_gap + float(spec.length) * float(spec.cg_frac))
+	return footprint_at(cg, -n, spec)
+
+
+static func footprint_at(cg: Vector2, fwd: Vector2, spec: Dictionary) -> Array:
+	## Oriented rectangles [centre, forward, half length, half width] covering the fuselage, the
+	## wing (with wingtip clearance) and the tailplane, in airport-local metres.
+	var L := float(spec.length)
+	var cgf := float(spec.cg_frac)
+	var span := float(spec.span)
+	var f := fwd.normalized() if fwd.length() > 0.001 else Vector2(0, -1)
+	var nose_ahead := L * cgf
+	var out := []
+	out.append([cg + f * (nose_ahead - L * 0.5), f, L * 0.5 + 1.0, float(spec.get("fuse_w", 3.5)) * 0.5 + 1.0])
+	out.append([cg - f * 1.5, f, maxf(3.5, L * 0.09), span * 0.5 + 2.0])
+	out.append([cg - f * (L - nose_ahead - 2.5), f, 2.5, span * 0.18 + 1.0])
+	return out
+
+
+static func footprints_clash(a: Array, b: Array) -> bool:
+	for ra in a:
+		for rb in b:
+			if _rects_overlap(ra, rb):
+				return true
+	return false
+
+
+static func _rects_overlap(a: Array, b: Array) -> bool:
+	## Separating-axis test for two oriented rectangles.
+	var fa: Vector2 = a[1]
+	var fb: Vector2 = b[1]
+	var d: Vector2 = (b[0] as Vector2) - (a[0] as Vector2)
+	for ax in [fa, Vector2(-fa.y, fa.x), fb, Vector2(-fb.y, fb.x)]:
+		var axis: Vector2 = ax
+		if absf(d.dot(axis)) > _half_extent(a, axis) + _half_extent(b, axis):
+			return false
+	return true
+
+
+static func _half_extent(r: Array, axis: Vector2) -> float:
+	var f: Vector2 = r[1]
+	var side := Vector2(-f.y, f.x)
+	return absf(f.dot(axis)) * float(r[2]) + absf(side.dot(axis)) * float(r[3])

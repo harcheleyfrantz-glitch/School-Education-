@@ -187,8 +187,17 @@ func _inside_cam(delta: float, body: Transform3D, eye: Vector3) -> void:
 	target = target.limit_length(0.06)
 	var k := 60.0
 	var c := 11.0
-	_head_vel += ((target - _head_off) * k - _head_vel * c) * delta
-	_head_off += _head_vel * delta
+	# small fixed sub-steps: one big step (low frame rate times a high sim rate) would make the
+	# spring blow up and throw the camera, and the floating origin with it, into space
+	var steps := clampi(ceili(delta / 0.008), 1, 40)
+	var h := delta / float(steps)
+	for i in steps:
+		_head_vel += ((target - _head_off) * k - _head_vel * c) * h
+		_head_off += _head_vel * h
+	_head_off = _head_off.limit_length(0.15)
+	if not (_head_off.is_finite() and _head_vel.is_finite()):
+		_head_off = Vector3.ZERO
+		_head_vel = Vector3.ZERO
 	var turb := float(ac.turbulence)
 	var buffet := Vector3.ZERO
 	if turb > 0.05 or shake > 0.0:

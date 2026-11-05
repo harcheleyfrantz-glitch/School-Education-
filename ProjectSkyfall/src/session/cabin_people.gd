@@ -7,6 +7,13 @@ extends Node3D
 signal crew_report(text: String, kind: String)
 signal evacuee_out(person: Dictionary, door: Dictionary)
 signal boarding_done
+## Everyone who turned up is aboard; these passengers never came to the gate (names).
+## Answer with resolve_noshows(); if nobody does, the gate closes the flight on its own.
+signal noshow_check(names: Array)
+## How the final boarding call ended: "ran" (a late passenger made it; runner is "14C Name"),
+## "gave_up" (the door was held, nobody came) or "closed" (doors closed on time). The names
+## are the passengers taken off the flight.
+signal noshow_result(outcome: String, runner: String, offloaded_names: Array)
 
 const AISLE_GAP := 0.62
 const WALK_SPEED := 1.15
@@ -77,7 +84,50 @@ func setup(aircraft: Aircraft, manifest: Array, crew_list: Array, crowd_lod: int
 		crew.append(fa)
 		idx += 1
 	_place_crew_at_stations(true)
+	# no-shows: on some flights one to three passengers never turn up at the gate; one of
+	# them may come running down the jet bridge at the last minute if the flight waits
+	if pax.size() > 20 and _rng.randf() < 0.45:
+		var n := _rng.randi_range(1, 3)
+		for k in n:
+			var who: Dictionary = pax[_rng.randi_range(int(pax.size() / 3.0), pax.size() - 1)]
+			who.noshow = true
+		for p2 in pax:
+			if bool(p2.get("noshow", false)) and _rng.randf() < 0.5:
+				p2.late = true
+				break
 	state = "empty"
+
+
+func noshows() -> Array:
+	return pax.filter(func(p): return bool(p.get("noshow", false)) and String(p.state) == "away")
+
+
+func late_runner_arrives() -> bool:
+	## A passenger who was waited for sprints down the jet bridge. False if nobody is coming.
+	for p in pax:
+		if bool(p.get("noshow", false)) and bool(p.get("late", false)) and String(p.state) == "away":
+			p.noshow = false
+			p.state = "walking"
+			p.path = _boarding_path(p)
+			p.pos = p.path[0]
+			p.pose = HumanMesh.POSES["run"]
+			p.rate = 1.6
+			p.running = true
+			return true
+	return false
+
+
+var offloaded: Array = []          # names of no-shows taken off the manifest
+
+
+func offload_noshows() -> void:
+	## No-shows come off the manifest (and their bags out of the hold): they are not aboard.
+	for p in pax:
+		if bool(p.get("noshow", false)) and String(p.state) == "away":
+			p.state = "offloaded"
+			crowd.hide_person(int(p.slot))
+			offloaded.append(String(p.get("name", "Passenger")))
+	pax = pax.filter(func(q): return String(q.state) != "offloaded")
 
 
 func _assign_seat(person: Dictionary, seats: Array) -> Dictionary:
@@ -112,7 +162,10 @@ func start_boarding(instant: bool = false) -> void:
 	_board_t = 0.0
 	if instant:
 		for p in pax:
+			if bool(p.get("noshow", false)):
+				continue
 			_seat_person(p)
+		offload_noshows()
 		state = "seated"
 		boarding_done.emit()
 	_place_crew_at_stations(false)
@@ -130,6 +183,7 @@ func _seat_person(p: Dictionary) -> void:
 	p.pose = HumanMesh.POSES["sit"]
 	p.rate = 0.25
 	p.path = []
+	p.erase("running")
 
 
 func _row_aisle_x(seat: Dictionary) -> float:
@@ -149,6 +203,8 @@ func _boarding_path(p: Dictionary) -> Array:
 
 func _update_boarding(delta: float) -> void:
 	_board_t -= delta
+	while _board_next < pax.size() and bool(pax[_board_next].get("noshow", false)):
+		_board_next += 1
 	if _board_next < pax.size() and _board_t <= 0.0:
 		var p: Dictionary = pax[_board_next]
 		p.state = "walking"
@@ -161,10 +217,30 @@ func _update_boarding(delta: float) -> void:
 	if _board_next >= pax.size():
 		var all := true
 		for p2 in pax:
-			if p2.state != "seated":
+			if p2.state != "seated" and not (bool(p2.get("noshow", false)) or String(p2.state) == "offloaded"):
 				all = false
 				break
 		if all and state == "boarding":
+			var missing := noshows()
+			if not missing.is_empty() and not has_meta("noshow_resolved"):
+				if not has_meta("noshow_asked"):
+					set_meta("noshow_asked", true)
+					_noshow_ask_t = 0.0
+					if noshow_check.get_connections().is_empty():
+						_finish_noshows(false)
+					else:
+						noshow_check.emit(missing.map(func(q): return String(q.get("name", "Passenger"))))
+				elif _noshow_hold >= 0.0:
+					# holding the door: the gate pages them over and over
+					_noshow_hold -= delta
+					if _noshow_hold <= 0.0:
+						_finish_noshows(true)
+				else:
+					# nobody answered the gate: after two minutes it closes the flight anyway
+					_noshow_ask_t += delta
+					if _noshow_ask_t > 120.0:
+						_finish_noshows(false)
+				return
 			state = "seated"
 			boarding_done.emit()
 
@@ -177,7 +253,7 @@ func _walk(p: Dictionary, delta: float, others_in_aisle: Array) -> bool:
 	var to = target - p.pos
 	to.y = 0.0
 	var dist = to.length()
-	var speed := WALK_SPEED * (1.5 if p.state == "evac" else 1.0)
+	var speed := WALK_SPEED * (1.5 if p.state == "evac" or bool(p.get("running", false)) else 1.0)
 	# keep a gap to the person ahead in the same aisle
 	var dir = to.normalized() if dist > 0.001 else Vector3.ZERO
 	for o in others_in_aisle:
@@ -476,7 +552,7 @@ func _draw_all() -> void:
 
 func _draw_person(p: Dictionary) -> void:
 	var slot: int = p.slot
-	if p.state in ["away", "exited", "in_lav"]:
+	if p.state in ["away", "exited", "in_lav", "offloaded"]:
 		crowd.hide_person(slot)
 		return
 	var ap: Dictionary = p.app
@@ -512,3 +588,38 @@ func average_fear() -> float:
 	for p in pax:
 		f += float(p.fear)
 	return f / pax.size()
+
+
+var _noshow_hold := -1.0          # seconds left holding the door for the no-shows
+var _noshow_ask_t := 0.0          # seconds since the gate asked what to do
+
+
+func resolve_noshows(wait: bool) -> void:
+	## The call on the missing passengers: hold the door (the gate pages them for a while and
+	## one may come sprinting down the jet bridge) or close the doors and offload their bags.
+	if has_meta("noshow_resolved") or _noshow_hold >= 0.0:
+		return
+	if wait:
+		_noshow_hold = _rng.randf_range(22.0, 40.0)
+	else:
+		_finish_noshows(false)
+
+
+func holding_door() -> bool:
+	return _noshow_hold >= 0.0 and not has_meta("noshow_resolved")
+
+
+func _finish_noshows(waited: bool) -> void:
+	set_meta("noshow_resolved", true)
+	_noshow_hold = -1.0
+	var runner := ""
+	if waited:
+		for p in pax:
+			if bool(p.get("noshow", false)) and bool(p.get("late", false)) and String(p.state) == "away":
+				runner = "%s %s" % [String(p.seat.get("id", "")), String(p.get("name", "Passenger"))]
+				break
+		if runner != "":
+			late_runner_arrives()
+	var names: Array = noshows().map(func(q): return String(q.get("name", "Passenger")))
+	offload_noshows()
+	noshow_result.emit("ran" if runner != "" else ("gave_up" if waited else "closed"), runner, names)

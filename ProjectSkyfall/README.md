@@ -14,6 +14,7 @@ An aviation life simulator made in Godot 4.4.1. Everything — aircraft, airport
 - **Free flight** from the world map: any of the seven aircraft, from any airport, at any time of day, in any weather.
 - **Activities:** discovery flights, landing challenges (crosswind, fog, gusts, night) and multi-leg bush trips, all scored.
 - **Passenger mode:** book a seat and ride along in the cabin, then rate the flight.
+- **Boarding you can follow:** your phone (F2) has the operating airline's app with a live seat map and the list of who is still to board. Some passengers never turn up; at the final boarding call you decide whether to hold the door for them or close up and offload their bags.
 - **The aircraft:**
   - seven types: trainer, turboprop, regional jet, narrowbody, widebody, business jet and freighter;
   - detailed exteriors with airline liveries and special schemes, including a firefighting supertanker;
@@ -45,6 +46,8 @@ An aviation life simulator made in Godot 4.4.1. Everything — aircraft, airport
 | Cameras | 1 cockpit, 2 external, 3 chase, 4 tower, 5 flyby, 6 cabin, 7 wing, 8 free, C next |
 | ATC / checklist / map / HUD | Tab / K / M / H |
 | Walk around, interact | arrow keys and Space, Shift runs |
+| Your phone: airline app with live boarding and seat map, FlightTrack, weather, feed, camera | F2 |
+| Photo | F10 |
 | Sim rate | = / - |
 | Pause | Esc |
 

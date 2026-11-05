@@ -356,6 +356,8 @@ func _process(delta: float) -> void:
 	if cam == null:
 		return
 	var cp := cam.global_position
+	if not cp.is_finite():
+		return      # never re-centre the world on a broken camera
 	cam_world = Vector3(cp.x + origin_x, cp.y, cp.z + origin_z)
 	if absf(cp.x) > REBASE_DIST or absf(cp.z) > REBASE_DIST:
 		rebase(cp)
