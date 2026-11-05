@@ -3,7 +3,10 @@ class_name AircraftTypes
 ## Aerodynamic derivatives are per radian. Elevator/aileron/rudder derivatives use the
 ## convention "positive input = nose up / roll right / nose right".
 
-const ORDER := ["t172", "tp50", "tp72", "tp90", "rj70", "rj90", "rj100", "s319", "s320", "s321", "w280", "w350", "w390", "w380", "q740", "bj6", "bj8", "f4"]
+const ORDER := ["t172", "tp50", "tp72", "tp90", "rj70", "rj90", "rj100", "s319", "s320", "s321", "w280", "w350", "w390", "w380", "q740", "bj6", "bj8", "f4",
+	"at76", "e175", "b738", "b38m", "a20n", "a21n", "b789", "a359", "b77w", "b744", "a388"]
+## The real-world types (the fictional ones above are this game's own designs).
+const REAL := ["at76", "e175", "b738", "b38m", "a20n", "a21n", "b789", "a359", "b77w", "b744", "a388"]
 
 ## Every type: the hand-written ones below plus the family variants built from them.
 static var TYPES: Dictionary = _build_types()
@@ -354,13 +357,66 @@ const VARIANTS := {
 			{"cls": "business", "rows": 8, "layout": "2-2-2", "pitch": 1.25, "seat_w": 0.6},
 			{"cls": "economy", "rows": 35, "layout": "3-4-3", "pitch": 0.8, "seat_w": 0.45}],
 		"doors": [0.1, 0.3, 0.55, 0.82], "hourly_cost": 26000, "rating_hours": 4000.0, "range_nm": 7800}],
+
+	# ---------------------------------------------------------------- real-world types
+	"at76": ["tp72", {
+		"name": "ATR 72-600", "short": "AT76", "maker": "ATR", "role": "Twin turboprop regional airliner",
+		"blurb": "The turboprop that links islands and small cities the world over: 70 seats, high wing, rear boarding door.",
+		"length": 27.2, "span": 27.1, "height": 7.7, "range_nm": 825}],
+	"e175": ["rj90", {
+		"name": "Embraer E175", "short": "E175", "maker": "Embraer", "role": "Regional jet",
+		"blurb": "The backbone of the US regional networks: 76 seats in a 2-2 cabin, no middle seats, flown for the big mainline brands.",
+		"length": 31.7, "span": 28.7, "height": 9.9, "winglet": "blended",
+		"cabin": [{"cls": "business", "rows": 3, "layout": "1-2", "pitch": 0.94, "seat_w": 0.52},
+			{"cls": "economy", "rows": 16, "layout": "2-2", "pitch": 0.79, "seat_w": 0.46}], "range_nm": 2200}],
+	"b738": ["s320", {
+		"name": "Boeing 737-800", "short": "B738", "maker": "Boeing", "role": "Narrow-body airliner",
+		"blurb": "The best-selling jet airliner family in history. 162 to 189 seats and on every continent.",
+		"length": 39.5, "span": 35.8, "height": 12.5, "fuse_w": 3.76, "fuse_h": 4.01, "wing_area": 124.6, "winglet": "blended",
+		"cabin": [{"cls": "business", "rows": 4, "layout": "2-2", "pitch": 0.95, "seat_w": 0.52},
+			{"cls": "economy", "rows": 26, "layout": "3-3", "pitch": 0.79, "seat_w": 0.44}], "range_nm": 2935}],
+	"b38m": ["s320", {
+		"name": "Boeing 737 MAX 8", "short": "B38M", "maker": "Boeing", "role": "Narrow-body airliner",
+		"blurb": "The newest 737: bigger LEAP fans under the wing, split-tip winglets and range for the long thin routes.",
+		"length": 39.5, "span": 35.9, "height": 12.3, "fuse_w": 3.76, "fuse_h": 4.01, "wing_area": 127.0, "winglet": "split",
+		"cabin": [{"cls": "business", "rows": 4, "layout": "2-2", "pitch": 0.95, "seat_w": 0.52},
+			{"cls": "economy", "rows": 27, "layout": "3-3", "pitch": 0.79, "seat_w": 0.44}], "range_nm": 3550}],
+	"a20n": ["s320", {
+		"name": "Airbus A320neo", "short": "A20N", "maker": "Airbus", "role": "Narrow-body airliner",
+		"blurb": "Fly-by-wire with new-engine efficiency: sharklets, big geared fans and the widest single-aisle cabin of its class.",
+		"length": 37.6, "span": 35.8, "height": 11.8, "winglet": "sharklet", "range_nm": 3400}],
+	"a21n": ["s321", {
+		"name": "Airbus A321neo", "short": "A21N", "maker": "Airbus", "role": "Long narrow-body airliner",
+		"blurb": "Up to 240 seats in one aisle and the range to cross the Atlantic: the narrow-body that took on the 757.",
+		"length": 44.5, "span": 35.8, "height": 11.8, "winglet": "sharklet", "range_nm": 4000}],
+	"b789": ["w350", {
+		"name": "Boeing 787-9 Dreamliner", "short": "B789", "maker": "Boeing", "role": "Wide-body long-haul twin",
+		"blurb": "Carbon-fibre fuselage, raked wingtips that flex upward in flight, big dimmable windows and a 7,500 nm reach.",
+		"length": 62.8, "span": 60.1, "height": 17.0, "winglet": "raked", "range_nm": 7530}],
+	"a359": ["w350", {
+		"name": "Airbus A350-900", "short": "A359", "maker": "Airbus", "role": "Wide-body long-haul twin",
+		"blurb": "The quietest twin-aisle cabin in the sky, curled wingtips and the black 'raccoon mask' around the cockpit windows.",
+		"length": 66.8, "span": 64.75, "height": 17.05, "winglet": "sharklet", "range_nm": 8100}],
+	"b77w": ["w390", {
+		"name": "Boeing 777-300ER", "short": "B77W", "maker": "Boeing", "role": "Long-range wide-body twin",
+		"blurb": "The great long-haul twin: two GE90s, the largest jet engines of their day, and 350-plus seats nonstop across oceans.",
+		"length": 73.9, "span": 64.8, "height": 18.5, "winglet": "raked", "range_nm": 7370}],
+	"b744": ["q740", {
+		"name": "Boeing 747-400", "short": "B744", "maker": "Boeing", "role": "Four-engine jumbo jet",
+		"blurb": "The Queen of the Skies: the hump, the upstairs lounge and four engines. The aircraft that made long-haul travel affordable.",
+		"length": 70.6, "span": 64.4, "height": 19.4, "winglet": "blended", "range_nm": 7260}],
+	"a388": ["w380", {
+		"name": "Airbus A380-800", "short": "A388", "maker": "Airbus", "role": "Four-engine double-deck airliner",
+		"blurb": "The biggest airliner ever built: two full decks, four engines, showers and bars in first class on some airlines.",
+		"length": 72.7, "span": 79.8, "height": 24.1, "winglet": "blended", "range_nm": 8000}],
 }
 
 
 static func _build_types() -> Dictionary:
 	var out: Dictionary = BASE_TYPES.duplicate(true)
 	for id in VARIANTS:
-		var t: Dictionary = (BASE_TYPES[VARIANTS[id][0]] as Dictionary).duplicate(true)
+		# a variant may build on another variant defined before it (A321neo on the S321 etc.)
+		var t: Dictionary = (out[VARIANTS[id][0]] as Dictionary).duplicate(true)
 		t.merge((VARIANTS[id][1] as Dictionary).duplicate(true), true)
 		out[id] = t
 	return out

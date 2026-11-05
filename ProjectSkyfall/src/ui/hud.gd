@@ -5,6 +5,7 @@ extends Control
 ## cockpit clicking (mouse and touch) and camera control.
 
 var session: FlightSession
+var phone: BoardingPhone
 var ac: Aircraft
 var top_info: Label
 var top_clock: Label
@@ -87,6 +88,12 @@ func setup(sess: Node) -> void:
 		atc_station.text = "%s  %s" % [session.atc.station_name(session.atc.station), session.atc.station_freq(session.atc.station)]
 	toggle_panel("atc", session.mode == "pilot")
 	toggle_panel("checklist", false)
+	# the airline's app on your phone: live boarding (F2)
+	if session.people and session.ac and AircraftTypes.is_passenger(session.ac.type_id):
+		phone = BoardingPhone.new()
+		add_child(phone)
+		phone.setup(session)
+		show_toast("Press F2 to check the %s app: boarding is live" % String(Airlines.get_al(String(session.ac.airline)).name), "info")
 	_refresh_top()
 
 
@@ -862,6 +869,9 @@ func _unhandled_input(event: InputEvent) -> void:
 				return
 	if event.is_action_pressed("pause"):
 		_toggle_pause()
+	elif event.is_action_pressed("phone"):
+		if phone:
+			phone.toggle()
 	elif event.is_action_pressed("atc"):
 		toggle_panel("atc")
 	elif event.is_action_pressed("checklist"):

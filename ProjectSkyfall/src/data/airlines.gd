@@ -1,7 +1,10 @@
 class_name Airlines
 ## Fictional operators. Livery colours feed the aircraft paint shader.
 
-const ORDER := ["SKF", "CLK", "LMN", "NWC", "APX", "HFA", "WMA", "AUR", "PEL", "VTX", "LBA", "THA", "LUE", "GGP", "MPN", "AUN", "IHA", "SOL", "TFX", "LSA", "RHA", "NRD", "ALP", "SKA", "HAN", "JDA", "PDA", "MER", "SIA", "DFN", "PGA", "MON", "BOS", "NIL", "HSK", "TGA", "ARC"]
+const ORDER := ["SKF", "CLK", "LMN", "NWC", "APX", "HFA", "WMA", "AUR", "PEL", "VTX", "LBA", "THA", "LUE", "GGP", "MPN", "AUN", "IHA", "SOL", "TFX", "LSA", "RHA", "NRD", "ALP", "SKA", "HAN", "JDA", "PDA", "MER", "SIA", "DFN", "PGA", "MON", "BOS", "NIL", "HSK", "TGA", "ARC",
+	"DAL", "AAL", "UAL", "SWA", "BAW", "DLH", "AFR", "UAE", "JAL", "SIN"]
+## Real-world operators (colour schemes approximated; the rest of the game's airlines are fictional).
+const REAL := ["DAL", "AAL", "UAL", "SWA", "BAW", "DLH", "AFR", "UAE", "JAL", "SIN"]
 
 const DATA := {
 	"GOV": {
@@ -429,6 +432,96 @@ const DATA := {
 		"desc": "Night freight between Chicago and Amsterdam on four-engine jumbos. Coffee, crosswinds and very long nights.",
 		"standards": 0.76,
 	},
+	"DAL": {
+		"name": "Delta Air Lines", "callsign": "DELTA", "iata": "DL", "kind": "mainline",
+		"hubs": ["KATL", "KJFK", "KDTW", "KMSP", "KSLC", "KSEA"], "country": "United States", "reg_prefix": "N", "real": true,
+		"fleet": {"b738": 10, "a21n": 8, "a20n": 6, "e175": 8, "a359": 4, "b77w": 2},
+		"livery": {"body": "ffffff", "belly": "0b2a5c", "stripe": "c8102e", "stripe2": "0b2a5c", "tail": "0b2a5c", "tail2": "c8102e", "logo": "c8102e", "logo_shape": 2, "art": "c8102e", "engine": "0b2a5c", "engine2": "c8102e", "engine_style": 1, "tip": "c8102e", "text": "0b2a5c", "belly_h": -0.55, "nose_dip": 0.1, "title": "DELTA", "title_style": "wide", "title_size": 1.2},
+		"pay": 1.15, "reputation": 85, "ceo": "Chief Executive", "spokes": "Company spokesperson",
+		"desc": "Atlanta-based giant with the busiest hub on Earth. Reliable, premium-leaning and everywhere in the US.",
+		"standards": 0.96,
+	},
+	"AAL": {
+		"name": "American Airlines", "callsign": "AMERICAN", "iata": "AA", "kind": "mainline",
+		"hubs": ["KDFW", "KCLT", "KMIA", "KPHL", "KPHX", "KORD"], "country": "United States", "reg_prefix": "N", "real": true,
+		"fleet": {"a21n": 10, "b738": 12, "b38m": 6, "e175": 8, "b789": 4, "b77w": 3},
+		"livery": {"body": "d5dade", "belly": "9aa3ab", "stripe": "0078d2", "stripe2": "c30019", "tail": "0b3d91", "tail2": "c30019", "logo": "ffffff", "logo_shape": 4, "art": "0078d2", "engine": "9aa3ab", "engine_style": 3, "tip": "c30019", "text": "36495a", "belly_h": -0.65, "metal_belly": 1.0, "title": "American", "title_style": "bold", "title_size": 1.1},
+		"pay": 1.15, "reputation": 85, "ceo": "Chief Executive", "spokes": "Company spokesperson",
+		"desc": "The world's largest airline by fleet, with silver-grey jets and the stars-and-stripes tail.",
+		"standards": 0.96,
+	},
+	"UAL": {
+		"name": "United Airlines", "callsign": "UNITED", "iata": "UA", "kind": "mainline",
+		"hubs": ["KORD", "KEWR", "KIAD", "KSFO", "KDEN"], "country": "United States", "reg_prefix": "N", "real": true,
+		"fleet": {"b38m": 10, "a20n": 6, "a21n": 6, "e175": 8, "b789": 5, "b77w": 4},
+		"livery": {"body": "ffffff", "belly": "0033a0", "stripe": "1c4fb3", "tail": "002244", "tail2": "1c6fd1", "logo": "ffffff", "logo_shape": 0, "art": "1c6fd1", "engine": "002244", "engine_style": 1, "tip": "002244", "text": "002244", "belly_h": -0.4, "title": "UNITED", "title_style": "wide", "title_size": 1.25},
+		"pay": 1.15, "reputation": 85, "ceo": "Chief Executive", "spokes": "Company spokesperson",
+		"desc": "Chicago-based network carrier with the blue globe tail and big hubs on both coasts.",
+		"standards": 0.96,
+	},
+	"SWA": {
+		"name": "Southwest Airlines", "callsign": "SOUTHWEST", "iata": "WN", "kind": "lowcost",
+		"hubs": ["KDEN", "KLAS", "KPHX", "KBWI", "KBNA"], "country": "United States", "reg_prefix": "N", "real": true,
+		"fleet": {"b738": 16, "b38m": 12},
+		"livery": {"body": "304cb2", "belly": "e01933", "stripe": "f9b612", "stripe2": "e01933", "tail": "304cb2", "tail2": "f9b612", "logo": "e01933", "logo_shape": 5, "art": "f9b612", "engine": "304cb2", "engine2": "f9b612", "engine_style": 2, "tip": "e01933", "text": "ffffff", "reg_col": "ffffff", "belly_h": -0.5, "title": "Southwest", "title_style": "bold", "title_size": 1.3},
+		"pay": 1.15, "reputation": 85, "ceo": "Chief Executive", "spokes": "Company spokesperson",
+		"desc": "All-737 point-to-point airline in bold blue, red and yellow. Quick turns, open seating, bags fly free.",
+		"standards": 0.96,
+	},
+	"BAW": {
+		"name": "British Airways", "callsign": "SPEEDBIRD", "iata": "BA", "kind": "mainline",
+		"hubs": ["EGLL"], "country": "United Kingdom", "reg_prefix": "G-", "real": true,
+		"fleet": {"a20n": 10, "a21n": 6, "b789": 6, "a359": 4, "b77w": 4, "a388": 3},
+		"livery": {"body": "ffffff", "belly": "0b2a4a", "stripe": "eb2226", "stripe2": "0b2a4a", "tail": "0b2a4a", "tail2": "eb2226", "logo": "ffffff", "logo_shape": 6, "art": "eb2226", "engine": "0b2a4a", "engine_style": 1, "tip": "eb2226", "text": "0b2a4a", "belly_h": -0.45, "stripes": [0.0, 0.0, 0.0, 0.0], "title": "BRITISH AIRWAYS", "title_style": "serif", "title_size": 0.9},
+		"pay": 1.15, "reputation": 85, "ceo": "Chief Executive", "spokes": "Company spokesperson",
+		"desc": "The UK flag carrier from Heathrow, callsign Speedbird, with the waving flag on the tail.",
+		"standards": 0.96,
+	},
+	"DLH": {
+		"name": "Lufthansa", "callsign": "LUFTHANSA", "iata": "LH", "kind": "mainline",
+		"hubs": ["EDDF", "EDDM"], "country": "Germany", "reg_prefix": "D-", "real": true,
+		"fleet": {"a20n": 12, "a21n": 6, "a359": 6, "b744": 3, "a388": 2, "e175": 4},
+		"livery": {"body": "ffffff", "belly": "ffffff", "stripe": "0a1d3d", "tail": "0a1d3d", "tail2": "0a1d3d", "logo": "ffffff", "logo_shape": 7, "art": "ffffff", "engine": "0a1d3d", "engine_style": 3, "tip": "0a1d3d", "text": "0a1d3d", "belly_h": -0.9, "title": "Lufthansa", "title_style": "serif", "title_size": 1.15},
+		"pay": 1.15, "reputation": 85, "ceo": "Chief Executive", "spokes": "Company spokesperson",
+		"desc": "Germany's flag carrier: deep blue tail with the crane, white fuselage, hubs in Frankfurt and Munich.",
+		"standards": 0.96,
+	},
+	"AFR": {
+		"name": "Air France", "callsign": "AIRFRANS", "iata": "AF", "kind": "mainline",
+		"hubs": ["LFPG"], "country": "France", "reg_prefix": "F-", "real": true,
+		"fleet": {"a20n": 12, "a21n": 4, "b789": 4, "a359": 6, "b77w": 5},
+		"livery": {"body": "ffffff", "belly": "ffffff", "stripe": "e30613", "stripe2": "002157", "tail": "ffffff", "tail2": "002157", "logo": "e30613", "logo_shape": 1, "art": "002157", "engine": "ffffff", "engine2": "002157", "engine_style": 2, "tip": "002157", "text": "002157", "belly_h": -0.9, "title": "AIRFRANCE", "title_style": "wide", "title_size": 1.0},
+		"pay": 1.15, "reputation": 85, "ceo": "Chief Executive", "spokes": "Company spokesperson",
+		"desc": "Paris CDG flag carrier: all-white with the blue and red tail stripes.",
+		"standards": 0.96,
+	},
+	"UAE": {
+		"name": "Emirates", "callsign": "EMIRATES", "iata": "EK", "kind": "mainline",
+		"hubs": ["OMDB"], "country": "United Arab Emirates", "reg_prefix": "A6-", "real": true,
+		"fleet": {"b77w": 14, "a388": 10},
+		"livery": {"body": "ffffff", "belly": "ffffff", "stripe": "d71921", "stripe2": "00843d", "stripe3": "111111", "tail": "d71921", "tail2": "00843d", "logo": "c8a14b", "logo_shape": 7, "art": "c8a14b", "engine": "ffffff", "engine2": "c8a14b", "engine_style": 2, "tip": "d71921", "text": "d71921", "belly_h": -0.9, "title": "Emirates", "title_style": "serif", "title_size": 1.3},
+		"pay": 1.15, "reputation": 85, "ceo": "Chief Executive", "spokes": "Company spokesperson",
+		"desc": "Dubai's global giant: an all-wide-body fleet of 777s and the world's biggest A380 operation.",
+		"standards": 0.96,
+	},
+	"JAL": {
+		"name": "Japan Airlines", "callsign": "JAPANAIR", "iata": "JL", "kind": "mainline",
+		"hubs": ["RJTT"], "country": "Japan", "reg_prefix": "JA", "real": true,
+		"fleet": {"b738": 10, "a359": 6, "b789": 6, "b77w": 4, "e175": 4},
+		"livery": {"body": "ffffff", "belly": "ffffff", "stripe": "cc0000", "tail": "ffffff", "tail2": "cc0000", "logo": "cc0000", "logo_shape": 0, "art": "cc0000", "engine": "ffffff", "engine2": "cc0000", "engine_style": 1, "tip": "cc0000", "text": "555555", "belly_h": -0.9, "title": "JAPAN AIRLINES", "title_style": "light", "title_size": 0.9},
+		"pay": 1.15, "reputation": 85, "ceo": "Chief Executive", "spokes": "Company spokesperson",
+		"desc": "Tokyo-based flag carrier with the red crane circle on a white tail. Famously punctual.",
+		"standards": 0.96,
+	},
+	"SIN": {
+		"name": "Singapore Airlines", "callsign": "SINGAPORE", "iata": "SQ", "kind": "mainline",
+		"hubs": ["WSSS"], "country": "Singapore", "reg_prefix": "9V-", "real": true,
+		"fleet": {"b789": 8, "a359": 8, "b77w": 4, "a388": 4},
+		"livery": {"body": "ffffff", "belly": "1d2654", "stripe": "f9b233", "stripe2": "1d2654", "tail": "1d2654", "tail2": "f9b233", "logo": "f9b233", "logo_shape": 8, "art": "f9b233", "engine": "1d2654", "engine_style": 1, "tip": "f9b233", "text": "1d2654", "belly_h": -0.55, "title": "SINGAPORE AIRLINES", "title_style": "serif", "title_size": 0.85},
+		"pay": 1.15, "reputation": 85, "ceo": "Chief Executive", "spokes": "Company spokesperson",
+		"desc": "Changi's flag carrier: navy and gold with the golden bird, regularly voted the best in the world.",
+		"standards": 0.96,
+	},
 }
 
 const COLOR_KEYS := ["body", "belly", "stripe", "stripe2", "stripe3", "tail", "tail2", "logo", "engine", "engine2", "wing", "tip", "gear", "art", "text", "reg_col"]
@@ -565,6 +658,9 @@ static func crash_weight(code: String) -> float:
 	## How likely this airline is to be the one in the next accident: weaker standards and
 	## busier short-haul flying (more takeoffs and landings) both push it up.
 	var al := get_al(code)
+	# no made-up accident stories about real companies
+	if bool(al.get("real", false)):
+		return 0.0
 	var w := pow(1.12 - float(al.get("standards", 0.75)), 2.0) * 10.0
 	match String(al.get("kind", "")):
 		"regional", "lowcost":

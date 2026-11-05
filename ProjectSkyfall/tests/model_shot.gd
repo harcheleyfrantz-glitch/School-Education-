@@ -43,14 +43,16 @@ func _ready() -> void:
 
 
 func _row(ap: Dictionary, which: String) -> void:
-	var types := AircraftTypes.ORDER if which == "all" else [which]
+	var types: Array = AircraftTypes.ORDER if which == "all" else Array(which.split(","))
 	var x0: float = ap.x - 250.0
 	var models := []
 	var i := 0
-	for t in types:
+	for tl in types:
+		var t := String(tl).split(":")[0]
+		var al: String = String(tl).split(":")[1] if ":" in String(tl) else (["SKF", "CLK", "LMN", "NWC", "APX", "HFA", "WMA"][i % 7] if t != "t172" else "HFA")
 		var ac := Aircraft.new()
 		view.dynamic_root.add_child(ac)
-		ac.setup(t, "CR-T%d" % i, ["SKF", "CLK", "LMN", "NWC", "APX", "HFA", "WMA"][i % 7] if t != "t172" else "HFA", view, true)
+		ac.setup(t, "CR-T%d" % i, al, view, true)
 		var lp := view.world_to_local(x0 + i * 75.0, float(ap.elev), float(ap.z) - 330.0)
 		ac.place_at(lp, 160.0, true)
 		ac.sys.lights.nav = true
