@@ -19,6 +19,7 @@ var _swing := 70.0
 
 
 func _ready() -> void:
+	Game.canary_set("backdrop")
 	var icao := "SKPC"
 	var ap: Dictionary = Airports.get_ap(icao)
 	var clock := WorldSim.clock if WorldSim.clock > 0.0 else WorldSim.START_CLOCK
@@ -95,6 +96,8 @@ func _process(delta: float) -> void:
 	if ac == null:
 		return
 	_t += delta
+	if _t > 20.0 and _t - delta <= 20.0:
+		Game.canary_clear()      # the scene has run fine for a while: it is safe on this machine
 	# the camera swings slowly to and fro on the apron side (never behind the terminal)
 	_yaw = _apron_yaw + sin(_t * 0.045 + 0.6) * _swing
 	_dist = lerpf(_dist, _target_dist, clampf(delta * 0.8, 0.0, 1.0))
@@ -113,6 +116,8 @@ func _process(delta: float) -> void:
 
 
 func _exit_tree() -> void:
+	if _t <= 20.0:
+		Game.canary_clear()
 	# a flight that is starting has already chosen its own weather
 	if Game.main and Game.main.get("session") != null:
 		return

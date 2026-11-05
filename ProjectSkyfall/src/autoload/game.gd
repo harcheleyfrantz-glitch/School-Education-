@@ -34,6 +34,8 @@ var settings := {
 	"tts": true, "subtitles": true,
 	"auto_perf": true,            # adaptive resolution and quality to hold 60 FPS
 	"menu_backdrop_off": false,   # set by the governor when the live menu scene is too heavy
+	"menu_backdrop_3d": false,    # the live 3D menu scene is opt-in (Settings); a still picture by default
+	"studio_off": false,          # set after a crash while rendering a menu picture
 	"assist": "assisted",          # assisted | realistic
 	"auto_rudder": true,
 	"event_rate": "realistic",     # off | realistic | frequent
@@ -92,6 +94,7 @@ func _ready() -> void:
 	_load_settings()
 	if settings.quality == "":
 		settings.quality = _detect_quality()
+	_check_canary()
 	Geo.init_world()
 	apply_settings()
 
@@ -148,6 +151,43 @@ func set_setting(key: String, value: Variant) -> void:
 	settings[key] = value
 	save_settings()
 	apply_settings()
+
+
+# ------------------------------------------------------------------ crash canary
+## Risky rendering (menu pictures, the live menu scene) leaves a marker while it runs. If the
+## game dies in the middle (a graphics driver crash), the next launch finds the marker and turns
+## that feature off, so the same crash cannot happen again.
+const CANARY := "user://render_canary.txt"
+
+
+func canary_set(tag: String) -> void:
+	var f := FileAccess.open(CANARY, FileAccess.WRITE)
+	if f:
+		f.store_string(tag)
+		f.close()
+
+
+func canary_clear() -> void:
+	if FileAccess.file_exists(CANARY):
+		DirAccess.remove_absolute(CANARY)
+
+
+func _check_canary() -> void:
+	if not FileAccess.file_exists(CANARY):
+		return
+	var tag := FileAccess.get_file_as_string(CANARY).strip_edges()
+	canary_clear()
+	if tag == "studio":
+		settings.studio_off = true
+	elif tag == "backdrop":
+		settings.menu_backdrop_3d = false
+	save_settings()
+	call_deferred("notify", "The last session closed while drawing %s. It has been switched off so it cannot happen again (Settings can turn it back on)." %
+		("the menu pictures" if tag == "studio" else "the 3D menu background"), "warning")
+
+
+func studio_enabled() -> bool:
+	return bool(q("studio")) and not bool(settings.get("studio_off", false))
 
 
 func _load_settings() -> void:
@@ -345,7 +385,7 @@ var crowd_clock_override := -1.0
 
 
 func backdrop_enabled() -> bool:
-	return bool(q("backdrop")) and not bool(settings.get("menu_backdrop_off", false))
+	return bool(q("backdrop")) and bool(settings.get("menu_backdrop_3d", false)) and not bool(settings.get("menu_backdrop_off", false))
 
 
 func _governor() -> void:

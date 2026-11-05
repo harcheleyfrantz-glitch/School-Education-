@@ -86,7 +86,7 @@ static func instance() -> PhotoStudio:
 static func get_shot(id: String, priority: bool = false) -> Texture2D:
 	if _mem.has(id):
 		return _mem[id]
-	if not bool(Game.q("studio")):
+	if not Game.studio_enabled():
 		return null
 	var rec := recipe(id)
 	if rec.is_empty():
@@ -238,7 +238,9 @@ func _process(delta: float) -> void:
 	_cooldown = 0.0 if strong else (0.8 if String(Game.settings.quality) == "medium" else 2.0)
 	_busy = true
 	_current = _queue.pop_front()
-	_render(_current)
+	Game.canary_set("studio")
+	await _render(_current)
+	Game.canary_clear()
 
 
 static func _menu_active() -> bool:

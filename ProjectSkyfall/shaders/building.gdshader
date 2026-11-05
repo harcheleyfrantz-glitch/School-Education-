@@ -158,7 +158,10 @@ void vertex() {
 		onrm = NORMAL;
 		lpos = VERTEX * sc;
 		vsc = sc;
-		vec3 cam_m = (inverse(MODEL_MATRIX) * vec4(INV_VIEW_MATRIX[3].xyz, 1.0)).xyz;
+		// camera in the instance's frame without a general 4x4 inverse (the instance basis is a
+		// rotation times a scale, so its inverse is the transpose with the scale divided out)
+		mat3 bm = mat3(MODEL_MATRIX[0].xyz / max(sc.x * sc.x, 1e-6), MODEL_MATRIX[1].xyz / max(sc.y * sc.y, 1e-6), MODEL_MATRIX[2].xyz / max(sc.z * sc.z, 1e-6));
+		vec3 cam_m = transpose(bm) * (INV_VIEW_MATRIX[3].xyz - MODEL_MATRIX[3].xyz);
 		v_cam = cam_m * sc;
 	}
 }

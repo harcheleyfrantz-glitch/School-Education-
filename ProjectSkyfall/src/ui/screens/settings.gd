@@ -97,7 +97,8 @@ func _show(key: String) -> void:
 				func(i): Game.set_setting("quality", q_keys[i])))
 			_check("Show frame rate", "", "show_fps")
 			_check("Adaptive performance", "Lowers the 3D resolution, then the preset, when the frame rate drops below 60", "auto_perf")
-			_check("Live 3D menu background", "Turn off for a still background on slow computers", "menu_backdrop_off", true)
+			_check("Live 3D menu background", "An airliner turning around at the gate behind the menus (off: a still picture)", "menu_backdrop_3d")
+			_check("Menu pictures", "Rendered photos on menu cards (turned off automatically if drawing them ever crashed)", "studio_off", true)
 			var hud_modes := ["full", "minimal", "off"]
 			_row("Flight HUD", "Instrument overlay while flying", option(["Full", "Minimal", "Off"], hud_modes.find(String(Game.settings.hud_mode)),
 				func(i): Game.set_setting("hud_mode", hud_modes[i])))
@@ -252,7 +253,9 @@ func _check(text: String, desc: String, key: String, invert: bool = false) -> vo
 	cb.toggled.connect(func(on):
 		cb.text = "On" if on else "Off"
 		Game.set_setting(key, on != invert)
-		if key == "menu_backdrop_off" and Game.main and Game.main.has_method("refresh_backdrop"):
+		if key == "menu_backdrop_3d" and on:
+			Game.settings.menu_backdrop_off = false
+		if key in ["menu_backdrop_off", "menu_backdrop_3d"] and Game.main and Game.main.has_method("refresh_backdrop"):
 			Game.main.call("refresh_backdrop"))
 	_row(text, desc, cb)
 
